@@ -66,15 +66,18 @@ android {
       )
     }
   }
-  kotlinOptions {
-    jvmTarget = "1.8"
-  }
   buildFeatures {
     buildConfig = true
   }
   testOptions {
     // unit test で android.util.Log 等の android.jar スタブを no-op として扱う
     unitTests.isReturnDefaultValues = true
+  }
+}
+
+kotlin {
+  compilerOptions {
+    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
   }
 }
 
