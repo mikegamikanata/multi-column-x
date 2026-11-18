@@ -62,7 +62,8 @@ android {
       proguardFiles(
         *fileTree(".") { include("**/*.pro") }
           .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
-          .toList().toTypedArray(),
+          .toList()
+          .toTypedArray(),
       )
     }
   }

@@ -93,7 +93,8 @@ class VideoDownloadForegroundService : Service() {
   }
 
   private fun buildNotificationBuilder(contentText: String): NotificationCompat.Builder =
-    NotificationCompat.Builder(this, CHANNEL_ID)
+    NotificationCompat
+      .Builder(this, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.stat_sys_download)
       .setContentTitle(getString(R.string.video_download_notification_title))
       .setContentText(contentText)

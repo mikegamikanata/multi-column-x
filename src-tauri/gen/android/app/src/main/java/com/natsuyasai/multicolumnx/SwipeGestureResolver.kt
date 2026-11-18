@@ -57,9 +57,7 @@ object SwipeGestureResolver {
     dx: Float,
     dy: Float,
     tapSlopPx: Float,
-  ): Boolean {
-    return abs(dx) < tapSlopPx && abs(dy) < tapSlopPx
-  }
+  ): Boolean = abs(dx) < tapSlopPx && abs(dy) < tapSlopPx
 
   /**
    * 直前のタップ確定時刻からの経過時間がダブルタップ閾値未満かを判定する。
@@ -73,7 +71,5 @@ object SwipeGestureResolver {
     nowMs: Long,
     previousTapMs: Long,
     maxGapMs: Long,
-  ): Boolean {
-    return (nowMs - previousTapMs) < maxGapMs
-  }
+  ): Boolean = (nowMs - previousTapMs) < maxGapMs
 }
