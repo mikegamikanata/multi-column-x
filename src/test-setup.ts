@@ -1,6 +1,6 @@
 /// <reference types="vitest/globals" />
 import { beforeEach, vi } from "vitest";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 import i18n from "@/i18n";
 
 // 既存テストは日本語文言を前提にしているため、全テストを日本語に固定する
