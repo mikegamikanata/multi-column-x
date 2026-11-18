@@ -68,4 +68,26 @@ mod tests {
         assert_eq!(mapped.code, codes::H264_DOWNLOAD_TIMEOUT);
         assert!(mapped.detail.is_some());
     }
+
+    #[tokio::test]
+    async fn 接続拒否のエラーはタイムアウトではなく内部エラーに変換される() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("リスナーの作成に失敗した");
+        let addr = listener.local_addr().expect("アドレス取得に失敗した");
+        drop(listener);
+
+        let client = build_client_with(Duration::from_secs(5), Duration::from_secs(5))
+            .expect("クライアント構築に失敗した");
+        let err = client
+            .get(format!("http://{addr}/"))
+            .send()
+            .await
+            .expect_err("接続拒否でエラーになるはず");
+
+        assert!(!err.is_timeout());
+        let mapped = map_reqwest_error(err);
+        assert_eq!(mapped.code, codes::COMMON_INTERNAL);
+        assert!(mapped.detail.is_some());
+    }
 }
