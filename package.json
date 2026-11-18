@@ -80,7 +80,7 @@
     "eslint-plugin-storybook": "^10.6.7",
     "fast-check": "^4.10.3",
     "globals": "^17.14.0",
-    "jsdom": "^29.1.1",
+    "jsdom": "^31.0.1",
     "playwright": "^1.65.1",
     "prettier": "^3.10.1",
     "sass-embedded": "^1.108.2",

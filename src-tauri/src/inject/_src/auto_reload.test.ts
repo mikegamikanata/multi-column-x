@@ -1934,7 +1934,20 @@ describe("inject/auto_reload の更新ローディング表示", () => {
     document.body.innerHTML = "";
     setScrolling(0);
     history.replaceState({}, "", "/home");
-    vi.useFakeTimers();
+    // jsdom 31 は style 要素の処理などを内部で setImmediate に積む。フェイク化すると
+    // 実装由来ではないタイマーが getTimerCount に混ざるため、setImmediate は実物のままにする。
+    vi.useFakeTimers({
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "Date",
+        "requestAnimationFrame",
+        "cancelAnimationFrame",
+        "performance",
+      ],
+    });
   });
 
   afterEach(() => {
