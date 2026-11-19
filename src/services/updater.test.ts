@@ -188,3 +188,40 @@ describe("mobile updater", () => {
     expect(invoke).not.toHaveBeenCalled();
   });
 });
+
+describe("モック指定の切り替え", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("モック種別を指定しないときデスクトップは本物の更新確認を使う", async () => {
+    vi.stubEnv("VITE_UPDATER_MOCK", "");
+    vi.mocked(check).mockResolvedValue(null as never);
+    await createUpdater(false).check();
+    expect(check).toHaveBeenCalledOnce();
+  });
+
+  it("モック種別を指定しないときモバイルは本物のリリース取得を使う", async () => {
+    vi.stubEnv("VITE_UPDATER_MOCK", "");
+    vi.mocked(getVersion).mockResolvedValue("1.0.0");
+    vi.mocked(fetchLatestRelease).mockResolvedValue(null);
+    await createUpdater(true).check();
+    expect(fetchLatestRelease).toHaveBeenCalledOnce();
+  });
+
+  it("未知のモック種別を指定したとき本物の更新確認を使う", async () => {
+    vi.stubEnv("VITE_UPDATER_MOCK", "unknown");
+    vi.mocked(check).mockResolvedValue(null as never);
+    await createUpdater(false).check();
+    expect(check).toHaveBeenCalledOnce();
+  });
+
+  it("未知のモック種別を指定したときモバイルは本物のリリース取得を使う", async () => {
+    vi.stubEnv("VITE_UPDATER_MOCK", "unknown");
+    vi.mocked(getVersion).mockResolvedValue("1.0.0");
+    vi.mocked(fetchLatestRelease).mockResolvedValue(null);
+    await createUpdater(true).check();
+    expect(fetchLatestRelease).toHaveBeenCalledOnce();
+  });
+});
