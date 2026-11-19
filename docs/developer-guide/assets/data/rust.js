@@ -1089,8 +1089,9 @@ Object.assign(window.MCX_DATA.details, {
     layer: "rust",
     summary:
       "Android の APK 自己更新の検証入口。desktop の更新は tauri-plugin-updater。",
-    body: "<p>呼び出し元 main 限定・URL 許可リスト・SHA-256 検証（Kotlin 側）の 3 層。desktop は minisign 署名で検証される。</p>",
-    files: ["src-tauri/src/commands/update.rs"],
+    body: "<p>呼び出し元 main 限定・URL 許可リスト・SHA-256 検証（Kotlin 側）の 3 層。desktop は minisign 署名で検証される。cargo feature <code>updater-test</code>（既定無効）のときだけ許可リストにローカル配信サーバー（8787）が加わる。</p>",
+    files: ["src-tauri/src/commands/update.rs", "src-tauri/Cargo.toml"],
+    docs: ["../development/updater-test-notes.md"],
   },
   "rust.video": {
     title: "動画ダウンロード（video/ + video_download.rs）",

@@ -644,7 +644,15 @@
                 限定／URL は自リポジトリの GitHub Releases の
                 <code>.apk</code> のみ（<code>..</code> や
                 <code>?</code> 等を拒否）／Kotlin 側で SHA-256
-                照合（fail-closed）。
+                照合（fail-closed）。URL の許可プレフィックスは cargo feature
+                <code>updater-test</code>（既定は無効）を付けた
+                試験ビルドでだけ、ローカル配信サーバー （<code>localhost</code>
+                / <code>127.0.0.1</code> / <code>10.0.2.2</code> の
+                8787）へ拡張されます。実行時の切替に
+                しないのは、本番バイナリに許可経路を残さないためです。詳細は
+                <a href="../development/updater-test-notes.md"
+                  >updater-test-notes.md</a
+                >。
               </p>
             </div>
           </div>
