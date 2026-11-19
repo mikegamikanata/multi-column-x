@@ -7,6 +7,8 @@
 | (A) UI モック    | 起動時・手動チェック → ダイアログ → 進捗 → 失敗表示の画面遷移   | 不要         | しない         |
 | (B) ローカル配信 | 本物の更新処理（取得・署名/ハッシュ検証・インストール・再起動） | ローカルのみ | する           |
 
+手動テスト項目は [updater-test/integration-test.md](updater-test/integration-test.md)。
+
 ## (A) UI モック
 
 ビルド時の環境変数 `VITE_UPDATER_MOCK` を付けると、`createUpdater`（`src/services/updater.ts`）が偽の Updater（`src/services/mockUpdater.ts`）を返す。デスクトップ・Android 共通。
