@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  fetchLatestRelease,
   fetchReleaseNotes,
   parseDigestSha256,
   parseLatestRelease,
@@ -190,5 +191,39 @@ describe("parseDigestSha256", () => {
     expect(
       parseDigestSha256(`sha256:${VALID_SHA256.slice(0, 63)}g`),
     ).toBeNull();
+  });
+});
+
+describe("リリース情報の取得先", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  async function fetchedUrls(): Promise<string[]> {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tag_name: "v1.2.0", body: "n", assets: [] }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+    await fetchLatestRelease();
+    await fetchReleaseNotes("1.2.0");
+    return mockFetch.mock.calls.map((c) => c[0] as string);
+  }
+
+  it("試験ビルド指定のときリリース情報の取得先がローカル配信サーバーになる", async () => {
+    vi.stubEnv("VITE_UPDATER_RELEASE_API_BASE", "http://localhost:8787");
+    expect(await fetchedUrls()).toEqual([
+      "http://localhost:8787/repos/natsuyasai/multi-column-x/releases/latest",
+      "http://localhost:8787/repos/natsuyasai/multi-column-x/releases/tags/v1.2.0",
+    ]);
+  });
+
+  it("試験ビルド指定が無いときリリース情報の取得先はGitHubのままである", async () => {
+    vi.stubEnv("VITE_UPDATER_RELEASE_API_BASE", "");
+    expect(await fetchedUrls()).toEqual([
+      "https://api.github.com/repos/natsuyasai/multi-column-x/releases/latest",
+      "https://api.github.com/repos/natsuyasai/multi-column-x/releases/tags/v1.2.0",
+    ]);
   });
 });
