@@ -30,3 +30,6 @@ export const OVERLAY_CONFIG_PATH = path.join(
   WORK_DIR,
   "tauri.updater-test.conf.json",
 );
+
+/** 試験用の使い捨て署名鍵（本番鍵 .tauri-keys/ とは別。公開鍵は同名 + .pub）。 */
+export const KEY_PATH = path.join(KEYS_DIR, "updater-test.key");
