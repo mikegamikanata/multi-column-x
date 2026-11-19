@@ -51,6 +51,8 @@ npm run updater-test:setup
 
 ### デスクトップ（Windows / Linux AppImage）
 
+> **注意**: 試験用ビルドは本番と同じ `identifier`（`com.natsuyasai.multicolumnx`）で、普段使いのインストールを上書きし、設定・アカウントのデータも共有する。更新後のアプリは取得先が `localhost:8787`・公開鍵が試験用のままなので、GitHub からは二度と更新されない。試験後は GitHub Releases から正式版をインストールし直すこと。重ね設定で `identifier` を変えないのは、Android ではパッケージ名が変わってしまう（Kotlin のパッケージは固定）ため。
+
 1. 旧版（現行バージョン）を試験設定でビルドしてインストールする。
 
    ```bash
@@ -76,6 +78,8 @@ npm run updater-test:setup
 Windows と Linux の成果物は同じバージョンなら 1 つの `release.json` にマージされる（別マシンでビルドした場合は `tmp/updater-test/artifacts/` をコピーしてサーバーを起動する）。バージョンが変わると他プラットフォームの項目は破棄される。
 
 ### Android
+
+> **注意**: debug 署名の APK は、リリース署名でインストール済みのアプリに上書きできない。正式版が入っている端末では先にアンインストールが必要で、そのアプリのデータは失われる。試験後は正式版をインストールし直すこと。
 
 1. 旧版の debug APK をビルドしてインストールする（試験用ビルドは cargo feature `updater-test` 付き・debug ビルドで行う。debug は平文 HTTP が許可されている）。
 
