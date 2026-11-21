@@ -14,7 +14,11 @@ export function useRestoreFocus(): void {
 
   useEffect(() => {
     return () => {
-      if (previous && document.contains(previous)) {
+      // 実際のアンマウントではダイアログの DOM が消えてフォーカスは body に落ちる。
+      // StrictMode の擬似アンマウントや、他の要素がフォーカスを持っている場合は奪わない。
+      const active = document.activeElement;
+      const focusIsFree = active === null || active === document.body;
+      if (focusIsFree && previous && document.contains(previous)) {
         previous.focus();
       }
     };

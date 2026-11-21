@@ -1,11 +1,16 @@
 import { render } from "@testing-library/react";
-import { createElement } from "react";
+import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useRestoreFocus } from "./useRestoreFocus";
 
 function Dialog() {
   useRestoreFocus();
   return createElement("div", null, "ダイアログ");
+}
+
+function DialogWithAutoFocusInput() {
+  useRestoreFocus();
+  return createElement("input", { autoFocus: true, "aria-label": "名前" });
 }
 
 describe("useRestoreFocus", () => {
@@ -48,5 +53,30 @@ describe("useRestoreFocus", () => {
     unmount();
 
     expect(bodyFocusSpy).not.toHaveBeenCalled();
+  });
+
+  it("StrictModeの擬似アンマウントでもダイアログ内のautoFocusの入力欄がフォーカスを保持する", () => {
+    const opener = document.createElement("button");
+    document.body.appendChild(opener);
+    opener.focus();
+
+    const { getByLabelText } = render(
+      createElement(StrictMode, null, createElement(DialogWithAutoFocusInput)),
+    );
+
+    expect(document.activeElement).toBe(getByLabelText("名前"));
+  });
+
+  it("アンマウント時に別の既存要素がフォーカスを持っていれば奪わない", () => {
+    const opener = document.createElement("button");
+    const other = document.createElement("button");
+    document.body.append(opener, other);
+    opener.focus();
+
+    const { unmount } = render(createElement(Dialog));
+    other.focus();
+    unmount();
+
+    expect(document.activeElement).toBe(other);
   });
 });
