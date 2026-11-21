@@ -8,6 +8,8 @@
   "linkPopup": {
     "defaultTitle": "Open URL in a popup window",
     "urlPlaceholder": "https://x.com/...",
+    "urlLabel": "URL",
+    "accountLabel": "Account",
     "cancel": "Cancel",
     "open": "Open"
   },

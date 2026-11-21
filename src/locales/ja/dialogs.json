@@ -8,6 +8,8 @@
   "linkPopup": {
     "defaultTitle": "URLをポップアップウィンドウで開く",
     "urlPlaceholder": "https://x.com/...",
+    "urlLabel": "URL",
+    "accountLabel": "アカウント",
     "cancel": "キャンセル",
     "open": "開く"
   },

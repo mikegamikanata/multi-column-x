@@ -35,7 +35,6 @@ const PENDING_MODULES: string[] = [
   "src/components/ColumnHeader/ColumnHeader.module.scss",
   "src/components/H264SetupDialog/H264SetupDialog.module.scss",
   "src/components/HelpPopover/HelpPopover.module.scss",
-  "src/components/LinkPopupDialog/LinkPopupDialog.module.scss",
   "src/components/MobileTabBar/MobileTabBar.module.scss",
   "src/components/NoAccountsPrompt/NoAccountsPrompt.module.scss",
   "src/components/SettingsPanel/SettingsPanel.module.scss",
