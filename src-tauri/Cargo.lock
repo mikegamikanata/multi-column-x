@@ -2437,6 +2437,7 @@ dependencies = [
  "bzip2",
  "gtk",
  "jni 0.21.1",
+ "libc",
  "log",
  "m3u8-rs",
  "proptest",

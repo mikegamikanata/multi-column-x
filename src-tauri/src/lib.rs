@@ -235,7 +235,11 @@ pub fn run() {
         }
     });
 
-    builder
+    // 再起動計画の置き場（`relaunch_app` が書き、`RunEvent::Exit` で取り出す）。
+    #[cfg(desktop)]
+    let builder = builder.manage(commands::relaunch::PendingRelaunch::default());
+
+    let app = builder
         .invoke_handler(tauri::generate_handler![
             commands::settings::load_settings,
             commands::settings::save_settings,
@@ -273,6 +277,8 @@ pub fn run() {
             #[cfg(all(desktop, target_os = "linux"))]
             commands::openh264_fetch::download_and_enable_h264,
             #[cfg(desktop)]
+            commands::relaunch::relaunch_app,
+            #[cfg(desktop)]
             commands::video_download::download_video,
             commands::extensions::list_extensions,
             commands::extensions::detect_chrome_extensions,
@@ -283,8 +289,18 @@ pub fn run() {
             commands::extensions::remove_extension,
             commands::extensions::open_extension_page,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        // 再起動計画があれば、イベントループ終了後（全ウィンドウ破棄後）に新プロセスを起動する。
+        #[cfg(desktop)]
+        if commands::relaunch::should_spawn_on(&event) {
+            commands::relaunch::spawn_pending_relaunch(app_handle);
+        }
+        #[cfg(not(desktop))]
+        let _ = (app_handle, event);
+    });
 }
 
 #[cfg(all(test, desktop))]
