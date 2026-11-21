@@ -6,6 +6,8 @@ import {
 } from "@/test-utils/scssBlocks";
 import type { ScssBlock } from "@/test-utils/scssBlocks";
 import {
+  ANDROID_TAP_EXEMPT,
+  GRID_EXEMPT,
   checkAndroidMixins,
   checkAndroidTapTarget,
   checkBorderColor,
@@ -21,12 +23,7 @@ import {
   type Violation,
 } from "@/test-utils/uiDesignRules";
 
-// 未移行のモジュール SCSS（項目2〜9の対象外）。移行したファイルをここから外し、最終段階で空にして定数ごと削除する。
-const PENDING_MODULES: string[] = [];
-
-const migratedFiles = listModuleScssFiles().filter(
-  (file) => !PENDING_MODULES.includes(file),
-);
+const moduleFiles = listModuleScssFiles();
 
 const blocksOf = (file: string): ScssBlock[] => parseScss(readScss(file), file);
 
@@ -66,24 +63,58 @@ const perFileRules: [
   ],
 ];
 
-describe("UIデザインの契約（移行済みモジュールSCSS）", () => {
+describe("UIデザインの契約（全モジュールSCSS）", () => {
+  it("モジュールSCSSの列挙が主要なファイルを取りこぼしていない", () => {
+    expect(moduleFiles).toEqual(
+      expect.arrayContaining([
+        "src/components/ConfirmDialog/ConfirmDialog.module.scss",
+        "src/components/TopBar/TopBar.module.scss",
+        "src/components/MobileTabBar/MobileTabBar.module.scss",
+        "src/components/AppSettingsPanel/AppSettingsPanel.module.scss",
+      ]),
+    );
+  });
+
   it.each(perFileRules)("%s", (_name, check) => {
-    expectNoViolations(migratedFiles.flatMap((file) => check(blocksOf(file))));
+    expectNoViolations(moduleFiles.flatMap((file) => check(blocksOf(file))));
+  });
+
+  it("全モジュールSCSSが例外ファイルの指定なしで全ルールを満たす", () => {
+    expectNoViolations(
+      moduleFiles.flatMap((file) => checkModuleScss(blocksOf(file))),
+    );
   });
 });
 
-describe("UIデザインの契約（未移行リストのラチェット）", () => {
-  it("未移行リストに載っているファイルはすべて実在する", () => {
-    const existing = listModuleScssFiles();
-    expect(PENDING_MODULES.filter((file) => !existing.includes(file))).toEqual(
-      [],
-    );
+describe("UIデザインの契約（例外定数の陳腐化検知）", () => {
+  it("GRID_EXEMPT の各エントリは実在するファイル・セレクタ・宣言に一致し、実際に例外が必要である", () => {
+    const stale = GRID_EXEMPT.filter(
+      (entry) =>
+        !moduleFiles.includes(entry.file) ||
+        !checkGrid(blocksOf(entry.file), []).some(
+          (v) =>
+            v.selector === entry.selector &&
+            v.detail.startsWith(`${entry.prop}:`),
+        ),
+    ).map((entry) => `${entry.file} ${entry.selector} ${entry.prop}`);
+    expect(stale, "実在しない、または例外が不要なエントリ").toEqual([]);
   });
 
-  it("未移行リストのファイルはどれも違反を持つ（違反ゼロなら未移行リストから外すこと）", () => {
-    const clean = PENDING_MODULES.filter(
-      (file) => checkModuleScss(blocksOf(file)).length === 0,
+  it("ANDROID_TAP_EXEMPT の各エントリは実在するファイル・セレクタに一致し、実際に例外が必要である", () => {
+    const stale = ANDROID_TAP_EXEMPT.filter(
+      (entry) =>
+        !moduleFiles.includes(entry.file) ||
+        !checkAndroidTapTarget(blocksOf(entry.file), []).some(
+          (v) => v.selector === entry.selector,
+        ),
+    ).map((entry) => `${entry.file} ${entry.selector}`);
+    expect(stale, "実在しない、または例外が不要なエントリ").toEqual([]);
+  });
+
+  it("例外定数のエントリはすべて理由を持つ", () => {
+    const withoutReason = [...GRID_EXEMPT, ...ANDROID_TAP_EXEMPT].filter(
+      (entry) => entry.reason.trim() === "",
     );
-    expect(clean, "違反が無いので PENDING_MODULES から外すこと").toEqual([]);
+    expect(withoutReason).toEqual([]);
   });
 });
