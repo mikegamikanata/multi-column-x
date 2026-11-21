@@ -406,6 +406,8 @@ impl AndroidProgressNotifier {
 /// 処理本体は内部の async ブロックに切り出し、その成否に関わらず必ず
 /// `notify_video_download_finished` を呼んでからその結果を返す
 /// （`?` による早期returnが複数あるため、素直に書くとFinished通知漏れが起きるのを防ぐ）。
+/// 失敗したときは、Finished の前に `notify_video_download_failed` で失敗の通知を依頼する
+/// （後始末は `finish_android_video_download`）。
 #[cfg(target_os = "android")]
 pub async fn handle_android_video_download_request(
     app: &tauri::AppHandle,
@@ -536,9 +538,31 @@ pub async fn handle_android_video_download_request(
     }
     .await;
 
-    // 成否に関わらず必ずForeground Serviceを終了させる。
-    let _ = crate::android_bridge::notify_video_download_finished();
+    finish_android_video_download(
+        &result,
+        || {
+            let _ = crate::android_bridge::notify_video_download_failed();
+        },
+        || {
+            let _ = crate::android_bridge::notify_video_download_finished();
+        },
+    );
     result
+}
+
+/// Android のダウンロード処理の後始末。失敗なら失敗の通知を依頼してから、
+/// 成否に関わらず進捗の通知（Foreground Service）を終了させる。
+/// 失敗の通知を先に出すのは、進捗の通知が消えた後に何も残らない時間を作らないため。
+#[cfg(any(target_os = "android", test))]
+fn finish_android_video_download(
+    result: &Result<(), String>,
+    notify_failed: impl FnOnce(),
+    notify_finished: impl FnOnce(),
+) {
+    if result.is_err() {
+        notify_failed();
+    }
+    notify_finished();
 }
 
 #[cfg(all(test, not(target_os = "android")))]
@@ -772,6 +796,53 @@ mod tests {
             }"#;
             let payload: Result<AndroidVideoDownloadPayload, _> = serde_json::from_str(json);
             assert!(payload.is_err());
+        }
+    }
+
+    mod finish_android_video_download {
+        use super::*;
+        use std::cell::RefCell;
+
+        /// 後始末が呼んだ通知の順序を記録して返す。
+        fn run(result: Result<(), String>) -> Vec<&'static str> {
+            let calls = RefCell::new(Vec::new());
+            finish_android_video_download(
+                &result,
+                || calls.borrow_mut().push("failed"),
+                || calls.borrow_mut().push("finished"),
+            );
+            calls.into_inner()
+        }
+
+        #[test]
+        fn androidで動画のダウンロードが失敗すると失敗の通知を出す() {
+            let calls = run(Err("http error: 500".to_string()));
+
+            assert_eq!(calls, vec!["failed", "finished"]);
+        }
+
+        #[test]
+        fn androidでダウンロードを始める前に失敗したときも失敗の通知を出す() {
+            let plan_error = plan_download(&[]).unwrap_err();
+
+            let calls = run(Err(plan_error));
+
+            assert_eq!(calls, vec!["failed", "finished"]);
+        }
+
+        #[test]
+        fn hlsで映像の保存へ進んだ後に音声のダウンロードが失敗したときも失敗の通知を出す() {
+            let calls = run(Err("audio track download failed".to_string()));
+
+            assert!(calls.contains(&"failed"));
+            assert_eq!(calls.last(), Some(&"finished"));
+        }
+
+        #[test]
+        fn androidで動画のダウンロードが成功したときは失敗の通知を出さない() {
+            let calls = run(Ok(()));
+
+            assert_eq!(calls, vec!["finished"]);
         }
     }
 }

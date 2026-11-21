@@ -229,6 +229,18 @@ Object.assign(window.MCX_DATA.flows, {
       },
       {
         from: "rs",
+        to: "kt",
+        label: "notifyVideoDownloadFailed（失敗したときだけ、Finished の前）",
+        kind: "call",
+        detail:
+          "<p>失敗の通知は MainActivity が直接出す（Service を経由しない）。進捗とは別 ID（1002）で常駐せず、次のダウンロード開始時に消える。チャンネル作成は <code>VideoDownloadNotifications.kt</code> に共通化してあり、開始前に失敗してもチャンネルが無くて捨てられることはない。<code>IMPORTANCE_LOW</code> のためヘッドアップ表示はしない。</p>",
+        files: [
+          "src-tauri/src/commands/video_download.rs",
+          ANDROID_DIR + "VideoDownloadNotifications.kt",
+        ],
+      },
+      {
+        from: "rs",
         to: "svc",
         label: "notifyVideoDownloadFinished（必ず呼ぶ）",
         kind: "call",
@@ -474,7 +486,7 @@ Object.assign(window.MCX_DATA.catalogs, {
       },
       {
         name: "PopupSessionBridge.kt",
-        role: "switchPopupSession / reportOfficialSettings / closePopup の振り分け",
+        role: "switchPopupSession / reportOfficialSettings / closePopup / downloadVideo の振り分け",
         caller: "inject popup_toolbar.ts",
         kind: "ブリッジ",
         files: [
@@ -563,6 +575,14 @@ Object.assign(window.MCX_DATA.catalogs, {
         caller: "MainActivity.runOnUiThreadSync",
         kind: "共通",
         files: [ANDROID_DIR + "ThreadUtils.kt"],
+      },
+      {
+        name: "VideoDownloadNotifications.kt",
+        role: "動画 DL の通知チャンネル作成と失敗の通知（進捗の通知と共通のチャンネル）",
+        caller:
+          "MainActivity.notifyVideoDownloadFailed / VideoDownloadForegroundService",
+        kind: "動画",
+        files: [ANDROID_DIR + "VideoDownloadNotifications.kt"],
       },
       {
         name: "VideoDownloadForegroundService.kt",
@@ -739,6 +759,12 @@ Object.assign(window.MCX_DATA.catalogs, {
         area: "動画",
       },
       {
+        name: "notifyVideoDownloadFailed",
+        summary: "失敗の通知を出す（Finished の前に呼ぶ）",
+        rsfn: "notify_video_download_failed",
+        area: "動画",
+      },
+      {
         name: "notifyVideoDownloadFinished",
         summary: "Foreground Service 終了",
         rsfn: "notify_video_download_finished",
@@ -874,7 +900,8 @@ Object.assign(window.MCX_DATA.catalogs, {
       },
       {
         jsname: "__mcxPopupBridge",
-        types: "switchPopupSession / reportOfficialSettings / closePopup",
+        types:
+          "switchPopupSession / reportOfficialSettings / closePopup / downloadVideo",
         where: "ポップアップ",
         handler: "PopupSessionBridge",
         files: [
@@ -1020,7 +1047,7 @@ Object.assign(window.MCX_DATA.details, {
     title: "VideoDownloadForegroundService",
     layer: "android",
     summary: "動画 DL 中にプロセスを kill されにくくする Foreground Service",
-    body: "<p>1 つの Service が Intent の action（START/UPDATE/FINISH）で分岐。型は <code>dataSync</code>。通知文言は <code>res/values{,-ja}/strings.xml</code>（端末言語に従う）。</p>",
+    body: "<p>1 つの Service が Intent の action（START/UPDATE/FINISH）で分岐。型は <code>dataSync</code>。通知文言は <code>res/values{,-ja}/strings.xml</code>（端末言語に従う）。失敗の通知はこの Service を経由せず <code>VideoDownloadNotifications.kt</code> から MainActivity が直接出す。</p>",
     files: [
       ANDROID_DIR + "VideoDownloadForegroundService.kt",
       "src-tauri/gen/android/app/src/main/AndroidManifest.xml",

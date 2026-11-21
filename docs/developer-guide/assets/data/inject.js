@@ -770,7 +770,8 @@ Object.assign(window.MCX_DATA.catalogs, {
         name: "download_video",
         from: "popup_toolbar.ts",
         summary: "ポップアップ内の動画をダウンロード",
-        android: "（要確認）",
+        android:
+          "__mcxPopupBridge（downloadVideo → PopupSessionBridge → AppBridge.onVideoDownloadRequest）。届ける手段が無いポップアップではボタンを出さない",
       },
       {
         name: "report_official_settings",

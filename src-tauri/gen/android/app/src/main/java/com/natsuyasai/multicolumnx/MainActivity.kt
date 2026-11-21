@@ -439,6 +439,12 @@ class MainActivity : TauriActivity() {
     startService(intent)
   }
 
+  // 動画ダウンロードの失敗を通知する。Rust 側で失敗したとき、notifyVideoDownloadFinished の前に呼ぶ。
+  // JNI スレッドから呼ばれる（NotificationManagerCompat.notify はスレッドを問わない）。
+  fun notifyVideoDownloadFailed() {
+    showVideoDownloadFailureNotification(this)
+  }
+
   // ポップアップ WebView を全画面オーバーレイとして追加する。
   // カラム WebView の上に重なり、戻るボタンで閉じられる。
   // JNI スレッドから呼ばれるため runOnUiThread + CountDownLatch で UI 操作を同期する。
@@ -470,6 +476,7 @@ class MainActivity : TauriActivity() {
                   AppBridge.onOfficialSettingsReport(accountId, snapshot)
                 },
                 { popupId -> removePopupWebView(popupId) },
+                { payloadJson -> AppBridge.onVideoDownloadRequest(payloadJson) },
               )
             WebViewCompat.addWebMessageListener(
               wv,
