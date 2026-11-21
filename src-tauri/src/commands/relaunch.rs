@@ -125,7 +125,9 @@ pub(crate) fn choose_cwd(
 }
 
 /// 起動方法を決める（純粋関数）。`APPIMAGE` と `APPDIR` が両方あり非空で、
-/// `APPIMAGE` が絶対パスのときだけ AppImage 起動し直しにする。
+/// `APPIMAGE` が絶対パス（`/` 始まり）のときだけ AppImage 起動し直しにする。
+/// AppImage は Linux 専用なので、`Path::is_absolute`（Windows ではドライブ prefix が要る）は使わず文字列で判定し、
+/// 全 OS で同じ結果になるようにしている。
 pub(crate) fn plan_relaunch(
     env: &BTreeMap<String, String>,
     args: Vec<OsString>,
@@ -140,7 +142,7 @@ pub(crate) fn plan_relaunch(
     };
     let appimage = env.get("APPIMAGE").map(String::as_str).unwrap_or("");
     let appdir = appdir.to_string_lossy().into_owned();
-    if appimage.is_empty() || appdir.is_empty() || !Path::new(appimage).is_absolute() {
+    if appimage.is_empty() || appdir.is_empty() || !appimage.starts_with('/') {
         return RelaunchPlan::TauriRestart;
     }
     let mut new_env = build_relaunch_env(env, &appdir, &openh264_dir.to_string_lossy());
