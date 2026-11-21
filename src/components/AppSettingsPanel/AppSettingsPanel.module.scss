@@ -320,13 +320,6 @@
   font-size: t.$font-size-xs;
 }
 
-// 成功・警告を色だけで伝えないための記号（✓ / ⚠）。読み上げは本文に任せるため aria-hidden にする
-.statusMark {
-  display: inline-block;
-  margin-right: t.$space-1;
-  font-weight: 700;
-}
-
 .cssTextarea {
   background: var(--mcx-surface-sunken);
   border: 1px solid var(--mcx-border-strong);

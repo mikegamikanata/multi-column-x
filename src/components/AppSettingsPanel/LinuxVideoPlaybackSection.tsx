@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { StatusMark } from "@/components/StatusMark/StatusMark";
 import type {
   H264DownloadError,
   H264DownloadState,
@@ -7,7 +8,6 @@ import type {
 import { describeAppError } from "@/lib/appError";
 import styles from "./AppSettingsPanel.module.scss";
 import type { SettingsDraft, SetSettingsDraft } from "./settingsDraft";
-import { StatusMark } from "./StatusMark";
 
 /** 設定画面から H.264 を有効化するために必要な状態と操作 */
 export interface H264SettingsInfo {

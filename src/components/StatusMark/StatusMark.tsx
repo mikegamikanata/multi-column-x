@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./AppSettingsPanel.module.scss";
+import styles from "./StatusMark.module.scss";
 
 interface StatusMarkProps {
   kind: "success" | "warning";

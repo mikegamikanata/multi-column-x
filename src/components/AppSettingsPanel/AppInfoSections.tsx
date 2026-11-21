@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { StatusMark } from "@/components/StatusMark/StatusMark";
 import styles from "./AppSettingsPanel.module.scss";
-import { StatusMark } from "./StatusMark";
 
 interface AppInfoSectionsProps {
   onOpenOfficialSettings: () => void;
