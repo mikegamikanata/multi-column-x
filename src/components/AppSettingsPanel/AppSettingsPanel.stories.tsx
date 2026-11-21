@@ -868,3 +868,35 @@ export const KeyboardFocusRingOnCheckboxRow: Story = {
     await expect(getComputedStyle(label).outlineStyle).not.toBe("none");
   },
 };
+
+export const AndroidOtherTabsTapTargets: Story = {
+  name: "Android・カラム配置とバックアップのタブを開いても操作要素が44px以上で間隔があり横にはみ出さない",
+  decorators: [
+    (Story) => (
+      <MobileRoot>
+        <Story />
+      </MobileRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const restorePlatform = setPlatform("android");
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      const root = document.documentElement;
+      for (const name of ["カラム配置", "バックアップ"]) {
+        await userEvent.click(canvas.getByRole("tab", { name }));
+        await expect(canvas.getByRole("tab", { name })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+        await expectTapTargets(canvasElement, 44);
+        await expectAdjacentGap(canvasElement, 8);
+        await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      }
+    } finally {
+      await restoreViewport();
+      restorePlatform();
+    }
+  },
+};
