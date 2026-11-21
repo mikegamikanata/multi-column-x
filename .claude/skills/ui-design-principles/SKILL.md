@@ -141,10 +141,10 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 3. `font-size` が 0.75rem 以上
 4. `transition` / `animation` の時間が 150〜250ms（`infinite` は除外）
 5. `index.css` に `prefers-reduced-motion: reduce` の上書きがある
-6. `cursor: pointer` のブロックに `:hover` / `:active` / `:focus-visible`（または `focus-ring`）がある
+6. `cursor: pointer` のブロックに `:hover` / `:active` / `:focus-visible`（または `focus-ring`）がある。input / select / textarea のベースのブロックにも `:focus-visible` が必要（`:focus` だけは不可）
 7. `outline: none` を単独で使っていない
 8. input / select / textarea と枠線付き押下要素の枠色が `--mcx-border-strong` 系
-9. Android タップ領域（`android-tap-target` または 2.75rem 以上）。除外は `ANDROID_TAP_EXEMPT`
+9. Android タップ領域（`android-tap-target` または 2.75rem 以上）。`input[type=checkbox]` / `input[type=radio]` は対象外（親 label の `cursor: pointer` ブロックで担保）。除外は `ANDROID_TAP_EXEMPT`
 10. Android 用上書きが `[data-platform="android"]` 配下のみ
 11. `PENDING_MODULES` が空（最終段階で追加）
 

@@ -254,28 +254,62 @@ function isCheckable(block: ScssBlock): boolean {
 }
 
 const REQUIRED_STATES = [":hover", ":active", ":focus-visible"];
+const INPUT_REQUIRED_STATES = [":focus-visible"];
 
-/** cursor: pointer のブロックには、同一ファイル内に :hover / :active / :focus-visible の定義があること */
+/** 擬似クラス・擬似要素を持たない複合セレクタか（属性セレクタ内の `:` は無視する） */
+function hasNoPseudo(compound: string): boolean {
+  return !compound.replace(/\[[^\]]*\]/g, "").includes(":");
+}
+
+/** 同一ファイル内に、compound と同じ要素の指定した状態（:hover など）の定義があるか */
+function hasStateDefinition(
+  blocks: ScssBlock[],
+  compound: string,
+  state: string,
+): boolean {
+  const key = compoundKey(compound);
+  return blocks.some((other) =>
+    selectorParts(other.selector).some((candidate) => {
+      const candidateCompound = lastCompound(candidate);
+      return (
+        candidateCompound.includes(state) &&
+        compoundKey(candidateCompound) === key
+      );
+    }),
+  );
+}
+
+/**
+ * 押せる要素（cursor: pointer）には :hover / :active / :focus-visible、
+ * 入力欄（input / select / textarea 系のベースのブロック）には :focus-visible が、
+ * 同一ファイル内に定義されていること。入力欄の :focus だけの定義は不足として扱う
+ */
 export function checkInteractiveStates(blocks: ScssBlock[]): Violation[] {
   const violations: Violation[] = [];
   for (const block of blocks) {
-    if (!isCheckable(block) || !hasPointerCursor(block)) continue;
-    for (const state of REQUIRED_STATES) {
-      const missing = selectorParts(block.selector).some((part) => {
-        const compound = lastCompound(part);
-        if (/:(?:hover|active|focus)/.test(compound)) return false;
-        const key = compoundKey(compound);
-        return !blocks.some((other) =>
-          selectorParts(other.selector).some((candidate) => {
-            const candidateCompound = lastCompound(candidate);
-            return (
-              candidateCompound.includes(state) &&
-              compoundKey(candidateCompound) === key
-            );
-          }),
-        );
-      });
-      if (!missing) continue;
+    if (!isCheckable(block)) continue;
+    const pointer = hasPointerCursor(block);
+    const parts = selectorParts(block.selector);
+    const requiredStates = (compound: string): string[] => {
+      if (pointer) return REQUIRED_STATES;
+      if (isFormCompound(compound) && hasNoPseudo(compound)) {
+        return INPUT_REQUIRED_STATES;
+      }
+      return [];
+    };
+    const missingStates = new Set<string>();
+    for (const part of parts) {
+      const compound = lastCompound(part);
+      if (/:(?:hover|active|focus)/.test(compound)) continue;
+      for (const state of requiredStates(compound)) {
+        if (!hasStateDefinition(blocks, compound, state)) {
+          missingStates.add(state);
+        }
+      }
+    }
+    for (const state of [...REQUIRED_STATES].filter((st) =>
+      missingStates.has(st),
+    )) {
       violations.push({
         rule: "interactive-states",
         file: block.file,
@@ -353,6 +387,19 @@ export function checkBorderColor(blocks: ScssBlock[]): Violation[] {
 }
 const MIN_TAP_TARGET_REM = 2.75;
 
+/** input[type=checkbox] / input[type=radio]（当たり判定は親の label 側で担保する設計） */
+function isCheckableCompound(compound: string): boolean {
+  return /\[\s*type\s*=\s*["']?(?:checkbox|radio)["']?\s*\]/.test(compound);
+}
+
+/** Android タップ検査の対象になる入力欄ブロックか（チェックボックス・ラジオは親の label を検査する） */
+function isTapTargetFormBlock(block: ScssBlock): boolean {
+  return selectorParts(block.selector).some((part) => {
+    const compound = lastCompound(part);
+    return isFormCompound(compound) && !isCheckableCompound(compound);
+  });
+}
+
 /** 当たり判定の寸法（rem 数値、または tap-target トークン）が 2.75rem 以上か */
 function isLargeEnough(value: string): boolean {
   if (/\$tap-target-(?:min|comfortable)\b/.test(value)) return true;
@@ -382,7 +429,7 @@ export function checkAndroidTapTarget(
   const violations: Violation[] = [];
   for (const block of blocks) {
     if (!isCheckable(block)) continue;
-    if (!hasPointerCursor(block) && !isFormBlock(block)) continue;
+    if (!hasPointerCursor(block) && !isTapTargetFormBlock(block)) continue;
     const parts = selectorParts(block.selector);
     if (parts.every((part) => isStateCompound(lastCompound(part)))) continue;
     if (

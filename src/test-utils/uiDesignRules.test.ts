@@ -306,6 +306,72 @@ describe("checkInteractiveStates（押下要素の状態）", () => {
   });
 });
 
+describe("checkInteractiveStates（入力欄の focus-visible）", () => {
+  it("入力欄に :focus-visible（focus-ring のincludeだけでも可）があれば違反なし", () => {
+    const blocks = blocksOf(`.input {
+      color: red;
+      &:focus-visible { @include m.focus-ring; }
+    }
+.field select { color: red; }
+.field select:focus-visible { border-color: blue; }`);
+
+    expect(checkInteractiveStates(blocks)).toEqual([]);
+  });
+
+  it(":focus-visible の無い入力欄を違反にする", () => {
+    const blocks = blocksOf(".input { color: red; }");
+
+    expect(checkInteractiveStates(blocks)).toEqual([
+      {
+        rule: "interactive-states",
+        file: "fixture.module.scss",
+        selector: ".input",
+        detail: ":focus-visible",
+      },
+    ]);
+  });
+
+  it(":focus だけ（outline を消して枠色を変える）の入力欄は違反にする", () => {
+    const blocks = blocksOf(`.input {
+      color: red;
+      &:focus { outline: none; border-color: blue; }
+    }`);
+
+    expect(details(checkInteractiveStates(blocks))).toEqual([":focus-visible"]);
+  });
+
+  it(":hover や ::placeholder などの擬似付きサブブロックは入力欄のベースとして数えない", () => {
+    const blocks = blocksOf(`.input {
+      color: red;
+      &:focus-visible { @include m.focus-ring; }
+      &:hover { border-color: blue; }
+      &::placeholder { color: gray; }
+      &:disabled { opacity: 0.5; }
+    }`);
+
+    expect(checkInteractiveStates(blocks)).toEqual([]);
+  });
+
+  it("別のクラスの :focus-visible は入力欄に対応付けない", () => {
+    const blocks = blocksOf(`.input { color: red; }
+.btn { &:focus-visible { @include m.focus-ring; } }`);
+
+    expect(checkInteractiveStates(blocks).map((v) => v.selector)).toEqual([
+      ".input",
+    ]);
+  });
+
+  it("入力欄かつ cursor: pointer のブロックは状態の違反を重複して数えない", () => {
+    const blocks = blocksOf(".input { cursor: pointer; }");
+
+    expect(details(checkInteractiveStates(blocks))).toEqual([
+      ":hover",
+      ":active",
+      ":focus-visible",
+    ]);
+  });
+});
+
 describe("checkOutlineRemoval（アウトライン消去の禁止）", () => {
   it("outline を消していなければ違反なし", () => {
     const blocks = blocksOf(
@@ -436,6 +502,40 @@ describe("checkAndroidTapTarget（Androidの当たり判定44px以上）", () =>
     ];
 
     expect(checkAndroidTapTarget(blocks, exempt)).toEqual([]);
+  });
+});
+
+describe("checkAndroidTapTarget（チェックボックス・ラジオの扱い）", () => {
+  it("input[type=checkbox] と input[type=radio] は当たり判定の指定を要求しない", () => {
+    const blocks = blocksOf(`.checkLabel {
+      cursor: pointer;
+      @include m.android-tap-target;
+      input[type="checkbox"] { accent-color: red; }
+      input[type=radio] { accent-color: red; }
+    }`);
+
+    expect(checkAndroidTapTarget(blocks)).toEqual([]);
+  });
+
+  it("親の label が当たり判定を持たなければ違反にする（input の免除では隠れない）", () => {
+    const blocks = blocksOf(`.checkLabel {
+      cursor: pointer;
+      input[type="checkbox"] { accent-color: red; }
+    }`);
+
+    expect(checkAndroidTapTarget(blocks).map((v) => v.selector)).toEqual([
+      ".checkLabel",
+    ]);
+  });
+
+  it("input[type=text] などチェックボックス・ラジオ以外の入力欄は引き続き要求する", () => {
+    const blocks = blocksOf(`.field input[type="text"] { color: red; }
+.field input[type="number"] { color: red; }`);
+
+    expect(checkAndroidTapTarget(blocks).map((v) => v.selector)).toEqual([
+      '.field input[type="text"]',
+      '.field input[type="number"]',
+    ]);
   });
 });
 
