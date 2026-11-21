@@ -78,7 +78,7 @@ AppImage に同梱された古い `usr/lib/libwayland-{client,cursor,egl,server}
 - `APPDIR` があれば `GST_PLUGIN_PATH_1_0` に `$APPDIR/usr/share/multicolumnx/gst-optional/plugins` を追加する。
 - `settings.json` の `appSettings.globalSettings.hardwareVideoDecodeEnabled` を読み、`false` なら `GST_PLUGIN_FEATURE_RANK` に HW デコーダ群（`HW_VIDEO_DECODERS`: `vah264dec` / `vaapi*` / `nv*dec` / `v4l2sl*dec` など）を `:NONE` で追加する。読めない・壊れている・キー欠落は有効扱い（既定 `true`）。AppImage / deb 共通で Linux desktop のみ。
 
-**冪等に作ってある理由**: 設定を変えて `relaunch` すると、環境変数が子プロセスへ継承された状態でもう一度この関数が走る。パスは既に含まれていれば追加しない。ランクは継承された `HW_VIDEO_DECODERS` のエントリを毎回取り除いてから付け直す（HW デコードを無効から有効へ戻したとき、前回の `:NONE` が残って効かなくなるのを防ぐ）。ユーザー自身が設定した他のランク指定は保持する。この組立ては純粋関数（`append_plugin_path` / `hw_decode_rank_override` / `read_hw_decode_enabled`）に切り出してテストしている。
+**冪等に作ってある理由**: 設定を変えて再起動すると、環境変数が子プロセスへ継承された状態でもう一度この関数が走る。パスは既に含まれていれば追加しない。ランクは継承された `HW_VIDEO_DECODERS` のエントリを毎回取り除いてから付け直す（HW デコードを無効から有効へ戻したとき、前回の `:NONE` が残って効かなくなるのを防ぐ）。ユーザー自身が設定した他のランク指定は保持する。この組立ては純粋関数（`append_plugin_path` / `hw_decode_rank_override` / `read_hw_decode_enabled`）に切り出してテストしている。
 
 ### H.264 可否判定（`check_media_codec_support`）
 
@@ -97,7 +97,7 @@ Linux desktop に限り判定する。非 Linux / mobile は常に「利用可�
 - **拒否は設定に記憶**: 「今はしない」で `h264DownloadPromptDismissed: true` を保存し、次回以降は案内しない。Escape・「後で」・失敗後の「閉じる」は拒否を保存しない閉じる操作（誤操作で案内が拒否扱いにならないようにするため）。ダウンロード失敗も拒否扱いにはせず、エラー表示と「再試行」を出す（次回起動で再び案内される）。
 - **設定画面**（`LinuxVideoPlaybackSection`、Linux のみ）: AppImage では H.264 の「有効化」ボタン（取得済みなら「有効化済み」表示、成功後は再起動案内）。ハードウェアデコードのチェックボックスは AppImage / deb とも表示し、起動時に読んだ値から変更されたら「再起動後に反映されます」を表示する。拒否後でもここから有効化できる。
 - **`anyDialogOpen` への追加が必須**: カラム WebView は OS ネイティブウィンドウで CSS の `z-index` が効かないため、`App.tsx` の `anyDialogOpen` に `h264Setup.isDialogOpen` を含めないとダイアログがカラム WebView の下に隠れる（`docs/development/column-layout-notes.md` 参照）。新しいダイアログを足すときも同様。
-- ダウンロード成功後に `download_and_enable_h264` が GStreamer のレジストリキャッシュを削除する。反映にはアプリの再起動が必要で、ダイアログ・設定画面の「今すぐ再起動」が `relaunch()` を呼ぶ。
+- ダウンロード成功後に `download_and_enable_h264` が GStreamer のレジストリキャッシュを削除する。反映にはアプリの再起動が必要で、ダイアログ・設定画面の「今すぐ再起動」が `relaunch_app` を呼ぶ。
 - アプリ内にはインストールコマンドを表示しない。そのため `scripts/install.sh` の `print_codec_hint()` との文字列一致を保つ必要は無い（`print_codec_hint()` はアプリ内ダイアログでの取得を案内したうえで、手動インストールコマンドをフォールバックとして表示する）。
 
 ### 設定項目（端末依存・バックアップ対象外）
@@ -176,3 +176,33 @@ CPU 使用率の参考値（WebKitWebProcess 合計、5 秒間隔 12 サンプ�
 - `src-tauri/src/commands/openh264_fetch.rs`: `download_and_enable_h264` が Cisco 公式サーバー（`ciscobinary.openh264.org`、バージョン・SHA256 はコード内に固定）から直接ダウンロード・検証・展開し、上記ディレクトリへ配置する。main ウィンドウ以外からの呼び出しは拒否する。ファイル名 `libopenh264.so.7` は `OPENH264_LIB_FILENAME` を `media_codec.rs` と共有している。
 
 **変更時の注意点**: Cisco OpenH264 のバージョン・SHA256（`openh264_fetch.rs` の定数）を更新する場合は、`apt-get download libopenh264-cisco7 && dpkg-deb -e` で実際の postinst スクリプトから最新値を取得して反映すること（憶測で埋めない）。
+
+### AppImage の再起動（`relaunch_app`）
+
+アプリの再起動は Rust コマンド `relaunch_app`（`src-tauri/src/commands/relaunch.rs`）経由で行う。`@tauri-apps/plugin-process` の `relaunch()` は使わない（plugin は削除済み。再起動を足すときは `relaunch_app` を使うこと）。
+
+**背景**: tauri の再起動（`AppHandle::request_restart`）は `spawn` で子を作り、環境変数と fd を継承する。AppImage ではこれにより、新プロセスが旧マウント（`/tmp/.mount_*`）を指す `LD_LIBRARY_PATH` などのパス、`MULTI_COLUMN_X_LD_PATH_PRIMED`、旧マウントを開いたままの fd を引き継ぎ、旧 runtime と旧マウントが残ったままになる。自己更新後は新版が旧版のファイルを読みうる。実測で確認している。
+
+**方針**:
+
+- AppImage 実行中（`APPIMAGE` と `APPDIR` が非空で、`APPIMAGE` が絶対パス）のときだけ独自の経路を使う。それ以外（Windows / macOS / deb / 開発ビルド）は従来どおり tauri の再起動に委ねる。
+- 環境の整理は汎用にする。`APPDIR` / `APPIMAGE` / `ARGV0` / `OWD` / `MULTI_COLUMN_X_LD_PATH_PRIMED` は丸ごと削除し、その他のコロン区切りの値は `APPDIR` 配下の要素を取り除く。判定はコンポーネント境界で行う（`/tmp/.mount_a` が `/tmp/.mount_ab` に一致しない）。値が空になったキーは削除する。`LD_LIBRARY_PATH` からは OpenH264 の配置先も除く。`MULTI_COLUMN_X_LD_PATH_PRIMED` が残ると新プロセスが再実行を省略してしまうため。UTF-8 でない値は旧マウントを指さないので無加工で渡す。
+- 作業ディレクトリは `OWD` → `HOME` → `/` の順に、空でなく `APPDIR` 配下でなく実在するものを選ぶ。
+- 子は `setsid` で親から切り離し、標準入力を閉じ、fd 3 以上のうち CLOEXEC が立っていないものだけを `/proc/self/fd` から列挙して `pre_exec` で `close` する。`close_range` による全閉じは使わない。std の `Command` が exec 失敗の報告に使う CLOEXEC のパイプまで閉じてしまい、起動失敗が成功に見えるため。`/proc/self/fd` が読めなければ fd を閉じずに続行する。
+- 起動は `RunEvent::Exit` で行う。`relaunch_app` は計画（`PendingRelaunch`）を作ってアプリの終了を要求するだけにする。計画作成時に `APPIMAGE` が存在しなければ `Err` を返し、アプリは終了しない。`Exit` 時の spawn 失敗はログのみ。呼び出し元はメインウィンドウに限る。
+
+**不採用案**:
+
+- spawn してから exit する案: 新旧プロセスの生存期間が重なり、旧プロセスが開いている間に新プロセスが起動して、設定ファイルやロックを取り合う。
+- `setenv` で自プロセスの環境を書き換えてから `request_restart` する案: 他スレッドが動いている最中の `setenv` は安全でなく、fd と作業ディレクトリも直せない。
+
+**テスト方針**: 環境整理・起動方法の判定・作業ディレクトリ選択・fd 選別は純粋関数に切り出して単体テストとプロパティテスト（proptest）で検証する。`relaunch_app` の登録は ACL の契約テスト（`acl_contract.rs`）が検査する。実プロセスの再起動は自動化できないため手動で確認する。
+
+**検証方法**（再起動後の新プロセスの PID に対して）:
+
+```bash
+tr '\0' '\n' < /proc/<pid>/environ | grep .mount_   # 旧マウントを指す変数が無い
+ls -l /proc/<pid>/fd                                  # 旧マウント配下を開いた fd が無い
+grep .mount_ /proc/<pid>/maps                         # 新マウントのみ
+ps -ef | grep -i appimage                             # 旧 runtime が残っていない
+```

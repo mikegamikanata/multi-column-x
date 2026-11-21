@@ -144,6 +144,7 @@ multi-column-x/
         │   ├── update.rs             # Android APK 自己更新（呼び出し元制限・URL 許可リスト・SHA-256 検証）
         │   ├── media_codec.rs        # Linux AppImage のメディアコーデック対応状況判定
         │   ├── openh264_fetch.rs / openh264_http_client.rs  # Cisco OpenH264 ランタイムのダウンロード・有効化
+        │   ├── relaunch.rs           # アプリの再起動（`relaunch_app`。AppImage では環境・fd を整理して起動し直す）
         │   ├── arch_support.rs       # 対応アーキテクチャ（x86_64）の判定
         │   └── video_download.rs     # カラム上の動画ダウンロード（デスクトップ）
         └── inject/                   # WebView に注入する JS

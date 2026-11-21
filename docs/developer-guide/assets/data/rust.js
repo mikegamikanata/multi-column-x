@@ -660,6 +660,16 @@ Object.assign(window.MCX_DATA.catalogs, {
         ],
       },
       {
+        name: "relaunch_app",
+        summary: "アプリを再起動する",
+        area: "アプリ制御",
+        platform: "デスクトップ（AppImage で特別処理）",
+        caller: "メイン",
+        detail:
+          "<p>引数なし。AppImage 実行中は、<code>APPDIR</code> 配下を指す環境変数・非 CLOEXEC の fd・作業ディレクトリを整理した起動計画を作り、<code>RunEvent::Exit</code> で <code>$APPIMAGE</code> を <code>setsid</code> 付きで起動し直す（旧プロセスの終了後に spawn するので新旧が重ならない）。それ以外は tauri の再起動（<code>request_restart</code>）。呼び出し元は main のみ。<code>@tauri-apps/plugin-process</code> は使わない。</p>",
+        files: ["src-tauri/src/commands/relaunch.rs"],
+      },
+      {
         name: "download_video",
         summary: "カラム上の動画をダウンロードして保存する",
         area: "動画",
