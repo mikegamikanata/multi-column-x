@@ -87,7 +87,13 @@ gitignore 対象の Android 生成ファイル（`src-tauri/gen/android/tauri.se
 
 ## reqwest 等ネイティブ依存クレートの Android クロスビルド
 
-- `reqwest`（`rustls-tls` feature）が依存する `ring` crate は Android ターゲットのビルド時にネイティブ C コードのコンパイルが必要で、`ANDROID_NDK_HOME`（または `NDK_HOME`）環境変数と NDK の `clang` が見つからないとビルドに失敗する。**`cargo check`（デフォルトのdesktopターゲット）だけでは検出できず**、`cargo check --target aarch64-linux-android` や実際の `npm run tauri:android:build[:debug]` を通さないと問題が判明しない。ローカル開発機でこの手のネイティブ依存クレートを新規追加した場合は、Androidターゲットでのビルドも一度は試すこと（Android SDK/NDK が `AppData/Local/Android/Sdk` 等にインストール済みでも、シェルの環境変数 `ANDROID_HOME` / `ANDROID_NDK_HOME` が未設定だと同じエラーになる点に注意）。
+- `reqwest`（`rustls-no-provider` feature）が依存する `ring` crate は Android ターゲットのビルド時にネイティブ C コードのコンパイルが必要で、`ANDROID_NDK_HOME`（または `NDK_HOME`）環境変数と NDK の `clang` が見つからないとビルドに失敗する。**`cargo check`（デフォルトのdesktopターゲット）だけでは検出できず**、`cargo check --target aarch64-linux-android` や実際の `npm run tauri:android:build[:debug]` を通さないと問題が判明しない。ローカル開発機でこの手のネイティブ依存クレートを新規追加した場合は、Androidターゲットでのビルドも一度は試すこと（Android SDK/NDK が `AppData/Local/Android/Sdk` 等にインストール済みでも、シェルの環境変数 `ANDROID_HOME` / `ANDROID_NDK_HOME` が未設定だと同じエラーになる点に注意）。
+- Android ターゲットの `cargo check` / `clippy` には、`ANDROID_NDK_HOME` に加えて `CC_aarch64_linux_android` / `AR_aarch64_linux_android` / `CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER`（NDK の `aarch64-linux-android24-clang(.cmd)` と `llvm-ar`）の設定が必要。
+- **reqwest の TLS 設計（0.13）**: 設定は `src-tauri/src/http_tls.rs` に集約している。
+  - 暗号プロバイダは ring を選び、aws-lc-rs は入れない（Android / Windows の C ビルド依存を増やさないため。updater も ring）。`rustls` の直接依存は `default-features = false` を維持する（default は aws-lc-rs を含む）。確認は `cargo tree -i aws-lc-rs`（host と `--target aarch64-linux-android`）が「該当なし」になること。
+  - `rustls-no-provider` はプロバイダ未設定だと `ClientBuilder::build()` が panic する。**reqwest クライアントを新設するときは必ず `http_tls::configure_tls` を通す**（ring の install と Android の証明書設定を担う）。
+  - desktop は OS の証明書ストア（rustls-platform-verifier）で検証する（0.12 までの同梱ルートから変更）。
+  - Android は platform-verifier の JNI 初期化・Gradle・ProGuard を避けるため、同梱ルート証明書（`webpki-root-certs`）だけを `tls_certs_only` で信頼する。Android では `tls_certs_merge` / `add_root_certificate` がビルドエラーになるので使わない。
 - `#[tauri::command]` に `#[cfg(desktop)]` を付けたコマンドを `generate_handler!` マクロへ登録する際は、マクロの引数リストの中でもそのコマンドの直前に同じ `#[cfg(desktop)]` を付ける必要がある。付け忘れると、Android ビルド時に「そのコマンドが `mobile` cfg では存在しない」ため `generate_handler!` がマクロ展開に失敗し `cannot find __tauri_command_name_<cmd>` のようなコンパイルエラーになる。**これも `cargo check`（desktopターゲット）では検出されず、Android向けビルドで初めて顕在化する**。新規コマンドを `#[cfg(desktop)]` 限定で追加したら、`generate_handler!` 側にも同じ `#[cfg]` を付け忘れていないか確認すること。
 
 ## 端末引き継ぎ（Auto Backup / 端末間転送）

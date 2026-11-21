@@ -70,7 +70,8 @@ internal fun showVideoDownloadFailureNotification(context: Context) {
   ensureVideoDownloadNotificationChannel(context)
   val spec = videoDownloadFailureNotificationSpec()
   val notification =
-    NotificationCompat.Builder(context, VIDEO_DOWNLOAD_CHANNEL_ID)
+    NotificationCompat
+      .Builder(context, VIDEO_DOWNLOAD_CHANNEL_ID)
       .setSmallIcon(android.R.drawable.stat_notify_error)
       .setContentTitle(context.getString(R.string.video_download_failed_title))
       .setContentText(context.getString(R.string.video_download_failed_text))

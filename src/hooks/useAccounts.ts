@@ -61,8 +61,7 @@ function parseAccountWindowResult(raw: string): AccountWindowResult {
 }
 
 type ReauthWindowOutcome =
-  | { kind: "complete"; xUserId: string | null }
-  | { kind: "cancelled" };
+  { kind: "complete"; xUserId: string | null } | { kind: "cancelled" };
 
 // 再認証ウィンドウの完了イベントか、ウィンドウ破棄（キャンセル）のどちらか先に起きた方を返す。
 function waitForReauthWindowOutcome(

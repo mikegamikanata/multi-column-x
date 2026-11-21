@@ -5,11 +5,17 @@ export interface LatestRelease {
   apkSha256?: string;
 }
 
-const LATEST_RELEASE_API =
-  "https://api.github.com/repos/natsuyasai/multi-column-x/releases/latest";
+const GITHUB_RELEASES_API =
+  "https://api.github.com/repos/natsuyasai/multi-column-x/releases";
+const REPO_RELEASES_PATH = "/repos/natsuyasai/multi-column-x/releases";
 
-const RELEASE_BY_TAG_API =
-  "https://api.github.com/repos/natsuyasai/multi-column-x/releases/tags";
+/** 更新試験ビルドではローカル配信サーバー、それ以外は GitHub Releases API。呼び出し時に評価する。 */
+export function releasesApiBase(): string {
+  const base = import.meta.env.VITE_UPDATER_RELEASE_API_BASE;
+  return base
+    ? `${base.replace(/\/$/, "")}${REPO_RELEASES_PATH}`
+    : GITHUB_RELEASES_API;
+}
 
 interface GhAsset {
   name?: string;
@@ -46,7 +52,7 @@ export async function fetchReleaseNotes(
   version: string,
 ): Promise<string | null> {
   const normalized = version.replace(/^v/i, "");
-  const res = await fetch(`${RELEASE_BY_TAG_API}/v${normalized}`, {
+  const res = await fetch(`${releasesApiBase()}/tags/v${normalized}`, {
     headers: { Accept: "application/vnd.github+json" },
   });
   if (!res.ok) return null;
@@ -56,7 +62,7 @@ export async function fetchReleaseNotes(
 
 /** GitHub Releases API から最新リリース情報を取得する。 */
 export async function fetchLatestRelease(): Promise<LatestRelease | null> {
-  const res = await fetch(LATEST_RELEASE_API, {
+  const res = await fetch(`${releasesApiBase()}/latest`, {
     headers: { Accept: "application/vnd.github+json" },
   });
   if (!res.ok) return null;

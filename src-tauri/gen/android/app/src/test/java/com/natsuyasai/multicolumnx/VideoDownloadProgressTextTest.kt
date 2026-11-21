@@ -43,7 +43,12 @@ class VideoDownloadProgressTextTest {
         if (total <= 0) {
           text == "P"
         } else {
-          val percent = Regex("""^P \((\d+)%\)$""").matchEntire(text)?.groupValues?.get(1)?.toInt()
+          val percent =
+            Regex("""^P \((\d+)%\)$""")
+              .matchEntire(text)
+              ?.groupValues
+              ?.get(1)
+              ?.toInt()
           percent != null && percent in 0..100
         }
       }

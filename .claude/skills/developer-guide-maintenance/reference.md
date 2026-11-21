@@ -69,15 +69,9 @@ docs/developer-guide/
 
 ```js
 window.MCX_DATA = window.MCX_DATA || { flows: {}, catalogs: {}, details: {} };
-Object.assign(window.MCX_DATA.flows, {
-  /* id: flow */
-});
-Object.assign(window.MCX_DATA.catalogs, {
-  /* id: catalog */
-});
-Object.assign(window.MCX_DATA.details, {
-  /* id: detail */
-});
+Object.assign(window.MCX_DATA.flows, {/* id: flow */});
+Object.assign(window.MCX_DATA.catalogs, {/* id: catalog */});
+Object.assign(window.MCX_DATA.details, {/* id: detail */});
 ```
 
 - id はページ接頭辞付き（例 `react.startup`, `rust.commands`）で衝突回避。

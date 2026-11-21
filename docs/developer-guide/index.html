@@ -394,8 +394,8 @@
           <h3 id="bt-prereq">前提ツール</h3>
           <ul>
             <li>
-              Node.js 22 以上、Rust / Cargo、Tauri の前提条件（Windows は
-              WebView2 など）
+              Node.js 22.22 以上（CI は 24）、Rust / Cargo、Tauri
+              の前提条件（Windows は WebView2 など）
             </li>
             <li>
               Android を触る場合は Android Studio / SDK（Gradle は
@@ -440,6 +440,21 @@
                   <code>npm run typecheck</code> / <code>npm run lint</code>
                 </td>
                 <td>型チェック / ESLint（<code>lint:fix</code> で自動修正）</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>npm run updater-test:setup</code> /
+                  <code>updater-test:build</code> /
+                  <code>updater-test:serve</code>
+                </td>
+                <td>
+                  リリースを作らずに更新を試験する（鍵生成 / 試験用ビルド /
+                  ローカル配信）。UI だけなら
+                  <code>VITE_UPDATER_MOCK</code>。手順は
+                  <a href="../development/updater-test-notes.md"
+                    >updater-test-notes.md</a
+                  >
+                </td>
               </tr>
               <tr>
                 <td><code>npm run lint:rust</code></td>

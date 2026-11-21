@@ -95,7 +95,8 @@ class VideoSaveQueuePropertyTest {
         repeat(count) { h.enqueue() }
         h.drain { resultOf(kinds.getOrElse(it) { 0 }) }
         val expectedLaunched = h.enqueued.map { it.suggestedFileName }.filter { it !in failNames }
-        h.launched == expectedLaunched && h.deleted.sorted() == h.enqueued.map { it.tempPath }.sorted() &&
+        h.launched == expectedLaunched &&
+          h.deleted.sorted() == h.enqueued.map { it.tempPath }.sorted() &&
           h.deleted.size == h.enqueued.size
       }
     }

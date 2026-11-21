@@ -587,12 +587,6 @@ window.MCX_DATA.index.push(
 );
 // <mcx-index:end>
 
-Object.assign(window.MCX_DATA.flows, {
-  /* id: flow */
-});
-Object.assign(window.MCX_DATA.catalogs, {
-  /* id: catalog */
-});
-Object.assign(window.MCX_DATA.details, {
-  /* id: detail */
-});
+Object.assign(window.MCX_DATA.flows, {/* id: flow */});
+Object.assign(window.MCX_DATA.catalogs, {/* id: catalog */});
+Object.assign(window.MCX_DATA.details, {/* id: detail */});

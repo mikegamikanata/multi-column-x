@@ -27,7 +27,7 @@ const READ_TIMEOUT: Duration = Duration::from_secs(30);
 pub type ProgressCallback<'a> = dyn FnMut(u64, Option<u64>) + Send + 'a;
 
 /// 動画ダウンロード用の共通 `reqwest::Client` を構築する。
-/// rustls-tls を使用し、接続タイムアウトと無通信タイムアウト（`read_timeout`）を設定する。
+/// TLS 設定は `http_tls::configure_tls` に従い、接続タイムアウトと無通信タイムアウト（`read_timeout`）を設定する。
 /// リクエスト全体の総時間には上限を設けない（大きな動画のダウンロードが打ち切られないようにするため）。
 pub fn build_client() -> Result<reqwest::Client, String> {
     build_client_with(READ_TIMEOUT, CONNECT_TIMEOUT)
@@ -40,7 +40,7 @@ fn build_client_with(
     read_timeout: Duration,
     connect_timeout: Duration,
 ) -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
+    crate::http_tls::configure_tls(reqwest::Client::builder())
         .read_timeout(read_timeout)
         .connect_timeout(connect_timeout)
         .build()
@@ -226,11 +226,90 @@ mod tests {
         }
     }
 
+    mod 追加の特性テスト {
+        use super::*;
+
+        #[tokio::test]
+        async fn リダイレクト応答は追従して最終的なボディがwriterに書き込まれる() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .and(path("/old.mp4"))
+                .respond_with(ResponseTemplate::new(302).insert_header("location", "/final.mp4"))
+                .mount(&server)
+                .await;
+            Mock::given(method("GET"))
+                .and(path("/final.mp4"))
+                .respond_with(ResponseTemplate::new(200).set_body_bytes(b"redirected".to_vec()))
+                .mount(&server)
+                .await;
+
+            let client = build_client().unwrap();
+            let mut buf: Vec<u8> = Vec::new();
+            let url = format!("{}/old.mp4", server.uri());
+            let result = fetch_to_writer_unchecked(&client, &url, &mut buf, &mut |_, _| {}).await;
+
+            assert!(result.is_ok());
+            assert_eq!(buf, b"redirected");
+        }
+
+        #[tokio::test]
+        async fn ステータスエラーのメッセージにステータスコードが含まれwriterには何も書かれない() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .and(path("/error.mp4"))
+                .respond_with(ResponseTemplate::new(503).set_body_bytes(b"unavailable".to_vec()))
+                .mount(&server)
+                .await;
+
+            let client = build_client().unwrap();
+            let mut buf: Vec<u8> = Vec::new();
+            let url = format!("{}/error.mp4", server.uri());
+            let err = fetch_to_writer_unchecked(&client, &url, &mut buf, &mut |_, _| {})
+                .await
+                .unwrap_err();
+
+            assert!(err.contains("503"), "実際のメッセージ: {err}");
+            assert!(buf.is_empty());
+        }
+
+        #[tokio::test]
+        async fn 接続できないホストへのリクエストはエラー文字列を返す() {
+            // 一度bindして閉じたポートを使い、接続拒否を再現する。
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            drop(listener);
+
+            let client = build_client().unwrap();
+            let mut buf: Vec<u8> = Vec::new();
+            let url = format!("http://{addr}/video.mp4");
+            let err = fetch_to_writer_unchecked(&client, &url, &mut buf, &mut |_, _| {})
+                .await
+                .unwrap_err();
+
+            assert!(
+                err.starts_with("http request failed: "),
+                "実際のメッセージ: {err}"
+            );
+            assert!(buf.is_empty());
+        }
+    }
+
     mod build_client_withのテスト {
         use super::*;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;
         use tokio::time::sleep;
+
+        #[test]
+        fn 動画ダウンロード用の通信クライアントを作成できる() {
+            assert!(build_client().is_ok());
+        }
+
+        #[test]
+        fn 通信クライアントを2回続けて作成しても失敗しない() {
+            assert!(build_client().is_ok());
+            assert!(build_client().is_ok());
+        }
 
         async fn write_chunk(socket: &mut tokio::net::TcpStream) {
             let chunk = b"AAAAA";

@@ -896,8 +896,9 @@ Object.assign(window.MCX_DATA.catalogs, {
           "自動更新（起動時チェック・手動チェック・インストール・進捗）。",
         area: "更新",
         detail:
-          "<p>見送り済みバージョンは localStorage で抑制。updater は <code>createUpdater(isMobile)</code> で desktop／mobile 実装を切替。</p>",
+          "<p>見送り済みバージョンは localStorage で抑制。updater は <code>createUpdater(isMobile)</code> で desktop／mobile 実装を切替。ビルド時の <code>VITE_UPDATER_MOCK</code> で偽 Updater（<code>mockUpdater.ts</code>）に差し替わる（試験用。未設定なら本物）。</p>",
         files: ["src/hooks/useAppUpdater.ts", "src/services/updater.ts"],
+        docs: ["../development/updater-test-notes.md"],
       },
       {
         name: "useWhatsNew",

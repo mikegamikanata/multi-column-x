@@ -128,7 +128,7 @@ X内部APIのレート制限ヘッダをツールバーのポップオーバー�
 
 ### リリースCI・テーマ切替・再認証
 
-`src/lib/theme.ts` / `src/hooks/useTheme.ts`（テーマ切替）、`src/lib/reauthIdentity.ts` / `src-tauri/src/commands/account.rs`（既存アカウントの再認証・Cookie上書き）、`src/services/updater.ts` / `src/hooks/useAppUpdater.ts` / `src-tauri/src/commands/update.rs`（自動更新・進捗表示）を変更する場合の詳細（設計判断・未確定事項・落とし穴）は `docs/development/release-theme-reauth-notes.md` を参照。設定の既定値は Rust の `impl Default`（構造体レベル `#[serde(default)]`）を唯一の定義とし、TS の既定値と `contracts/default-settings.json` の契約テストで一致を保証している。**既定値を変更するときは Rust / TS / fixture の3箇所を同時に更新すること。** `src/index.css` の配色トークンを変更するときは、`themeContrast.contract.test.ts`（コントラスト基準）と `swipeBarColors.contract.test.ts`（Android `SwipeBarOverlayView.kt` の色同期）を通すこと。**白文字を載せる塗り背景は `--mcx-accent-fill` を使うこと**（`--mcx-accent` を背景にすると白文字が読めない）。
+`src/lib/theme.ts` / `src/hooks/useTheme.ts`（テーマ切替）、`src/lib/reauthIdentity.ts` / `src-tauri/src/commands/account.rs`（既存アカウントの再認証・Cookie上書き）、`src/services/updater.ts` / `src/hooks/useAppUpdater.ts` / `src-tauri/src/commands/update.rs`（自動更新・進捗表示）を変更する場合の詳細（設計判断・未確定事項・落とし穴）は `docs/development/release-theme-reauth-notes.md` を参照。リリースを作らずに更新を試験する仕組み（`VITE_UPDATER_MOCK` の UI モック、`scripts/updater-test/` のローカル配信、cargo feature `updater-test`）は `docs/development/updater-test-notes.md` を参照（本番の updater 設定は契約テストで固定している）。設定の既定値は Rust の `impl Default`（構造体レベル `#[serde(default)]`）を唯一の定義とし、TS の既定値と `contracts/default-settings.json` の契約テストで一致を保証している。**既定値を変更するときは Rust / TS / fixture の3箇所を同時に更新すること。** `src/index.css` の配色トークンを変更するときは、`themeContrast.contract.test.ts`（コントラスト基準）と `swipeBarColors.contract.test.ts`（Android `SwipeBarOverlayView.kt` の色同期）を通すこと。**白文字を載せる塗り背景は `--mcx-accent-fill` を使うこと**（`--mcx-accent` を背景にすると白文字が読めない）。
 
 ### 設定ファイル（settings.json）の永続化
 

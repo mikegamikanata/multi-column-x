@@ -534,9 +534,8 @@
             表示するリンクを選ぶ独自メニューが状態を持つため React
             で描画します。React 本体を同梱するので生成物は約 587KB（他の数
             KB〜数十 KB と桁違い）。Vite の設定でも専用の
-            <code>--mode react</code> パスにして
-            <code>inlineDynamicImports</code> で 1
-            ファイルに固めます。全カラムに入れると重いので、
+            <code>--mode react</code> パスにして <code>format: "iife"</code> で
+            1 ファイルに固めます。全カラムに入れると重いので、
             <b>ヘッダー非表示または投稿欄非表示が ON のカラムだけ</b> Rust
             が連結します。設定変更時は『アンマウント →
             必要なら再マウント』で整合を取ります。

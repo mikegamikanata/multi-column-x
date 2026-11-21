@@ -62,12 +62,10 @@ android {
       proguardFiles(
         *fileTree(".") { include("**/*.pro") }
           .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
-          .toList().toTypedArray(),
+          .toList()
+          .toTypedArray(),
       )
     }
-  }
-  kotlinOptions {
-    jvmTarget = "1.8"
   }
   buildFeatures {
     buildConfig = true
@@ -78,31 +76,37 @@ android {
   }
 }
 
+kotlin {
+  compilerOptions {
+    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+  }
+}
+
 rust {
   rootDirRel = "../../../"
 }
 
 dependencies {
-  implementation("androidx.webkit:webkit:1.14.0")
-  implementation("androidx.appcompat:appcompat:1.7.1")
-  implementation("androidx.activity:activity-ktx:1.10.1")
-  implementation("com.google.android.material:material:1.12.0")
-  implementation("androidx.lifecycle:lifecycle-process:2.10.0")
+  implementation("androidx.webkit:webkit:1.18.0")
+  implementation("androidx.appcompat:appcompat:1.8.0")
+  implementation("androidx.activity:activity-ktx:1.13.0")
+  implementation("com.google.android.material:material:1.14.0")
+  implementation("androidx.lifecycle:lifecycle-process:2.11.0")
   testImplementation("junit:junit:4.13.2")
   // BridgeMessages.kt が org.json.JSONObject を使う。android.jar の org.json はスタブ
   // （unitTests.isReturnDefaultValues 下でもメソッド本体が空）で JVM 単体テストでは動かないため、
   // 実装を持つ org.json:json を testImplementation で追加しテストクラスパス上で優先させる。
-  testImplementation("org.json:json:20231013")
+  testImplementation("org.json:json:20260814")
   // mockito-kotlin 5.x は JVM 11 ビルドのため、jvmTarget 1.8 と互換の 4.x を使う。
   // mockito-core は Java 21 ランタイム対応のため 5.x へ上書き
   // （5.x は inline mock maker が既定で、MotionEvent 等の final クラスをモックできる）。
   testImplementation("org.mockito.kotlin:mockito-kotlin:4.1.0")
-  testImplementation("org.mockito:mockito-core:5.18.0")
+  testImplementation("org.mockito:mockito-core:5.24.0")
   // プロパティベーステスト。kotest 5.x は jvmTarget 1.8 互換。JUnit4 の @Test 内から
   // runBlocking 経由で forAll/checkAll を呼ぶ（kotest のテストランナーは使わない）。
   testImplementation("io.kotest:kotest-property:5.9.1")
-  androidTestImplementation("androidx.test.ext:junit:1.1.4")
-  androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
+  androidTestImplementation("androidx.test.ext:junit:1.3.0")
+  androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
 }
 
 apply(from = "tauri.build.gradle.kts")

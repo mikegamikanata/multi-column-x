@@ -28,9 +28,10 @@ function setup(overrides: Partial<Props> = {}, initial: ExtensionEntry[] = []) {
     accountId: "acc-1",
     onExtensionsChanged: vi.fn(),
     listExtensions: vi.fn(async () => current),
-    detectChromeExtensions: vi.fn(
-      async (): Promise<DetectResult> => ({ browserFound: true, items: [] }),
-    ),
+    detectChromeExtensions: vi.fn(async (): Promise<DetectResult> => ({
+      browserFound: true,
+      items: [],
+    })),
     pickFolder: vi.fn(async () => "C:\\ext\\new"),
     addFromFolder: vi.fn(async () => {
       current = [...current, entry({ id: "e-new", name: "新しい拡張" })];
@@ -197,33 +198,31 @@ describe("ExtensionsTab", () => {
 
   it("検出ボタンで検出した候補にプロファイルとともに由来ブラウザ名が表示される", async () => {
     const { user } = setup({
-      detectChromeExtensions: vi.fn(
-        async (): Promise<DetectResult> => ({
-          browserFound: true,
-          items: [
-            {
-              chromeId: "aaa",
-              profile: "Default",
-              browser: "edge",
-              name: "Edge候補",
-              path: "p",
-              hasPopup: false,
-              hasOptions: false,
-              added: false,
-            },
-            {
-              chromeId: "bbb",
-              profile: "Default",
-              browser: "chrome",
-              name: "Chrome候補",
-              path: "p",
-              hasPopup: false,
-              hasOptions: false,
-              added: false,
-            },
-          ],
-        }),
-      ),
+      detectChromeExtensions: vi.fn(async (): Promise<DetectResult> => ({
+        browserFound: true,
+        items: [
+          {
+            chromeId: "aaa",
+            profile: "Default",
+            browser: "edge",
+            name: "Edge候補",
+            path: "p",
+            hasPopup: false,
+            hasOptions: false,
+            added: false,
+          },
+          {
+            chromeId: "bbb",
+            profile: "Default",
+            browser: "chrome",
+            name: "Chrome候補",
+            path: "p",
+            hasPopup: false,
+            hasOptions: false,
+            added: false,
+          },
+        ],
+      })),
     });
 
     await user.click(screen.getByRole("button", { name: "ブラウザから検出" }));
@@ -666,33 +665,31 @@ describe("ExtensionsTab 英語表示", () => {
   it("表示言語が英語のとき検出した候補に日本語の文言が表示されない", async () => {
     await useEnglish();
     const { user } = setup({
-      detectChromeExtensions: vi.fn(
-        async (): Promise<DetectResult> => ({
-          browserFound: true,
-          items: [
-            {
-              chromeId: "aaa",
-              profile: "Default",
-              browser: "edge",
-              name: "Candidate A",
-              path: "p",
-              hasPopup: false,
-              hasOptions: false,
-              added: true,
-            },
-            {
-              chromeId: "bbb",
-              profile: "Default",
-              browser: "chrome",
-              name: "Candidate B",
-              path: "p",
-              hasPopup: false,
-              hasOptions: false,
-              added: false,
-            },
-          ],
-        }),
-      ),
+      detectChromeExtensions: vi.fn(async (): Promise<DetectResult> => ({
+        browserFound: true,
+        items: [
+          {
+            chromeId: "aaa",
+            profile: "Default",
+            browser: "edge",
+            name: "Candidate A",
+            path: "p",
+            hasPopup: false,
+            hasOptions: false,
+            added: true,
+          },
+          {
+            chromeId: "bbb",
+            profile: "Default",
+            browser: "chrome",
+            name: "Candidate B",
+            path: "p",
+            hasPopup: false,
+            hasOptions: false,
+            added: false,
+          },
+        ],
+      })),
     });
 
     await user.click(

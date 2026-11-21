@@ -647,6 +647,22 @@
             WebView の裏に隠れるのを防ぎます。「後で」のバージョンは
             localStorage に記録して再通知を抑制します。
           </p>
+          <p>
+            更新処理を変えたときの試験用に、ビルド時の環境変数
+            <code>VITE_UPDATER_MOCK</code>（<code>available</code> /
+            <code>none</code> / <code>check-error</code> /
+            <code>install-error</code> / <code>slow-progress</code>）で
+            <code>createUpdater</code> が偽の Updater
+            （<code>services/mockUpdater.ts</code>）を返します。画面遷移だけを確かめる用途で、未設定ビルドではモック分岐ごとバンドルから除去されます。Android
+            のリリース情報の取得先は
+            <code>VITE_UPDATER_RELEASE_API_BASE</code>（<code
+              >lib/githubRelease.ts</code
+            >
+            の <code>releasesApiBase()</code>）で差し替えられます。手順は
+            <a href="../development/updater-test-notes.md"
+              >updater-test-notes.md</a
+            >。
+          </p>
 
           <h3 id="backup">バックアップ / リストア</h3>
           <p>

@@ -119,7 +119,7 @@ function checkRepoPath(where, raw) {
 function pathsInHtml(html) {
   const out = [];
   const re = /<code\s+class="path"[^>]*>([\s\S]*?)<\/code\s*>/g;
-  for (let m; (m = re.exec(html)); ) out.push(decodeEntities(m[1]).trim());
+  for (let m; (m = re.exec(html));) out.push(decodeEntities(m[1]).trim());
   return out;
 }
 
@@ -157,7 +157,7 @@ function checkPaths(pages, data) {
 function idsInHtml(html) {
   const ids = [];
   const re = /\sid="([^"]+)"/g;
-  for (let m; (m = re.exec(html)); ) ids.push(m[1]);
+  for (let m; (m = re.exec(html));) ids.push(m[1]);
   return ids;
 }
 
@@ -214,7 +214,7 @@ function checkHash(where, hash, ids, data, url) {
 function linksInHtml(html) {
   const out = [];
   const re = /\s(?:href|src)="([^"]*)"/g;
-  for (let m; (m = re.exec(html)); ) out.push(m[1].replace(/&amp;/g, "&"));
+  for (let m; (m = re.exec(html));) out.push(m[1].replace(/&amp;/g, "&"));
   return out;
 }
 
@@ -243,7 +243,7 @@ function checkLinks(pages, data) {
 function attrValues(html, attr) {
   const out = [];
   const re = new RegExp(`\\s${attr}="([^"]+)"`, "g");
-  for (let m; (m = re.exec(html)); ) out.push(m[1]);
+  for (let m; (m = re.exec(html));) out.push(m[1]);
   return out;
 }
 
@@ -365,7 +365,7 @@ function checkRustCommands(data) {
 function headingIds(html, level) {
   const out = [];
   const re = new RegExp(`<h${level}\\b[^>]*\\sid="([^"]+)"`, "g");
-  for (let m; (m = re.exec(html)); ) out.push(m[1]);
+  for (let m; (m = re.exec(html));) out.push(m[1]);
   return out;
 }
 

@@ -1255,6 +1255,20 @@
             PR を出す前。変更した層に応じて、上から順に実行しエラー・警告を 0
             にします。
           </p>
+          <div class="callout tip">
+            <b>更新処理（updater）を変えたとき</b>
+            <p>
+              リリースを作らずに試験できます。画面遷移だけなら
+              <code>VITE_UPDATER_MOCK=available npm run tauri:dev</code
+              >、本物の取得・検証・インストールまで確かめるなら
+              <code>npm run updater-test:setup</code> →
+              <code>updater-test:build</code> →
+              <code>updater-test:serve</code>。手順と設計判断は
+              <a href="../development/updater-test-notes.md"
+                >updater-test-notes.md</a
+              >。
+            </p>
+          </div>
 
           <ol class="checklist" data-checklist="howto.final-check">
             <li>

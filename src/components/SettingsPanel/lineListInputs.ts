@@ -9,9 +9,7 @@ import {
 } from "@/lib/lineListValidation";
 
 export type LineListField =
-  | "ngWords"
-  | "repostHiddenUserIds"
-  | "whitelistWords";
+  "ngWords" | "repostHiddenUserIds" | "whitelistWords";
 
 export type LineListErrors = Record<LineListField, string | null>;
 

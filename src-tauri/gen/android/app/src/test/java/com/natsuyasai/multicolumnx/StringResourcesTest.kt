@@ -26,7 +26,12 @@ class StringResourcesTest {
   private val default by lazy { load("values") }
   private val ja by lazy { load("values-ja") }
 
-  private fun specifiers(text: String): List<String> = formatSpecifier.findAll(text).map { it.value }.sorted().toList()
+  private fun specifiers(text: String): List<String> =
+    formatSpecifier
+      .findAll(text)
+      .map { it.value }
+      .sorted()
+      .toList()
 
   @Test
   fun `既定と日本語のキー集合が一致する_ただしアプリ名とタイトルは既定のみ`() {

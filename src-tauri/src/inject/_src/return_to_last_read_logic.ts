@@ -150,8 +150,7 @@ export function hasNewPostsAbove(
 }
 
 export type TargetScan =
-  | { kind: "run"; id: string }
-  | { kind: "none"; singles: string[] };
+  { kind: "run"; id: string } | { kind: "none"; singles: string[] };
 
 /**
  * 表示中の ID 列から戻り先を探す。

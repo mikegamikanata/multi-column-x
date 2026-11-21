@@ -1068,6 +1068,11 @@ Object.assign(window.MCX_DATA.catalogs, {
         summary: "リリース CI、テーマ切替、再認証、更新進捗。",
       },
       {
+        name: "updater-test-notes.md",
+        summary:
+          "アプリ更新の試験（UI モックとローカル配信）と本番に影響させない設計判断。",
+      },
+      {
         name: "external-link-new-window-notes.md",
         summary: "on_new_window による外部リンク処理。",
       },

@@ -13,6 +13,7 @@
 
   void setWebView(com.natsuyasai.multicolumnx.RustWebView);
   java.lang.Class getAppClass(...);
+  int getId();
   java.lang.String getVersion();
   int startActivity(...);
 }
@@ -29,6 +30,8 @@
   void loadUrlMainThread(...);
   void loadHTMLMainThread(...);
   void evalScript(...);
+  java.lang.String getCookies(java.lang.String);
+  void clearAllBrowsingData();
 }
 
 -keep class com.natsuyasai.multicolumnx.RustWebChromeClient,com.natsuyasai.multicolumnx.RustWebViewClient {

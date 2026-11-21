@@ -9,6 +9,4 @@ import android.view.View
  * （後で VISIBLE 化してもリサイズだけでは仮想リストの再計算がトリガーされない）。
  * 非表示分も layout 対象になる View.INVISIBLE を使うことでこれを回避する。
  */
-fun columnWebViewInitialVisibility(visible: Boolean): Int {
-  return if (visible) View.VISIBLE else View.INVISIBLE
-}
+fun columnWebViewInitialVisibility(visible: Boolean): Int = if (visible) View.VISIBLE else View.INVISIBLE

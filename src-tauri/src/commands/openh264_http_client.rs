@@ -21,7 +21,7 @@ pub(crate) fn build_client_with(
     read: Duration,
     connect: Duration,
 ) -> Result<reqwest::Client, AppError> {
-    reqwest::Client::builder()
+    crate::http_tls::configure_tls(reqwest::Client::builder())
         .read_timeout(read)
         .connect_timeout(connect)
         .build()
@@ -42,6 +42,11 @@ pub(crate) fn map_reqwest_error(e: reqwest::Error) -> AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn openh264取得用の通信クライアントを作成できる() {
+        assert!(build_client_with(Duration::from_secs(5), Duration::from_secs(5)).is_ok());
+    }
 
     #[tokio::test]
     async fn 応答が無いサーバーへの接続は読み取りタイムアウトでエラーになる() {
@@ -66,6 +71,28 @@ mod tests {
         assert!(err.is_timeout());
         let mapped = map_reqwest_error(err);
         assert_eq!(mapped.code, codes::H264_DOWNLOAD_TIMEOUT);
+        assert!(mapped.detail.is_some());
+    }
+
+    #[tokio::test]
+    async fn 接続拒否のエラーはタイムアウトではなく内部エラーに変換される() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("リスナーの作成に失敗した");
+        let addr = listener.local_addr().expect("アドレス取得に失敗した");
+        drop(listener);
+
+        let client = build_client_with(Duration::from_secs(5), Duration::from_secs(5))
+            .expect("クライアント構築に失敗した");
+        let err = client
+            .get(format!("http://{addr}/"))
+            .send()
+            .await
+            .expect_err("接続拒否でエラーになるはず");
+
+        assert!(!err.is_timeout());
+        let mapped = map_reqwest_error(err);
+        assert_eq!(mapped.code, codes::COMMON_INTERNAL);
         assert!(mapped.detail.is_some());
     }
 }

@@ -29,7 +29,7 @@ function headingsOf(page) {
   const html = fs.readFileSync(path.join(GUIDE, `${page}.html`), "utf8");
   const re = /<h([23])\s[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/h\1\s*>/g;
   const out = [];
-  for (let m; (m = re.exec(html)); )
+  for (let m; (m = re.exec(html));)
     out.push({ page, id: m[2], title: headingText(m[3]), level: Number(m[1]) });
   return out;
 }

@@ -34,7 +34,7 @@ const plainEntries = [
   "api_rate_limit_monitor",
 ];
 
-// React を含む header_customizer は IIFE + inlineDynamicImports で個別ビルド
+// React を含む header_customizer は IIFE で個別ビルド（IIFE は単一ファイルにまとまる）
 const reactEntry = "header_customizer";
 
 // document.head が null のタイミングで appendChild が呼ばれる問題を防ぐプラグイン
@@ -67,7 +67,6 @@ export default defineConfig(({ mode }) => {
           output: {
             format: "iife",
             entryFileNames: `${reactEntry}.js`,
-            inlineDynamicImports: true,
           },
         },
       },

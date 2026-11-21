@@ -922,7 +922,9 @@ class MainActivity : TauriActivity() {
   // x.com 内のナビゲーションはそのまま WebView に委ね、外部 URL はシステムブラウザへ転送する。
   // Profile API のプロファイル読み込みや Cookie 設定のタイミングにより Cookie が一時的に
   // 利用できずログイン画面が表示される場合がある。検知したら遅延後に元 URL へリカバリする（1回限り）。
-  private inner class ExternalLinkWebViewClient(private val recoveryUrl: String) : WebViewClient() {
+  private inner class ExternalLinkWebViewClient(
+    private val recoveryUrl: String,
+  ) : WebViewClient() {
     private var loginRetried = false
 
     override fun shouldOverrideUrlLoading(
