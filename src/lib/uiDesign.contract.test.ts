@@ -40,7 +40,6 @@ const PENDING_MODULES: string[] = [
   "src/components/NoAccountsPrompt/NoAccountsPrompt.module.scss",
   "src/components/SettingsPanel/SettingsPanel.module.scss",
   "src/components/ShortcutHelpDialog/ShortcutHelpDialog.module.scss",
-  "src/components/TabActionDialog/TabActionDialog.module.scss",
   "src/components/TopBar/TopBar.module.scss",
   "src/components/UpdateDialog/UpdateDialog.module.scss",
   "src/components/WhatsNewDialog/WhatsNewDialog.module.scss",
