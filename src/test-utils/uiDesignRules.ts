@@ -305,10 +305,24 @@ export function checkOutlineRemoval(blocks: ScssBlock[]): Violation[] {
   }
   return violations;
 }
-/** 末尾の複合セレクタが input / select / textarea 系のブロックか */
-function isFormBlock(block: ScssBlock): boolean {
+/** 複合セレクタが input / select / textarea 系か（要素セレクタ、または末尾クラス名が該当） */
+function isFormCompound(compound: string): boolean {
+  const plain = compound
+    .replace(/::?[\w-]+(?:\([^)]*\))?/g, "")
+    .replace(/\[[^\]]*\]/g, "");
+  if (/^(?:input|select|textarea)(?![\w-])/.test(plain)) return true;
+  const lastClass = Array.from(plain.matchAll(/\.([\w-]+)/g)).pop()?.[1];
+  if (lastClass === undefined) return false;
+  return (
+    /^(?:input|select|textarea)$/.test(lastClass) ||
+    /(?:Input|Select|Textarea)$/.test(lastClass)
+  );
+}
+
+/** 末尾の複合セレクタが input / select / textarea 系のブロックか（枠色・Androidタップの検査で共有） */
+export function isFormBlock(block: ScssBlock): boolean {
   return selectorParts(block.selector).some((part) =>
-    /input|select|textarea/i.test(lastCompound(part)),
+    isFormCompound(lastCompound(part)),
   );
 }
 

@@ -12,6 +12,7 @@ import {
   checkOutlineRemoval,
   checkReducedMotion,
   checkTokenGrid,
+  isFormBlock,
 } from "./uiDesignRules";
 
 const blocksOf = (scss: string) => parseScss(scss, "fixture.module.scss");
@@ -504,6 +505,63 @@ describe("checkModuleScss（モジュールSCSSの項目2〜9を一括検査）"
       "font-size",
       "duration",
       "outline-removal",
+    ]);
+  });
+});
+
+describe("isFormBlock（入力欄の判定）", () => {
+  const isForm = (scss: string) => isFormBlock(blocksOf(scss)[0]);
+
+  it("input・select・textarea の要素セレクタは入力欄として扱う", () => {
+    expect(isForm("input { color: red; }")).toBe(true);
+    expect(isForm('input[type="checkbox"] { color: red; }')).toBe(true);
+    expect(isForm(".row input:focus { color: red; }")).toBe(true);
+    expect(isForm(".field select { color: red; }")).toBe(true);
+    expect(isForm("textarea { color: red; }")).toBe(true);
+  });
+
+  it("末尾クラスが input・select・textarea そのもの、または camelCase の接尾辞なら入力欄として扱う", () => {
+    for (const name of [
+      "select",
+      "input",
+      "textInput",
+      "numberInput",
+      "selectInput",
+      "unitSelect",
+      "nameInput",
+      "cssTextarea",
+      "editInput",
+    ]) {
+      expect(isForm(`.${name} { color: red; }`), name).toBe(true);
+    }
+  });
+
+  it("状態・ラッパー・複数形のクラスは入力欄として扱わない", () => {
+    for (const name of [
+      "cellSelected",
+      "fixedInputGroup",
+      "selectedRow",
+      "inputRow",
+      "inputs",
+    ]) {
+      expect(isForm(`.${name} { color: red; }`), name).toBe(false);
+    }
+  });
+
+  it("祖先に入力欄らしいクラスがあっても末尾が違えば入力欄として扱わない", () => {
+    expect(isForm(".inputRow .label { color: red; }")).toBe(false);
+  });
+
+  it("枠色とAndroidタップの両方の検査で同じ判定を使う", () => {
+    const blocks =
+      blocksOf(`.cellSelected { border: 1px solid var(--mcx-border); color: red; }
+.unitSelect { border: 1px solid var(--mcx-border); }`);
+
+    expect(checkBorderColor(blocks).map((v) => v.selector)).toEqual([
+      ".unitSelect",
+    ]);
+    expect(checkAndroidTapTarget(blocks).map((v) => v.selector)).toEqual([
+      ".unitSelect",
     ]);
   });
 });
