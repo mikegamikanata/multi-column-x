@@ -30,7 +30,11 @@ tokio = { version = "1", features = ["full"] }
 tauri-plugin-log = "2.8.0"
 tauri-plugin-notification = "2"
 log = "0.4"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "stream"] }
+# reqwest を rustls-no-provider で使うため、暗号プロバイダ（ring）を直接指定する。default-features は aws-lc-rs を含むので無効にする。
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+# Android の HTTPS 検証に使う同梱ルート証明書（desktop のテストでも参照するため全ターゲット）。
+webpki-root-certs = "1"
 m3u8-rs = "6"
 sys-locale = "0.3.2"
 

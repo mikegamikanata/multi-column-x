@@ -2,6 +2,7 @@ mod acl_contract;
 #[cfg(target_os = "android")]
 mod android_bridge;
 mod commands;
+mod http_tls;
 mod inject;
 mod ipc_constants;
 #[cfg(all(desktop, target_os = "linux"))]
