@@ -470,6 +470,7 @@ class MainActivity : TauriActivity() {
                   AppBridge.onOfficialSettingsReport(accountId, snapshot)
                 },
                 { popupId -> removePopupWebView(popupId) },
+                { payloadJson -> AppBridge.onVideoDownloadRequest(payloadJson) },
               )
             WebViewCompat.addWebMessageListener(
               wv,
