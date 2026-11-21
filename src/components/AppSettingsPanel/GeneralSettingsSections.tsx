@@ -11,6 +11,7 @@ import {
   type SettingsDraft,
   type SetSettingsDraft,
 } from "./settingsDraft";
+import { StatusMark } from "./StatusMark";
 
 const MOBILE_COLUMN_COUNT_OPTIONS = Array.from(
   { length: MOBILE_COLUMN_COUNT_MAX - MOBILE_COLUMN_COUNT_MIN + 1 },
@@ -153,10 +154,16 @@ const NgWordsSection: React.FC<SectionProps & { error?: string | null }> = ({
         className={styles.cssTextarea}
         value={draft.globalNgWordsText}
         onChange={(e) => set("globalNgWordsText", e.target.value)}
+        aria-label={t("settings:general.ngWords.title")}
         placeholder={t("settings:general.ngWords.placeholder")}
         spellCheck={false}
       />
-      {error && <p className={styles.errorText}>{error}</p>}
+      {error && (
+        <p className={styles.errorText}>
+          <StatusMark kind="warning" />
+          {error}
+        </p>
+      )}
       <p className={styles.hint}>{t("settings:general.ngWords.hint")}</p>
     </section>
   );
@@ -179,7 +186,12 @@ const RepostHiddenUsersSection: React.FC<
         placeholder={t("settings:general.repostHidden.placeholder")}
         spellCheck={false}
       />
-      {error && <p className={styles.errorText}>{error}</p>}
+      {error && (
+        <p className={styles.errorText}>
+          <StatusMark kind="warning" />
+          {error}
+        </p>
+      )}
       <p className={styles.hint}>{t("settings:general.repostHidden.hint")}</p>
     </section>
   );
@@ -262,6 +274,7 @@ export const AndroidSettingsSections: React.FC<SectionProps> = ({
           })}
           <input
             type="range"
+            className={styles.rangeInput}
             min={0}
             max={100}
             step={5}

@@ -1075,7 +1075,7 @@ describe("App (拡張機能の変更後の全カラム再読込)", () => {
   it("拡張機能を追加すると全カラムのページが再読込される", async () => {
     render(<App />);
     fireEvent.click(screen.getByTitle("アプリ設定 (Ctrl+,)"));
-    fireEvent.click(screen.getByRole("button", { name: "拡張機能" }));
+    fireEvent.click(screen.getByRole("tab", { name: "拡張機能" }));
     mockInvoke.mockClear();
 
     fireEvent.click(

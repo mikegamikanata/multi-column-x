@@ -7,6 +7,7 @@ import type {
 import { describeAppError } from "@/lib/appError";
 import styles from "./AppSettingsPanel.module.scss";
 import type { SettingsDraft, SetSettingsDraft } from "./settingsDraft";
+import { StatusMark } from "./StatusMark";
 
 /** 設定画面から H.264 を有効化するために必要な状態と操作 */
 export interface H264SettingsInfo {
@@ -71,6 +72,7 @@ const H264Row: React.FC<{ h264: H264SettingsInfo }> = ({ h264 }) => {
     return (
       <>
         <p className={styles.errorText} role="alert">
+          <StatusMark kind="warning" />
           {h264.downloadError
             ? describeAppError(h264.downloadError, t)
             : t("settings:linuxVideo.fetchFailed")}
