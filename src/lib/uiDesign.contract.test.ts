@@ -31,7 +31,6 @@ const PENDING_MODULES: string[] = [
   "src/components/AppSettingsPanel/PresetsTab.module.scss",
   "src/components/ColumnHeader/ColumnHeader.module.scss",
   "src/components/MobileTabBar/MobileTabBar.module.scss",
-  "src/components/SettingsPanel/SettingsPanel.module.scss",
   "src/components/TopBar/TopBar.module.scss",
 ];
 
