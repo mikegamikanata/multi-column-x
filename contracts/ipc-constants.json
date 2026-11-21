@@ -42,7 +42,8 @@
     "flash_mobile_swipe_bar",
     "install_apk_update",
     "check_media_codec_support",
-    "download_and_enable_h264"
+    "download_and_enable_h264",
+    "relaunch_app"
   ],
   "events": {
     "ACCOUNT_LOGIN_COMPLETE": "account-login-complete",

@@ -44,7 +44,7 @@ fn appimage_parser_path(appdir: &std::path::Path) -> std::path::PathBuf {
 /// AppImage 起動かどうかを環境変数の値から判定し、起動時は `APPDIR` を返す（純粋関数）。
 /// `APPIMAGE` と `APPDIR` の両方が設定されている場合のみ AppImage とみなす。
 #[cfg_attr(not(all(desktop, target_os = "linux")), allow(dead_code))]
-fn detect_appimage_dir(
+pub(crate) fn detect_appimage_dir(
     appimage: Option<std::ffi::OsString>,
     appdir: Option<std::ffi::OsString>,
 ) -> Option<std::path::PathBuf> {

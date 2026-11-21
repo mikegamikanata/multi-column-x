@@ -34,6 +34,7 @@
     "allow-install-apk-update",
     "allow-check-media-codec-support",
     "allow-download-and-enable-h264",
+    "allow-relaunch-app",
     "allow-list-extensions",
     "allow-detect-chrome-extensions",
     "allow-pick-extension-folder",
