@@ -43,7 +43,8 @@
     "relaunch": "Restart now",
     "fallbackError": "Download failed.",
     "close": "Close",
-    "retry": "Retry"
+    "retry": "Retry",
+    "errorPrefix": "Error:"
   },
   "shortcutHelp": {
     "title": "Keyboard shortcuts",

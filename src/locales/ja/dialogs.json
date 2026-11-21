@@ -43,7 +43,8 @@
     "relaunch": "今すぐ再起動",
     "fallbackError": "ダウンロードに失敗しました。",
     "close": "閉じる",
-    "retry": "再試行"
+    "retry": "再試行",
+    "errorPrefix": "エラー:"
   },
   "shortcutHelp": {
     "title": "キーボードショートカット",
