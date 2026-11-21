@@ -26,7 +26,7 @@ export const GRID_EXEMPT: GridExemption[] = [
     selector: ".row2",
     prop: "padding",
     reason:
-      "Expanded TopBar height follows the content (native WebView bounds depend on it); 0.125rem vertical padding keeps the existing natural height",
+      "Rounding the 0.125rem vertical padding to 0.25rem would grow the expanded TopBar from 62px to 66px, past the 4rem (64px) native WebView bounds, so it would overlap the columns",
   },
 ];
 const DESKTOP_ONLY_BAR =
