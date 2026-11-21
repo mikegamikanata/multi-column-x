@@ -25,7 +25,6 @@ import {
 const PENDING_MODULES: string[] = [
   "src/App.module.scss",
   "src/components/ApiRateLimitIndicator/ApiRateLimitIndicator.module.scss",
-  "src/components/AppSettingsPanel/ColumnLayoutTab.module.scss",
   "src/components/ColumnHeader/ColumnHeader.module.scss",
   "src/components/MobileTabBar/MobileTabBar.module.scss",
   "src/components/TopBar/TopBar.module.scss",
