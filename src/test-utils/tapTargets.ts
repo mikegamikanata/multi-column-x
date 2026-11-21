@@ -15,11 +15,15 @@ function isVisible(element: Element): boolean {
   return style.display !== "none" && style.visibility !== "hidden";
 }
 
-// チェックボックス / ラジオは親の label を検査するため対象外にする
-function isCheckable(element: Element): boolean {
+const CHECKABLE_SELECTOR = 'input[type="checkbox"], input[type="radio"]';
+
+// チェックボックス / ラジオの input は対象外（親の label を検査する）。
+// 逆にチェックボックス / ラジオを含まない label はテキスト欄の見出しであり、
+// 押す対象ではないので対象外にする
+function isExcluded(element: Element): boolean {
+  if (element.matches(CHECKABLE_SELECTOR)) return true;
   return (
-    element instanceof HTMLInputElement &&
-    (element.type === "checkbox" || element.type === "radio")
+    element.tagName === "LABEL" && !element.querySelector(CHECKABLE_SELECTOR)
   );
 }
 
@@ -34,7 +38,7 @@ export async function expectTapTargets(
   minPx: number,
 ): Promise<void> {
   const targets = Array.from(root.querySelectorAll(TAP_TARGET_SELECTOR)).filter(
-    (el) => isVisible(el) && !isCheckable(el),
+    (el) => isVisible(el) && !isExcluded(el),
   );
   await expect(targets.length).toBeGreaterThan(0);
   const tooSmall = targets
