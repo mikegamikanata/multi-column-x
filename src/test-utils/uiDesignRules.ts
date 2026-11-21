@@ -20,7 +20,15 @@ export interface AndroidTapExemption {
   reason: string;
 }
 
-export const GRID_EXEMPT: GridExemption[] = [];
+export const GRID_EXEMPT: GridExemption[] = [
+  {
+    file: "src/components/TopBar/TopBar.module.scss",
+    selector: ".row2",
+    prop: "padding",
+    reason:
+      "Expanded TopBar height follows the content (native WebView bounds depend on it); 0.125rem vertical padding keeps the existing natural height",
+  },
+];
 const DESKTOP_ONLY_BAR =
   "Desktop-only control inside a fixed-height bar; never rendered on Android";
 
@@ -33,6 +41,11 @@ export const ANDROID_TAP_EXEMPT: AndroidTapExemption[] = [
   {
     file: "src/components/ColumnHeader/ColumnHeader.module.scss",
     selector: ".unreadBadge",
+    reason: DESKTOP_ONLY_BAR,
+  },
+  {
+    file: "src/components/TopBar/TopBar.module.scss",
+    selector: ".btn",
     reason: DESKTOP_ONLY_BAR,
   },
 ];
