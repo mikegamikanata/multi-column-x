@@ -760,6 +760,16 @@ pub fn notify_video_download_finished() -> Result<(), String> {
     })
 }
 
+/// MainActivity.notifyVideoDownloadFailed() を呼び出す。
+/// ダウンロードが失敗したとき、`notify_video_download_finished` の前に呼び、失敗の通知を出させる。
+pub fn notify_video_download_failed() -> Result<(), String> {
+    call_activity_method(|env, activity| {
+        env.call_method(activity, "notifyVideoDownloadFailed", "()V", &[])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    })
+}
+
 /// AppBridge.onVideoDownloadRequest(payloadJson) から呼ばれるJNIエントリポイント。
 /// column WebView 内の video_long_press_menu.ts（後続ステップで実装）が
 /// window.__mcxVideoDownloadBridge 経由でダウンロード要求を送ってくる。
