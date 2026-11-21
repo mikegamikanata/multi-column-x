@@ -726,3 +726,205 @@ mod shell_tests {
         assert!(child_passes(&launch));
     }
 }
+
+#[cfg(test)]
+mod properties {
+    use super::*;
+    use proptest::prelude::*;
+
+    const APPDIR: &str = "/tmp/.mount_abc";
+    const OH: &str = "/home/u/.local/share/com.natsuyasai.multicolumnx/gstreamer-openh264";
+
+    /// 実装の `is_under` とは独立に書いた判定（コンポーネント境界・末尾 `/` 無視）。
+    fn under_appdir(entry: &str) -> bool {
+        let e = entry.trim_end_matches('/');
+        e == APPDIR || e.starts_with(&format!("{APPDIR}/"))
+    }
+
+    fn is_openh264(entry: &str) -> bool {
+        entry.trim_end_matches('/') == OH
+    }
+
+    /// 要素 1 つ分。APPDIR 配下・名前の似た兄弟・無関係・空・OpenH264 配置先（末尾 `/` 有無）を混ぜる。
+    fn element() -> impl Strategy<Value = String> {
+        prop_oneof![
+            "/tmp/\\.mount_abc(/[a-z]{1,4}){0,3}/?",
+            "/tmp/\\.mount_abc[a-z0-9._-]{1,3}(/[a-z]{1,4}){0,2}",
+            Just("/tmp/.mount_ab".to_string()),
+            "/(usr|opt|home)(/[a-z]{1,4}){0,3}/?",
+            Just(String::new()),
+            Just(OH.to_string()),
+            Just(format!("{OH}/")),
+        ]
+    }
+
+    fn value() -> impl Strategy<Value = String> {
+        prop::collection::vec(element(), 0..8).prop_map(|v| v.join(":"))
+    }
+
+    fn key() -> impl Strategy<Value = String> {
+        prop_oneof![
+            "[A-Z_]{3,10}",
+            Just("LD_LIBRARY_PATH".to_string()),
+            prop::sample::select(vec![
+                "APPDIR",
+                "APPIMAGE",
+                "ARGV0",
+                "OWD",
+                "MULTI_COLUMN_X_LD_PATH_PRIMED",
+            ])
+            .prop_map(String::from),
+        ]
+    }
+
+    fn env_strategy() -> impl Strategy<Value = BTreeMap<String, String>> {
+        prop::collection::btree_map(key(), value(), 0..8)
+    }
+
+    /// その変数が書き換え対象か（APPDIR 配下、または LD_LIBRARY_PATH の OpenH264 配置先を含む）。
+    fn is_touched(key: &str, value: &str) -> bool {
+        value
+            .split(':')
+            .any(|e| under_appdir(e) || (key == "LD_LIBRARY_PATH" && is_openh264(e)))
+    }
+
+    /// 書き換え対象の変数で残るべき要素（除去対象と空要素を除いた元の順序の列）。
+    fn expected_kept(key: &str, value: &str) -> Vec<String> {
+        value
+            .split(':')
+            .filter(|e| {
+                !e.is_empty() && !under_appdir(e) && !(key == "LD_LIBRARY_PATH" && is_openh264(e))
+            })
+            .map(String::from)
+            .collect()
+    }
+
+    proptest! {
+        #[test]
+        fn 除去後のどの変数のどの要素も旧appdir配下ではない(env in env_strategy()) {
+            let out = build_relaunch_env(&env, APPDIR, OH);
+            for (k, v) in &out {
+                for e in v.split(':') {
+                    prop_assert!(!under_appdir(e), "{k}={v}");
+                }
+            }
+        }
+
+        #[test]
+        fn 禁止キーは出力に現れない(env in env_strategy()) {
+            let out = build_relaunch_env(&env, APPDIR, OH);
+            for k in ["APPDIR", "APPIMAGE", "ARGV0", "OWD", "MULTI_COLUMN_X_LD_PATH_PRIMED"] {
+                prop_assert!(!out.contains_key(k), "{k}");
+            }
+        }
+
+        #[test]
+        fn 旧appdir配下を含まない変数は値がバイト単位で変わらない(env in env_strategy()) {
+            let out = build_relaunch_env(&env, APPDIR, OH);
+            for (k, v) in &env {
+                if DROPPED_KEYS.contains(&k.as_str()) || is_touched(k, v) {
+                    continue;
+                }
+                prop_assert_eq!(out.get(k), Some(v), "{}", k);
+            }
+        }
+
+        #[test]
+        fn 書き換えた変数は残る要素が元の順序を保ち空要素を含まない(env in env_strategy()) {
+            let out = build_relaunch_env(&env, APPDIR, OH);
+            for (k, v) in &env {
+                if DROPPED_KEYS.contains(&k.as_str()) || !is_touched(k, v) {
+                    continue;
+                }
+                let kept = expected_kept(k, v);
+                match out.get(k) {
+                    None => prop_assert!(kept.is_empty(), "{k}={v}"),
+                    Some(new) => {
+                        prop_assert!(!new.is_empty(), "{k}");
+                        let got: Vec<String> = new.split(':').map(String::from).collect();
+                        prop_assert!(got.iter().all(|e| !e.is_empty()), "{k}={new}");
+                        prop_assert_eq!(got, kept, "{}", k);
+                    }
+                }
+            }
+        }
+
+        #[test]
+        fn openh264の配置先はld_library_pathからだけ取り除かれる(env in env_strategy()) {
+            let out = build_relaunch_env(&env, APPDIR, OH);
+            if let Some(v) = out.get("LD_LIBRARY_PATH") {
+                prop_assert!(!v.split(':').any(is_openh264), "{v}");
+            }
+            for (k, v) in &env {
+                if k == "LD_LIBRARY_PATH" || DROPPED_KEYS.contains(&k.as_str()) {
+                    continue;
+                }
+                let before = v.split(':').filter(|e| is_openh264(e)).count();
+                let after = out
+                    .get(k)
+                    .map_or(0, |n| n.split(':').filter(|e| is_openh264(e)).count());
+                // APPDIR 配下の要素だけが除かれるので、OpenH264 配置先は 1 つも減らない。
+                prop_assert_eq!(before, after, "{}", k);
+            }
+        }
+
+        #[test]
+        fn 整理済みの環境をもう一度整理しても変わらない(env in env_strategy()) {
+            let once = build_relaunch_env(&env, APPDIR, OH);
+            let twice = build_relaunch_env(&once, APPDIR, OH);
+            prop_assert_eq!(once, twice);
+        }
+
+        #[test]
+        fn 作業ディレクトリは候補のいずれかかルートで旧appdir配下ではない(
+            owd in prop::option::of(element()),
+            home in prop::option::of(element()),
+            dirs in prop::collection::vec(any::<bool>(), 2),
+        ) {
+            let is_dir = |p: &Path| {
+                let s = p.to_string_lossy();
+                (owd.as_deref() == Some(&*s) && dirs[0]) || (home.as_deref() == Some(&*s) && dirs[1])
+            };
+            let cwd = choose_cwd(owd.as_deref(), home.as_deref(), APPDIR, is_dir);
+            let s = cwd.to_string_lossy().into_owned();
+            prop_assert!(!under_appdir(&s), "{s}");
+            if s != "/" {
+                prop_assert!(owd.as_deref() == Some(&*s) || home.as_deref() == Some(&*s));
+                prop_assert!(is_dir(&cwd));
+            }
+            // OWD が使える（空でなく配下でなく実在）なら OWD が優先される。
+            if let Some(o) = owd.as_deref() {
+                if !o.is_empty() && !under_appdir(o) && dirs[0] {
+                    prop_assert_eq!(s, o);
+                }
+            }
+        }
+
+        #[test]
+        fn plan_relaunchは任意の引数列を保持し環境を整理する(
+            mut env in env_strategy(),
+            args in prop::collection::vec("[ -~]{0,8}", 0..6),
+        ) {
+            env.insert("APPIMAGE".to_string(), "/opt/app.AppImage".to_string());
+            env.insert("APPDIR".to_string(), APPDIR.to_string());
+            let args: Vec<OsString> = args.into_iter().map(OsString::from).collect();
+            let plan = plan_relaunch(&env, args.clone(), Path::new(OH), |_| true);
+            let RelaunchPlan::AppImage(launch) = plan else {
+                return Err(TestCaseError::fail("AppImage を期待"));
+            };
+            prop_assert_eq!(launch.args, args);
+            prop_assert_eq!(launch.program, PathBuf::from("/opt/app.AppImage"));
+            prop_assert!(!under_appdir(&launch.cwd.to_string_lossy()));
+            prop_assert_eq!(
+                launch.env.get("PWD").map(String::as_str),
+                Some(&*launch.cwd.to_string_lossy())
+            );
+            for (k, v) in &launch.env {
+                prop_assert!(!DROPPED_KEYS.contains(&k.as_str()), "{k}");
+                if k != "PWD" {
+                    prop_assert!(v.split(':').all(|e| !under_appdir(e)), "{k}={v}");
+                }
+            }
+        }
+    }
+}
