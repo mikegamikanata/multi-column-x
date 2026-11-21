@@ -1123,6 +1123,12 @@ describe("App (表示言語)", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
+  it("読み込み中の表示は status ロールで支援技術に伝わる", () => {
+    useAppStore.setState({ isLoaded: false, globalSettings });
+    render(<App />);
+    expect(screen.getByRole("status")).toHaveTextContent("読み込み中...");
+  });
+
   it("表示言語が英語のとき読み込み中の表示が英語になる", async () => {
     useAppStore.setState({ isLoaded: false });
     mockInvoke.mockImplementation(() => new Promise(() => {}));

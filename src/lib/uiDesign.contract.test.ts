@@ -22,7 +22,7 @@ import {
 } from "@/test-utils/uiDesignRules";
 
 // 未移行のモジュール SCSS（項目2〜9の対象外）。移行したファイルをここから外し、最終段階で空にして定数ごと削除する。
-const PENDING_MODULES: string[] = ["src/App.module.scss"];
+const PENDING_MODULES: string[] = [];
 
 const migratedFiles = listModuleScssFiles().filter(
   (file) => !PENDING_MODULES.includes(file),
