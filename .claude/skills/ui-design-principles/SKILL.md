@@ -89,7 +89,7 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 
 ## トークン・ミキシンの使い方
 
-共通トークン / ミキシンは SCSS 変数・ミキシンとして用意する（`src/styles/_tokens.scss` と `src/styles/_mixins.scss`。段階 1 で作成する。以降は「使うもの」として扱う）。
+共通トークン / ミキシンは SCSS 変数・ミキシンとして用意してある（`src/styles/_tokens.scss` と `src/styles/_mixins.scss`）。
 
 ```scss
 @use "../../styles/tokens" as t;
@@ -101,7 +101,7 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 - ミキシン:
   - `m.focus-ring`: `&:focus-visible { @include m.focus-ring; }` の形で使う
   - `m.transition-base($props...)`: `@include m.transition-base(color, background-color, border-color);`
-  - `m.android-tap-target`: Android のみ最小 44px にする。**固定高さのバーの中では使わない**
+  - `m.android-tap-target($min: t.$tap-target-min)`: Android のみ `min-height` と `min-width` を 44px 以上にする。**固定高さのバーの中では使わない。すでに `min-width` を持つ要素（例: `MobileTabBar` の `.tab { min-width: 6.25rem }`）にも使わない**（Android で `min-width` を 2.75rem に上書きして縮む）。その場合は `:global([data-platform="android"]) & { min-height: t.$tap-target-min; }` で高さだけ指定する
   - `m.android-button-gap`: ボタン列の間隔を Android で 8px 以上にする
 - `:global([data-platform="android"]) &` は CSS Modules 内でのみ有効。ミキシン内の `&` は呼び出し側セレクタ
 - Storybook は `src/index.css` を読まない。`t.$space-*` などの SCSS 変数は問題ないが、`--mcx-*` はストーリー側でテーマ変数を設定しないと未定義になる
@@ -117,7 +117,8 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 7. 押下要素へ `@include m.android-tap-target;`、ボタン群コンテナへ `@include m.android-button-gap;`。チェックボックス / ラジオ / トグルは**ラベル全体**に適用し、`input` 自体を拡大しない
 8. 主 CTA の強調は 1 つだけ（`--mcx-accent-fill`）。複数ある場合は副次を `--mcx-surface-muted` + `border-strong` に落とす（見た目が変わる場合のみ。挙動不変）
 9. TSX: ダイアログに `role="dialog"` `aria-modal="true"` `aria-labelledby="<id>"`（見出しに `id`。同一画面で重複しないよう `useId()`）、`useRestoreFocus()`、`useEscapeKey`（未使用なら追加）。アイコンのみ / 記号のみのボタンに `aria-label`（i18n 経由）。入力欄は `<label htmlFor>` またはラベルの包含、または `aria-label`。タブは `role="tablist"` / `"tab"` + `aria-selected`、ナビの現在地は `aria-current`。状態表示は色のみにせずアイコン・接頭ラベル・太さのいずれかを併用
-10. 移行したファイルを契約テストの `PENDING_MODULES` から外し、契約テストが緑になることを確認
+10. `npx vitest run --project unit src/lib/uiDesign.contract.test.ts` で契約テストが緑になることを確認（全 `*.module.scss` が自動で対象。除外リストは無い）
+11. Storybook の Story に Android の当たり判定（`expectTapTargets` / `expectAdjacentGap`）とアクセシブルネーム（`expectAccessibleControls`）の検査を足す。ヘルパの使い方は下の「共通ヘルパ」参照
 
 ## 禁止事項 / 例外
 
@@ -132,21 +133,41 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 - i18n: 画面文言は辞書経由。`aria-label` は `t("ns:key")`、ja / en の両方にキーを追加し未使用キーを残さない
 - 例外（固定バー高さなど）は**契約テストの定数**（`GRID_EXEMPT` / `ANDROID_TAP_EXEMPT`）に理由付きで集約する。各ファイルに散在させない
 
+## 共通ヘルパ
+
+| ヘルパ                         | 使い方                                                                                                                                                                                                                                         |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/hooks/useRestoreFocus.ts` | ダイアログのコンポーネントの先頭で `useRestoreFocus()`。マウント時（初回レンダー中）の `document.activeElement` を覚え、アンマウント時にフォーカスが空（`body`）なら戻す。StrictMode の擬似アンマウントで `autoFocus` を打ち消さないための条件 |
+| `src/components/StatusMark/`   | `<StatusMark kind="success\|warning\|selected" />`。成功・警告・選択中を色だけで伝えないための記号（`aria-hidden`）。隣の本文に意味を持たせる                                                                                                  |
+| `src/test-utils/a11y.ts`       | `expectAccessibleControls(container)`: 操作要素が空でないアクセシブルネームを持つこと                                                                                                                                                          |
+| `src/test-utils/tapTargets.ts` | Story の play で `const restore = setPlatform("android"); try { await expectTapTargets(canvasElement, 44); await expectAdjacentGap(canvasElement, 8); } finally { restore(); }`                                                                |
+| `src/test-utils/storyTheme.ts` | Story で `installThemeTokens()`（`--mcx-*` を有効化）。固定高さのバーなどの高さを実測する play では `const restore = installAppReset();`（border-box リセット）を `try / finally` で使う                                                       |
+
+Storybook の落とし穴（`index.css` を読まない、`:focus-visible` の Story 検査の限界、マウスクリックでリングが出ないことの検証には `vitest/browser` の実クリックが必要、など）は `docs/development/ui-design-principles-notes.md` の「Storybook の落とし穴」を参照。
+
 ## 契約テスト
 
-`src/lib/uiDesign.contract.test.ts` が、全 `*.module.scss` と `index.css` に対して以下を検証する（段階 1 で作成。未移行ファイルは `PENDING_MODULES` で一時的に除外し、最終段階でリストごと削除する）。
+`src/lib/uiDesign.contract.test.ts` が、全 `*.module.scss`（`listModuleScssFiles()`）と `_tokens.scss` / `_mixins.scss` / `index.css` に対して以下を検証する。ルール関数は `src/test-utils/uiDesignRules.ts`。**未移行ファイルの除外リストは無い**ので、新しい `*.module.scss` は自動的に対象になる。
 
-1. 共通トークン（`$space-*` `$radius-*`）が 0.25rem の倍数
-2. 寸法宣言の rem 値が 0.25rem の倍数（px は 1px 以下のみ）
-3. `font-size` が 0.75rem 以上
-4. `transition` / `animation` の時間が 150〜250ms（`infinite` は除外）
-5. `index.css` に `prefers-reduced-motion: reduce` の上書きがある
-6. `cursor: pointer` のブロックに `:hover` / `:active` / `:focus-visible`（または `focus-ring`）がある。input / select / textarea のベースのブロックにも `:focus-visible` が必要（`:focus` だけは不可）
-7. `outline: none` を単独で使っていない
-8. input / select / textarea と枠線付き押下要素の枠色が `--mcx-border-strong` 系
-9. Android タップ領域（`android-tap-target` または 2.75rem 以上）。`input[type=checkbox]` / `input[type=radio]` は対象外（親 label の `cursor: pointer` ブロックで担保）。除外は `ANDROID_TAP_EXEMPT`
-10. Android 用上書きが `[data-platform="android"]` 配下のみ
-11. `PENDING_MODULES` が空（最終段階で追加）
+1. 共通トークン（`$space-*` `$radius-*`）が 0.25rem の倍数（`checkTokenGrid`）
+2. 寸法宣言の rem 値が 0.25rem の倍数（px は 1px 以下のみ）（`checkGrid`。例外 `GRID_EXEMPT`）
+3. `font-size` が 0.75rem 以上（`checkFontSize`）
+4. `transition` / `animation` の時間が 150〜250ms（`infinite` は除外）（`checkDuration`）
+5. `index.css` に `prefers-reduced-motion: reduce` の上書きがある（`checkReducedMotion`）
+6. `cursor: pointer` のブロックに `:hover` / `:active` / `:focus-visible`（または `focus-ring`）がある。input / select / textarea のベースのブロックにも `:focus-visible` が必要（`:focus` だけは不可）（`checkInteractiveStates`）
+7. `outline: none` を `:focus-visible` 以外で使っていない（`checkOutlineRemoval`）
+8. input / select / textarea と枠付き押下要素の枠色が `--mcx-border-strong` 系（`checkBorderColor`）
+9. Android タップ領域（`android-tap-target` または 2.75rem 以上）。`input[type=checkbox]` / `input[type=radio]` は対象外（親 label の `cursor: pointer` ブロックで担保）（`checkAndroidTapTarget`。例外 `ANDROID_TAP_EXEMPT`）
+10. Android 用ミキシンが `[data-platform="android"]` 配下にのみ宣言を持つ（`checkAndroidMixins`）
+11. 全モジュール SCSS に項目 2〜9 を例外ファイルの指定なしで適用（`checkModuleScss`）。`listModuleScssFiles()` の取りこぼしと、例外定数の陳腐化（実在しない・不要になったエントリ）も検知する
+
+### 例外の追加手順
+
+1. SCSS 側で直せないか先に検討する（丸め、`android-tap-target` の代わりに Android 配下の `min-height` 指定など）
+2. 固定バー高さ（bounds 連動）や desktop 専用のバー内要素のように、本当に直せないときだけ `src/test-utils/uiDesignRules.ts` の `GRID_EXEMPT`（ファイル・セレクタ・プロパティ・理由）または `ANDROID_TAP_EXEMPT`（ファイル・セレクタ・理由）にエントリを足す。理由は必須。SCSS にコメントで散在させない
+3. 例外が不要になったら（SCSS を直したら）エントリを削除する。陳腐化検知のテストが失敗して知らせる
+
+現在のエントリ: `GRID_EXEMPT` は `TopBar.module.scss` の `.row2` の `padding`（0.125rem を丸めると展開時の TopBar が bounds の 4rem を超える）のみ。`ANDROID_TAP_EXEMPT` は `ColumnHeader.module.scss` の `.actionBtn` / `.unreadBadge` と `TopBar.module.scss` の `.btn`（いずれも desktop 専用の固定高さバー内）。
 
 ## 関連
 
