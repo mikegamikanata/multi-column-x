@@ -7,6 +7,8 @@ pub mod media_codec;
 #[cfg(all(desktop, target_os = "linux"))]
 pub mod openh264_fetch;
 pub mod openh264_http_client;
+#[cfg(desktop)]
+pub mod relaunch;
 pub mod settings;
 pub mod settings_file;
 pub mod settings_store;
@@ -18,7 +20,7 @@ pub mod webview;
 use crate::ipc_constants::labels;
 
 /// ラベルが main ウィンドウのものかどうかを判定する（純粋関数）。
-fn is_main_label(label: &str) -> bool {
+pub(crate) fn is_main_label(label: &str) -> bool {
     label == labels::MAIN
 }
 

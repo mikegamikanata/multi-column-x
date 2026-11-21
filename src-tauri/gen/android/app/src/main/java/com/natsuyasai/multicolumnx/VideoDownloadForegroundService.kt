@@ -1,12 +1,8 @@
 package com.natsuyasai.multicolumnx
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -36,14 +32,16 @@ class VideoDownloadForegroundService : Service() {
 
   // フォアグラウンド昇格。通知チャンネルを作成してから startForeground する。
   private fun handleStart() {
-    createNotificationChannel()
+    // 前回の失敗の通知は、新しいダウンロードの進捗の通知に置き換える。
+    cancelVideoDownloadFailureNotification(this)
+    ensureVideoDownloadNotificationChannel(this)
     val notification =
       buildNotificationBuilder(contentText = getString(R.string.video_download_preparing))
         .setProgress(0, 0, true)
         .build()
     ServiceCompat.startForeground(
       this,
-      NOTIFICATION_ID,
+      VIDEO_DOWNLOAD_PROGRESS_NOTIFICATION_ID,
       notification,
       ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
     )
@@ -67,7 +65,7 @@ class VideoDownloadForegroundService : Service() {
     }
 
     // POST_NOTIFICATIONS が未許可の場合、notify は何もしない（クラッシュしない）標準挙動に任せる。
-    NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, builder.build())
+    NotificationManagerCompat.from(this).notify(VIDEO_DOWNLOAD_PROGRESS_NOTIFICATION_ID, builder.build())
   }
 
   // フォアグラウンド状態を解除して通知を消し、サービスを停止する。
@@ -76,49 +74,16 @@ class VideoDownloadForegroundService : Service() {
     stopSelf()
   }
 
-  // 通知タップ時、既存タスクを前面に戻すだけ（新規タスクは積まない）。
-  // MainActivity が singleTask のため、この Intent で新規画面遷移は発生しない。
-  private fun buildContentIntent(): PendingIntent {
-    val intent =
-      Intent(this, MainActivity::class.java).apply {
-        flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK
-      }
-    val flags =
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-      } else {
-        PendingIntent.FLAG_UPDATE_CURRENT
-      }
-    return PendingIntent.getActivity(this, 0, intent, flags)
-  }
-
   private fun buildNotificationBuilder(contentText: String): NotificationCompat.Builder =
     NotificationCompat
-      .Builder(this, CHANNEL_ID)
+      .Builder(this, VIDEO_DOWNLOAD_CHANNEL_ID)
       .setSmallIcon(android.R.drawable.stat_sys_download)
       .setContentTitle(getString(R.string.video_download_notification_title))
       .setContentText(contentText)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
-      .setContentIntent(buildContentIntent())
+      .setContentIntent(buildVideoDownloadContentIntent(this))
       .setPriority(NotificationCompat.PRIORITY_LOW)
-
-  // Android O 以降のみ通知チャンネル作成が必要。既存チャンネルがあれば再作成しない。
-  private fun createNotificationChannel() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-    val manager = getSystemService(NotificationManager::class.java)
-    if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-    val channel =
-      NotificationChannel(
-        CHANNEL_ID,
-        getString(R.string.video_download_channel_name),
-        NotificationManager.IMPORTANCE_LOW,
-      ).apply {
-        description = getString(R.string.video_download_channel_description)
-        setShowBadge(false)
-      }
-    manager.createNotificationChannel(channel)
-  }
 
   companion object {
     const val ACTION_START = "com.natsuyasai.multicolumnx.action.VIDEO_DOWNLOAD_START"
@@ -129,9 +94,6 @@ class VideoDownloadForegroundService : Service() {
     const val EXTRA_FILE_COUNT = "fileCount"
     const val EXTRA_CURRENT = "current"
     const val EXTRA_TOTAL = "total"
-
-    private const val CHANNEL_ID = "video_download"
-    private const val NOTIFICATION_ID = 1001
   }
 }
 

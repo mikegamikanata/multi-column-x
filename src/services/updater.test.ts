@@ -1,13 +1,12 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { IPC_COMMANDS } from "@/constants/ipc";
 import { fetchLatestRelease } from "../lib/githubRelease";
 import { createUpdater } from "./updater";
 
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: vi.fn() }));
-vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../lib/githubRelease", () => ({
@@ -35,19 +34,29 @@ describe("desktop updater", () => {
     expect(await u.check()).toBeNull();
   });
 
-  it("installはcheckで得た更新をdownloadAndInstallしrelaunchする", async () => {
+  it("更新のインストール後にアプリの再起動処理が呼ばれる", async () => {
     const dl = vi.fn().mockResolvedValue(undefined);
     vi.mocked(check).mockResolvedValue({
       version: "1.2.0",
       body: "",
       downloadAndInstall: dl,
     } as never);
-    vi.mocked(relaunch).mockResolvedValue(undefined as never);
     const u = createUpdater(false);
     await u.check();
-    await u.install();
+    const progress = vi.fn();
+    await u.install(progress);
     expect(dl).toHaveBeenCalledOnce();
-    expect(relaunch).toHaveBeenCalledOnce();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledWith(IPC_COMMANDS.RELAUNCH_APP);
+    // ダウンロードとインストールの完了後、restarting 通知の後に呼ばれる
+    const relaunchOrder = vi.mocked(invoke).mock.invocationCallOrder[0];
+    expect(dl.mock.invocationCallOrder[0]).toBeLessThan(relaunchOrder);
+    const restartingIdx = progress.mock.calls.findIndex(
+      (c) => c[0].phase === "restarting",
+    );
+    expect(progress.mock.invocationCallOrder[restartingIdx]).toBeLessThan(
+      relaunchOrder,
+    );
   });
 
   it("installはダウンロードイベントを進捗通知へ変換する", async () => {
@@ -63,7 +72,6 @@ describe("desktop updater", () => {
       body: "",
       downloadAndInstall: dl,
     } as never);
-    vi.mocked(relaunch).mockResolvedValue(undefined as never);
     const u = createUpdater(false);
     await u.check();
     const progress = vi.fn();
@@ -88,7 +96,6 @@ describe("desktop updater", () => {
       body: "",
       downloadAndInstall: dl,
     } as never);
-    vi.mocked(relaunch).mockResolvedValue(undefined as never);
     const u = createUpdater(false);
     await u.check();
     const progress = vi.fn();

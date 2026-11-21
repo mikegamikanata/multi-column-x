@@ -97,6 +97,10 @@ Tauri v2 は JS→Rust のケース変換を行わない。JS 側 camelCase フ�
 
 Linux ではカラムが独立 `WebviewWindow`（親クリップが効かない）ため、横スクロール時のはみ出し表示を `linux_column_layout`（`src-tauri/src/commands/webview/column.rs`）で制御する。正式仕様は **`docs/development/linux-column-spec.md`** に明記。実装ファイル・落とし穴・テスト方針の詳細は `docs/development/linux-webview-notes.md` を参照。**過去にインライン実装・テスト無しで複数回デグレードしている領域のため、変更する場合は必ず参照ノートのテスト方針に従うこと。**
 
+### アプリの再起動
+
+アプリの再起動は Rust コマンド `relaunch_app` 経由で行う。`@tauri-apps/plugin-process` の `relaunch()` は使わない（plugin は削除済み。AppImage では旧マウントの環境変数・fd を新プロセスが引き継ぐため）。詳細は `docs/development/linux-webview-notes.md`「AppImage の再起動」を参照。
+
 ### Tauri ウィンドウの close() と destroy()（常駐ウィンドウの破棄）
 
 `WebviewWindow::close()` は `prevent_close()` + `hide()` で閉じる操作を握っている常駐ウィンドウ（例: 常駐コンポーズ `compose-`）には効かない。`src-tauri/src/lib.rs` を変更する場合の詳細は `docs/development/compose-popup-topbar-notes.md` を参照。`prevent_close` を使う常駐ウィンドウを新設したら、メインウィンドウの `CloseRequested`（`lib.rs`）に明示 `destroy()` を必ず追加すること。

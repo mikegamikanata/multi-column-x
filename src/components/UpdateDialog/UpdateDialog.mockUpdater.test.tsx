@@ -4,7 +4,6 @@ import { useAppUpdater } from "@/hooks/useAppUpdater";
 import { UpdateDialog } from "./UpdateDialog";
 
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: vi.fn() }));
-vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 

@@ -70,6 +70,9 @@ export const IPC_COMMANDS = {
   CHECK_MEDIA_CODEC_SUPPORT: "check_media_codec_support",
   DOWNLOAD_AND_ENABLE_H264: "download_and_enable_h264",
 
+  // アプリ再起動（デスクトップ）
+  RELAUNCH_APP: "relaunch_app",
+
   // ブラウザ拡張機能（Windows のみ）
   LIST_EXTENSIONS: "list_extensions",
   DETECT_CHROME_EXTENSIONS: "detect_chrome_extensions",

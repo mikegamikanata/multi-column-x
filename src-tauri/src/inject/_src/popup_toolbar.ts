@@ -368,6 +368,14 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
   downloadStatus.style.cssText =
     "margin-left: 8px; white-space: nowrap; color: #f4212e;";
 
+  // 保存要求を届ける手段（Android のネイティブブリッジ / desktop の Tauri IPC）があるか。
+  function canRequestVideoDownload(): boolean {
+    return (
+      window.__mcxPopupBridge !== undefined ||
+      (window.__TAURI__?.core?.invoke ?? window.__TAURI__?.invoke) !== undefined
+    );
+  }
+
   /**
    * ダウンロードボタンの表示/非表示を、動画プレイヤーがDOM上に存在するかどうかで切り替える。
    * ポップアップで開かれるページは動画詳細ページとは限らないため、動画が無いページでは
@@ -381,7 +389,8 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
     // 到達しないが、テストのノイズ防止のためガードする。
     if (typeof document === "undefined") return;
     const hasVideo = extractVideoVariantsFromPlayer() !== null;
-    downloadButton.style.display = hasVideo ? "" : "none";
+    downloadButton.style.display =
+      hasVideo && canRequestVideoDownload() ? "" : "none";
   }
 
   const DOWNLOAD_FEEDBACK_CLEAR_DELAY_MS = 3000;
@@ -405,6 +414,17 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
       return;
     }
     const suggestedFileName = extractVideoIdFromPlayer() ?? "";
+    // Android のネイティブ WebView には Tauri IPC が無いため、カラムの長押しメニューと
+    // 同じ形（payload は JSON 文字列）でブリッジへ送り、同じ Rust の保存処理を使う。
+    // 進捗と結果は Android の通知に出るため、ボタンは無効化しない。
+    const androidBridge = window.__mcxPopupBridge;
+    if (androidBridge) {
+      postBridgeMessage(androidBridge, {
+        type: "downloadVideo",
+        payload: JSON.stringify({ variants, suggestedFileName }),
+      });
+      return;
+    }
     downloadButton.disabled = true;
     tauriInvoke(DOWNLOAD_VIDEO, { variants, suggestedFileName }, function () {
       downloadButton.disabled = false;

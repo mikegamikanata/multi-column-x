@@ -39,6 +39,7 @@ fn main() {
             "install_apk_update",
             "check_media_codec_support",
             "download_and_enable_h264",
+            "relaunch_app",
             "download_video",
             "list_extensions",
             "detect_chrome_extensions",

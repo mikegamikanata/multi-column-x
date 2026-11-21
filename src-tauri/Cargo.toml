@@ -64,6 +64,8 @@ gtk = { version = "=0.18.2" }
 # AppImage向け Cisco OpenH264 ランタイムダウンロード機能（SHA256検証・bzip2展開）で使用
 sha2 = "0.11"
 bzip2 = "0.6"
+# AppImage 再起動（relaunch_app）で子プロセスを切り離す setsid / 継承 fd の close / fcntl に使う
+libc = "0.2"
 
 # Windows: カラム WebView がフォーカスを得たことを検知するため、tauri-runtime-wry
 # と同一バージョンの webview2-com を直接参照する（型を一致させるためバージョンをピン留め）。
@@ -75,7 +77,6 @@ windows-core = "0.62"
 # 自動更新はデスクトップのみ。Android は APK 自己更新を別実装する。
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
 # 動画ダウンロードの保存先ダイアログはデスクトップのみ。Android は Kotlin 側 SAF で別実装する。
 tauri-plugin-dialog = "2"
 

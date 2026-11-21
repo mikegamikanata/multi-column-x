@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -10,7 +9,6 @@ import {
 import type { UpdateProgress } from "./updater";
 
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: vi.fn() }));
-vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 const instant = () => Promise.resolve();
@@ -63,7 +61,6 @@ describe("モックで更新を適用する", () => {
     const u = createMockUpdater("available", { sleep: instant });
     await u.check();
     await u.install(() => {});
-    expect(relaunch).not.toHaveBeenCalled();
     expect(check).not.toHaveBeenCalled();
     expect(invoke).not.toHaveBeenCalled();
   });

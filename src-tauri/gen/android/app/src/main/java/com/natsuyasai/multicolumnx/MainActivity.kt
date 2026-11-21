@@ -29,6 +29,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
@@ -54,16 +55,21 @@ class MainActivity : TauriActivity() {
   // UI スレッドからのみアクセスする。
   private var swipeBarOverlay: SwipeBarOverlayView? = null
 
-  // saveDownloadedVideo で起動した SAF 保存ダイアログの結果を受け取るまでの間、
-  // コピー元の一時ファイルパスと後処理（一時ファイル削除など）を保持する。
-  // UI スレッドからのみアクセスする。
-  private var pendingVideoSaveRequest: PendingVideoSaveRequest? = null
-
-  private data class PendingVideoSaveRequest(
-    val tempPath: String,
-    // 保存の成否に関わらず行う後処理（一時ファイル削除など）
-    val onDone: () -> Unit,
-  )
+  // saveDownloadedVideo の保存要求を要求順に 1 件ずつ SAF 保存ダイアログへ流すキュー。
+  // HLS の動画は映像と音声の要求が続けて届くため、1 件だけ保持すると後の要求が前を上書きしてしまう。
+  // UI スレッドからのみアクセスする。saveVideoLauncher はラムダ内で遅延参照する。
+  private val videoSaveQueue: VideoSaveQueue<Uri> =
+    VideoSaveQueue(
+      launch = { fileName -> saveVideoLauncher.launch(fileName) },
+      write = { uri, tempPath ->
+        val output =
+          contentResolver.openOutputStream(uri)
+            ?: throw IOException("failed to open output stream for $uri")
+        output.use { out -> File(tempPath).inputStream().use { input -> input.copyTo(out) } }
+      },
+      delete = { tempPath -> File(tempPath).delete() },
+      onError = { message, e -> Log.e(TAG, "saveDownloadedVideo: $message: ${e.message}") },
+    )
 
   // SAF（Storage Access Framework）の「名前を付けて保存」ダイアログ。
   // ダウンロードした動画/音声の一時ファイルをユーザーが選んだ場所へコピーする。
@@ -71,21 +77,8 @@ class MainActivity : TauriActivity() {
   // プロパティ初期化子で登録する。
   private val saveVideoLauncher: ActivityResultLauncher<String> =
     registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
-      val request = pendingVideoSaveRequest
-      pendingVideoSaveRequest = null
-      if (request == null) return@registerForActivityResult
-      try {
-        // uri == null はユーザーがキャンセルした場合。エラー扱いにしない。
-        if (uri != null) {
-          contentResolver.openOutputStream(uri)?.use { output ->
-            File(request.tempPath).inputStream().use { input -> input.copyTo(output) }
-          } ?: Log.e(TAG, "saveDownloadedVideo: failed to open output stream for $uri")
-        }
-      } catch (e: Exception) {
-        Log.e(TAG, "saveDownloadedVideo: failed to copy to $uri: ${e.message}")
-      } finally {
-        request.onDone()
-      }
+      // uri == null はユーザーがキャンセルした場合。エラー扱いにしない。
+      videoSaveQueue.onResult(uri)
     }
 
   // <input type="file"> のファイル選択結果を受け取るまでコールバックを保持する。
@@ -358,11 +351,7 @@ class MainActivity : TauriActivity() {
         Log.e(TAG, "saveDownloadedVideo: temp file not found: $tempPath")
         return@runOnUiThread
       }
-      pendingVideoSaveRequest =
-        PendingVideoSaveRequest(tempPath) {
-          File(tempPath).delete()
-        }
-      saveVideoLauncher.launch(suggestedFileName)
+      videoSaveQueue.enqueue(VideoSaveQueue.Request(tempPath, suggestedFileName))
     }
   }
 
@@ -450,6 +439,12 @@ class MainActivity : TauriActivity() {
     startService(intent)
   }
 
+  // 動画ダウンロードの失敗を通知する。Rust 側で失敗したとき、notifyVideoDownloadFinished の前に呼ぶ。
+  // JNI スレッドから呼ばれる（NotificationManagerCompat.notify はスレッドを問わない）。
+  fun notifyVideoDownloadFailed() {
+    showVideoDownloadFailureNotification(this)
+  }
+
   // ポップアップ WebView を全画面オーバーレイとして追加する。
   // カラム WebView の上に重なり、戻るボタンで閉じられる。
   // JNI スレッドから呼ばれるため runOnUiThread + CountDownLatch で UI 操作を同期する。
@@ -481,6 +476,7 @@ class MainActivity : TauriActivity() {
                   AppBridge.onOfficialSettingsReport(accountId, snapshot)
                 },
                 { popupId -> removePopupWebView(popupId) },
+                { payloadJson -> AppBridge.onVideoDownloadRequest(payloadJson) },
               )
             WebViewCompat.addWebMessageListener(
               wv,
