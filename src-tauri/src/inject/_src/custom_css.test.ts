@@ -124,6 +124,20 @@ describe("inject/custom_css", () => {
       expect(styles[0].textContent).toBe("body { color: red; }");
     });
 
+    it("DOMContentLoadedが発火しなくても、headが生成された時点で要求したCSSが適用される", async () => {
+      detachHead();
+
+      apply("body { color: red; }");
+
+      document.documentElement.insertBefore(detachedHead, document.body);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const styles = document.querySelectorAll(`#${CSS.escape(STYLE_ID)}`);
+      expect(styles).toHaveLength(1);
+      expect(styles[0].textContent).toBe("body { color: red; }");
+    });
+
     it("headが無い間に複数回CSS適用を要求したとき、ページ準備完了後は最後に要求したCSSだけが適用される", async () => {
       detachHead();
 
