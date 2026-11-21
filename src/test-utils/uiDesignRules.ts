@@ -21,7 +21,21 @@ export interface AndroidTapExemption {
 }
 
 export const GRID_EXEMPT: GridExemption[] = [];
-export const ANDROID_TAP_EXEMPT: AndroidTapExemption[] = [];
+const DESKTOP_ONLY_BAR =
+  "Desktop-only control inside a fixed-height bar; never rendered on Android";
+
+export const ANDROID_TAP_EXEMPT: AndroidTapExemption[] = [
+  {
+    file: "src/components/ColumnHeader/ColumnHeader.module.scss",
+    selector: ".actionBtn",
+    reason: DESKTOP_ONLY_BAR,
+  },
+  {
+    file: "src/components/ColumnHeader/ColumnHeader.module.scss",
+    selector: ".unreadBadge",
+    reason: DESKTOP_ONLY_BAR,
+  },
+];
 
 const QUARTER_REM = 0.25;
 

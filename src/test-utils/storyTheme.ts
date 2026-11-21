@@ -22,3 +22,16 @@ export function installThemeTokens(): void {
   style.textContent = extractTokenBlocks(indexCss);
   document.head.appendChild(style);
 }
+
+/**
+ * index.css 先頭の `*` リセット（box-sizing: border-box / margin・padding: 0）を一時的に有効にし、
+ * 元に戻す関数を返す。固定高さのバー（TopBar / ColumnHeader / MobileTabBar）は border-box 前提の
+ * 高さなので、高さに収まるかを実測する play 内で使う。他の Story に残さないよう try / finally で戻すこと。
+ */
+export function installAppReset(): () => void {
+  const reset = /\*,\s*\*::before,\s*\*::after\s*\{[^}]*\}/.exec(indexCss);
+  const style = document.createElement("style");
+  style.textContent = reset?.[0] ?? "";
+  document.head.appendChild(style);
+  return () => style.remove();
+}
