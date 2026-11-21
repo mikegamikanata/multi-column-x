@@ -1,9 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IPC_COMMANDS } from "@/constants/ipc";
 import { isAppError, type AppErrorInfo } from "@/lib/appError";
 import { logError } from "@/lib/log";
+import { requestAppRelaunch } from "@/services/relaunch";
 import { useAppStore } from "@/store/useAppStore";
 
 export type H264DownloadState = "idle" | "downloading" | "success" | "error";
@@ -110,7 +110,9 @@ export function useH264Setup(ready: boolean) {
 
   const close = useCallback(() => setClosed(true), []);
 
-  const relaunchApp = useCallback(() => relaunch(), []);
+  const relaunchApp = useCallback(() => {
+    requestAppRelaunch().catch(logError("useH264Setup:relaunch"));
+  }, []);
 
   const isDialogOpen =
     !closed &&

@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IPC_COMMANDS } from "@/constants/ipc";
@@ -8,13 +7,17 @@ import { DEFAULT_GLOBAL_SETTINGS } from "@/types";
 import { shouldShowH264Prompt, useH264Setup } from "./useH264Setup";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
 vi.mock("@tauri-apps/plugin-log", () => ({
   error: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockInvoke = vi.mocked(invoke);
-const mockRelaunch = vi.mocked(relaunch);
+
+function relaunchCalls() {
+  return mockInvoke.mock.calls.filter(
+    ([cmd]) => cmd === IPC_COMMANDS.RELAUNCH_APP,
+  );
+}
 
 interface Status {
   h264Available: boolean;
@@ -100,7 +103,6 @@ describe("shouldShowH264Prompt", () => {
 describe("useH264Setup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRelaunch.mockResolvedValue(undefined);
     setDismissed(false);
   });
 
@@ -285,10 +287,10 @@ describe("useH264Setup", () => {
       expect(result.current.downloadState).toBe("success");
       expect(result.current.downloadError).toBeNull();
       expect(result.current.isDialogOpen).toBe(true);
-      expect(mockRelaunch).not.toHaveBeenCalled();
+      expect(relaunchCalls()).toHaveLength(0);
     });
 
-    it("今すぐ再起動を押すとアプリの再起動が要求される", async () => {
+    it("OpenH264の有効化後に今すぐ再起動を押すとアプリの再起動処理が呼ばれる", async () => {
       setupInvoke({});
       const { result } = renderHook(() => useH264Setup(true));
       await waitFor(() => expect(result.current.isDialogOpen).toBe(true));
@@ -300,7 +302,19 @@ describe("useH264Setup", () => {
         await result.current.relaunchApp();
       });
 
-      expect(mockRelaunch).toHaveBeenCalledTimes(1);
+      expect(relaunchCalls()).toHaveLength(1);
+    });
+
+    it("再起動処理が失敗しても今すぐ再起動の呼び出しは例外を投げない", async () => {
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === IPC_COMMANDS.RELAUNCH_APP)
+          return Promise.reject(new Error("再起動できません"));
+        return Promise.resolve(undefined);
+      });
+      const { result } = renderHook(() => useH264Setup(false));
+
+      expect(() => result.current.relaunchApp()).not.toThrow();
+      await waitFor(() => expect(relaunchCalls()).toHaveLength(1));
     });
 
     it("ダウンロードに失敗するとエラー内容が表示される", async () => {
@@ -441,7 +455,7 @@ describe("useH264Setup", () => {
       expect(result.current.downloadState).toBe("success");
       expect(result.current.h264Available).toBe(true);
       expect(result.current.isDialogOpen).toBe(false);
-      expect(mockRelaunch).not.toHaveBeenCalled();
+      expect(relaunchCalls()).toHaveLength(0);
     });
 
     it("設定画面からの有効化中も取得の操作は重ねて実行できない", async () => {
