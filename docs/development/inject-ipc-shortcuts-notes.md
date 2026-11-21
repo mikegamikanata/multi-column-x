@@ -259,7 +259,7 @@ X の XHR ラッパーは `timeout` の既定が 0（無制限）で固定のタ
   - 動画タップ後、パスは `/<user>/status/<id>/mediaviewer`（小文字）になり、約 100ms 後に `/mediaViewer`（V が大文字）へ書き換わる。大文字小文字を区別する判定だと書き換え後を拡大表示と認識できない。
   - `button[data-testid="playButton"]` は無い。`video` は 2 個（`[data-testid="videoComponent"]` 内、blob: ソース）で、1 つ目が現在のポストの動画（画面内）、2 つ目が次のポストの動画（画面のすぐ外）。X 自身が `play()` を何度も呼ぶ。
   - `video_control` も同じ正規表現でパスを判定しており、大文字パスを拡大表示と認識できず「最初の 1 回だけ通して直後に pause、以降の `play()` は握りつぶす」で X の再生を止めていた。これが再生されない主因だった。`isMediaViewerPath` を `i` フラグ付きにして解消した。
-  - 修正後の再生確認は Android 実機での手動テスト（`integration-test.md`）で行う。
+  - 修正後の再生確認は Android 実機での手動テストで行う。
 
 ## 広告の非表示（`hide_ad.ts` / `hide_ad_matcher.ts`）
 

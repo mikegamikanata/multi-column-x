@@ -1,6 +1,6 @@
 # バックアップ／リストア ノート
 
-設定のバックアップ作成・読み込み・アカウント紐づけ・復元（Issue #206）に関する設計判断・不採用案・落とし穴を記録する。対象は Windows / macOS / Linux / Android。手動テスト項目は [backup-restore/integration-test.md](backup-restore/integration-test.md)。
+設定のバックアップ作成・読み込み・アカウント紐づけ・復元（Issue #206）に関する設計判断・不採用案・落とし穴を記録する。対象は Windows / macOS / Linux / Android。
 
 ## 対象ファイル
 
