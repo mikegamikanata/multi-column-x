@@ -26,7 +26,8 @@
     "awaitingInstall": "Downloading. The installer will appear when it finishes.",
     "later": "Later",
     "install": "Update",
-    "installingButton": "Updating..."
+    "installingButton": "Updating...",
+    "errorPrefix": "Error:"
   },
   "h264": {
     "title": "Additional component for video playback",
