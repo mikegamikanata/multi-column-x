@@ -294,7 +294,7 @@ describe("listModuleScssFiles", () => {
 });
 
 describe("readScss と実ファイルのパース", () => {
-  it("ConfirmDialog.module.scss の .dialog の padding が 1.5rem と取れる", () => {
+  it("ConfirmDialog.module.scss の .dialog の width が min(22.5rem, 100%) と取れる", () => {
     const path = "src/components/ConfirmDialog/ConfirmDialog.module.scss";
 
     const blocks = parseScss(readScss(path), path);
@@ -303,8 +303,8 @@ describe("readScss と実ファイルのパース", () => {
     expect(dialog).toBeDefined();
     expect(dialog!.file).toBe(path);
     expect(dialog!.declarations).toContainEqual({
-      prop: "padding",
-      value: "1.5rem",
+      prop: "width",
+      value: "min(22.5rem, 100%)",
     });
   });
 });
