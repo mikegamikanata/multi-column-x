@@ -36,7 +36,6 @@ const PENDING_MODULES: string[] = [
   "src/components/MobileTabBar/MobileTabBar.module.scss",
   "src/components/SettingsPanel/SettingsPanel.module.scss",
   "src/components/TopBar/TopBar.module.scss",
-  "src/components/WhatsNewDialog/WhatsNewDialog.module.scss",
 ];
 
 const migratedFiles = listModuleScssFiles().filter(
