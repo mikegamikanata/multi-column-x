@@ -218,7 +218,7 @@ Object.assign(window.MCX_DATA.flows, {
         label: "saveDownloadedVideo(tempPath, fileName, mime)",
         kind: "call",
         detail:
-          "<p>ダウンロード済みの一時ファイルを渡す。Kotlin は <code>pendingVideoSaveRequest</code> に保持して SAF の <code>CreateDocument</code> を起動し、ユーザーが選んだ場所へコピーする。キャンセルはエラーにしない。コピー後（成否問わず）一時ファイルを削除する。</p>",
+          "<p>ダウンロード済みの一時ファイルを渡す。Kotlin は要求を <code>VideoSaveQueue</code> に積み、表示中の保存が終わってから次の SAF <code>CreateDocument</code> を起動して、ユーザーが選んだ場所へコピーする（HLS は映像・音声の要求が続けて届くため、要求順に 1 件ずつ処理する）。キャンセルはエラーにしない。コピー後（成否問わず）一時ファイルを削除する。</p>",
       },
       {
         from: "kt",
