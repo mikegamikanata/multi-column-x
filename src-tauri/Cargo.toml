@@ -12,6 +12,12 @@ edition = "2021"
 name = "multi_column_x_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = []
+# Android アプリ更新の動作試験用。有効時のみ APK URL としてローカル配信サーバー（8787）を許可する。
+# 配布ビルドでは有効にしないこと。
+updater-test = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
