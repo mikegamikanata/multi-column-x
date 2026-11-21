@@ -296,6 +296,9 @@ mod tests {
 
     mod build_client_withのテスト {
         use super::*;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+        use tokio::time::sleep;
 
         #[test]
         fn 動画ダウンロード用の通信クライアントを作成できる() {
@@ -307,10 +310,6 @@ mod tests {
             assert!(build_client().is_ok());
             assert!(build_client().is_ok());
         }
-
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
-        use tokio::net::TcpListener;
-        use tokio::time::sleep;
 
         async fn write_chunk(socket: &mut tokio::net::TcpStream) {
             let chunk = b"AAAAA";
