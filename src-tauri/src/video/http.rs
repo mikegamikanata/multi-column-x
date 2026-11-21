@@ -27,7 +27,7 @@ const READ_TIMEOUT: Duration = Duration::from_secs(30);
 pub type ProgressCallback<'a> = dyn FnMut(u64, Option<u64>) + Send + 'a;
 
 /// 動画ダウンロード用の共通 `reqwest::Client` を構築する。
-/// rustls-tls を使用し、接続タイムアウトと無通信タイムアウト（`read_timeout`）を設定する。
+/// TLS 設定は `http_tls::configure_tls` に従い、接続タイムアウトと無通信タイムアウト（`read_timeout`）を設定する。
 /// リクエスト全体の総時間には上限を設けない（大きな動画のダウンロードが打ち切られないようにするため）。
 pub fn build_client() -> Result<reqwest::Client, String> {
     build_client_with(READ_TIMEOUT, CONNECT_TIMEOUT)
@@ -40,7 +40,7 @@ fn build_client_with(
     read_timeout: Duration,
     connect_timeout: Duration,
 ) -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
+    crate::http_tls::configure_tls(reqwest::Client::builder())
         .read_timeout(read_timeout)
         .connect_timeout(connect_timeout)
         .build()
@@ -299,6 +299,17 @@ mod tests {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;
         use tokio::time::sleep;
+
+        #[test]
+        fn 動画ダウンロード用の通信クライアントを作成できる() {
+            assert!(build_client().is_ok());
+        }
+
+        #[test]
+        fn 通信クライアントを2回続けて作成しても失敗しない() {
+            assert!(build_client().is_ok());
+            assert!(build_client().is_ok());
+        }
 
         async fn write_chunk(socket: &mut tokio::net::TcpStream) {
             let chunk = b"AAAAA";

@@ -21,7 +21,7 @@ pub(crate) fn build_client_with(
     read: Duration,
     connect: Duration,
 ) -> Result<reqwest::Client, AppError> {
-    reqwest::Client::builder()
+    crate::http_tls::configure_tls(reqwest::Client::builder())
         .read_timeout(read)
         .connect_timeout(connect)
         .build()
@@ -42,6 +42,11 @@ pub(crate) fn map_reqwest_error(e: reqwest::Error) -> AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn openh264取得用の通信クライアントを作成できる() {
+        assert!(build_client_with(Duration::from_secs(5), Duration::from_secs(5)).is_ok());
+    }
 
     #[tokio::test]
     async fn 応答が無いサーバーへの接続は読み取りタイムアウトでエラーになる() {

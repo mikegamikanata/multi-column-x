@@ -1005,6 +1005,15 @@ Object.assign(window.MCX_DATA.details, {
     body: "<p><code>contracts/ipc-constants.json</code> と TS 側の対応定数を契約テストで照合する。定数の追加時は Rust / TS / fixture の 3 点を更新。</p>",
     files: ["src-tauri/src/ipc_constants.rs", "contracts/ipc-constants.json"],
   },
+  "rust.http_tls": {
+    title: "http_tls.rs（reqwest の TLS 設定）",
+    layer: "rust",
+    summary:
+      "reqwest クライアント共通の暗号プロバイダ（ring）と証明書検証の設定。",
+    body: "<p>reqwest は <code>rustls-no-provider</code> で使うため、プロバイダ未設定だと <code>build()</code> が panic する。クライアントを新設するときは必ず <code>configure_tls</code> を通す。desktop は OS の証明書ストアで検証し、Android は同梱ルート証明書（webpki-root-certs）だけを <code>tls_certs_only</code> で信頼する（<code>tls_certs_merge</code> は Android でビルドエラー）。aws-lc-rs は入れない。</p>",
+    files: ["src-tauri/src/http_tls.rs"],
+    docs: ["../development/android-notes.md"],
+  },
   "rust.acl": {
     title: "ACL（build.rs / capabilities / acl_contract.rs）",
     layer: "rust",
