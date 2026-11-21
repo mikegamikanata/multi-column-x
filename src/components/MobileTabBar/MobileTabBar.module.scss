@@ -85,7 +85,11 @@
   user-select: none;
   -webkit-touch-callout: none;
   @include m.transition-base(color, background-color);
-  @include m.android-tap-target;
+
+  // min-width（6.25rem）を 2.75rem で上書きしないよう、android-tap-target は使わず高さだけ指定する
+  :global([data-platform="android"]) & {
+    min-height: t.$tap-target-min;
+  }
 
   &:hover {
     color: var(--mcx-text);

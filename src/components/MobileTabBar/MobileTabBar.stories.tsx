@@ -324,6 +324,14 @@ async function expectBarTapTargetsFit(canvasElement: HTMLElement) {
     await expect(rect.top).toBeGreaterThanOrEqual(barRect.top - 0.5);
     await expect(rect.bottom).toBeLessThanOrEqual(barRect.bottom + 0.5);
   }
+  // タブ 1 つ分の最小幅（6.25rem）は Android でも縮まない
+  const tabs = canvasElement.querySelectorAll('[role="button"]');
+  await expect(tabs.length).toBeGreaterThan(0);
+  for (const tab of Array.from(tabs)) {
+    await expect(tab.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      rootFontPx * 6.25 - 0.5,
+    );
+  }
   await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
     document.documentElement.clientWidth,
   );
