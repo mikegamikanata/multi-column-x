@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "updater",
-  "description": "Capability for desktop auto-update (updater/process)",
+  "description": "Capability for desktop auto-update (updater)",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main"],
-  "permissions": ["updater:default", "process:allow-restart"]
+  "permissions": ["updater:default"]
 }
