@@ -1550,6 +1550,52 @@ describe("AppSettingsPanel 一般タブのグループ構成", () => {
     ]);
   });
 
+  it("表示言語が日本語のとき表示グループ内の欄の見出しがテーマと表示サイズになる", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(
+      within(グループ要素("表示")).getByRole("heading", { level: 3 })
+        .textContent,
+    ).toBe("テーマと表示サイズ");
+  });
+
+  it("表示言語が英語のとき表示グループ内の欄の見出しがTheme & sizeになる", async () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    await act(() => i18n.changeLanguage("en"));
+    try {
+      expect(
+        within(グループ要素("Display")).getByRole("heading", { level: 3 })
+          .textContent,
+      ).toBe("Theme & size");
+    } finally {
+      await act(() => i18n.changeLanguage("ja"));
+    }
+  });
+
+  it.each([
+    ["ja", "表示"],
+    ["en", "Display"],
+  ])(
+    "表示言語が%sのときグループ見出しと表示欄の見出しが異なる文言になる",
+    async (lng, groupTitle) => {
+      render(<AppSettingsPanel {...defaultProps} />);
+      await act(() => i18n.changeLanguage(lng));
+      try {
+        const group = グループ要素(groupTitle);
+        const h2 = screen.getByRole("heading", {
+          level: 2,
+          name: groupTitle,
+        });
+        const h3 = within(group).getByRole("heading", { level: 3 });
+        expect(h3.textContent).not.toBe(h2.textContent);
+        expect(i18n.t("settings:display.title", { lng })).not.toBe(
+          i18n.t("settings:panel.groups.display", { lng }),
+        );
+      } finally {
+        await act(() => i18n.changeLanguage("ja"));
+      }
+    },
+  );
+
   it("閲覧・フィルタグループにNGワード・リポスト非表示ユーザー・広告・API残量モニターが含まれる", () => {
     render(<AppSettingsPanel {...defaultProps} />);
     const group = グループ要素("閲覧・フィルタ");
