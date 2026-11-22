@@ -437,6 +437,7 @@ const linuxH264Base = {
   h264Available: false,
   downloadState: "idle" as const,
   downloadError: null,
+  relaunchError: null,
   onEnable: fn(),
   onRelaunch: fn(),
 };
@@ -531,6 +532,35 @@ export const LinuxH264Success: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "今すぐ再起動" }));
+    await expect(args.h264Setup?.onRelaunch).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const LinuxH264RelaunchFailed: Story = {
+  name: "Linux AppImage・H.264再起動失敗（エラー表示）",
+  args: {
+    isLinux: true,
+    startupHardwareVideoDecodeEnabled: true,
+    h264Setup: {
+      ...linuxH264Base,
+      h264Available: true,
+      downloadState: "success",
+      relaunchError: {
+        code: "relaunch.appImageMissing",
+        detail: "/opt/app.AppImage",
+      },
+      onRelaunch: fn(),
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "AppImage が見つからない",
+    );
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "/opt/app.AppImage",
+    );
     await userEvent.click(canvas.getByRole("button", { name: "今すぐ再起動" }));
     await expect(args.h264Setup?.onRelaunch).toHaveBeenCalledTimes(1);
   },

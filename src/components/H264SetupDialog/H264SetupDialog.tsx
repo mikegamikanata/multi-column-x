@@ -4,6 +4,7 @@ import { useEscapeKey } from "@/hooks/useEscapeKey";
 import type {
   H264DownloadError,
   H264DownloadState,
+  H264RelaunchError,
 } from "@/hooks/useH264Setup";
 import { useRestoreFocus } from "@/hooks/useRestoreFocus";
 import { describeAppError } from "@/lib/appError";
@@ -12,6 +13,8 @@ import styles from "./H264SetupDialog.module.scss";
 interface Props {
   downloadState: H264DownloadState;
   downloadError: H264DownloadError | null;
+  /** 「今すぐ再起動」の失敗内容（無ければ null） */
+  relaunchError: H264RelaunchError | null;
   onDownload: () => void;
   /** 「今はしない」: 案内の拒否を保存して閉じる */
   onDismiss: () => void;
@@ -23,6 +26,7 @@ interface Props {
 export const H264SetupDialog: React.FC<Props> = ({
   downloadState,
   downloadError,
+  relaunchError,
   onDownload,
   onDismiss,
   onClose,
@@ -101,6 +105,17 @@ export const H264SetupDialog: React.FC<Props> = ({
               <span aria-hidden="true">✓</span>
               <span>{t("dialogs:h264.success")}</span>
             </p>
+            {relaunchError && (
+              <p className={styles.error} role="alert">
+                <span aria-hidden="true">⚠</span>
+                <strong className={styles.errorPrefix}>
+                  {t("dialogs:h264.errorPrefix")}
+                </strong>
+                <span className={styles.errorMessage}>
+                  {describeAppError(relaunchError, t)}
+                </span>
+              </p>
+            )}
             <div className={styles.actions}>
               <button
                 type="button"

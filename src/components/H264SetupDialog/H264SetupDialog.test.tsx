@@ -4,6 +4,7 @@ import { H264SetupDialog } from "@/components/H264SetupDialog/H264SetupDialog";
 import type {
   H264DownloadError,
   H264DownloadState,
+  H264RelaunchError,
 } from "@/hooks/useH264Setup";
 import i18n from "@/i18n";
 import { expectAccessibleControls } from "@/test-utils/a11y";
@@ -11,7 +12,10 @@ import { expectNoJapanese } from "@/test-utils/japanese";
 
 function renderDialog(
   downloadState: H264DownloadState,
-  overrides: { downloadError?: H264DownloadError | null } = {},
+  overrides: {
+    downloadError?: H264DownloadError | null;
+    relaunchError?: H264RelaunchError | null;
+  } = {},
 ) {
   const handlers = {
     onDownload: vi.fn(),
@@ -23,6 +27,7 @@ function renderDialog(
     <H264SetupDialog
       downloadState={downloadState}
       downloadError={overrides.downloadError ?? null}
+      relaunchError={overrides.relaunchError ?? null}
       {...handlers}
     />,
   );
@@ -128,6 +133,30 @@ describe("H264SetupDialog", () => {
     });
   });
 
+  describe("再起動の失敗", () => {
+    const relaunchError = {
+      code: "relaunch.appImageMissing",
+      detail: "/opt/app.AppImage",
+    };
+
+    it("H.264ダイアログで再起動に失敗すると再起動ボタンの近くにエラーが表示される", () => {
+      const h = renderDialog("success", { relaunchError });
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent("AppImage が見つからない");
+      expect(alert).toHaveTextContent("/opt/app.AppImage");
+      expect(screen.getByRole("button", { name: "後で" })).toBeEnabled();
+      const relaunch = screen.getByRole("button", { name: "今すぐ再起動" });
+      expect(relaunch).toBeEnabled();
+      fireEvent.click(relaunch);
+      expect(h.onRelaunch).toHaveBeenCalledTimes(1);
+    });
+
+    it("再起動に失敗していないときはエラーが表示されない", () => {
+      renderDialog("success", { relaunchError: null });
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
   describe("失敗", () => {
     it("失敗すると失敗した理由と再試行ボタンが表示される", () => {
       renderDialog("error", { downloadError: "ネットワークに接続できません" });
@@ -173,6 +202,7 @@ describe("H264SetupDialog", () => {
           <H264SetupDialog
             downloadState={state}
             downloadError={null}
+            relaunchError={null}
             onDownload={vi.fn()}
             onDismiss={vi.fn()}
             onClose={vi.fn()}
@@ -192,6 +222,7 @@ describe("H264SetupDialog", () => {
         <H264SetupDialog
           downloadState="idle"
           downloadError={null}
+          relaunchError={null}
           onDownload={vi.fn()}
           onDismiss={vi.fn()}
           onClose={vi.fn()}
@@ -239,6 +270,7 @@ describe("H264SetupDialog", () => {
           <H264SetupDialog
             downloadState={state}
             downloadError={null}
+            relaunchError={null}
             onDownload={vi.fn()}
             onDismiss={vi.fn()}
             onClose={vi.fn()}
@@ -259,6 +291,7 @@ describe("H264SetupDialog", () => {
         <H264SetupDialog
           downloadState="idle"
           downloadError={null}
+          relaunchError={null}
           onDownload={vi.fn()}
           onDismiss={vi.fn()}
           onClose={vi.fn()}
@@ -276,6 +309,7 @@ describe("H264SetupDialog", () => {
         <H264SetupDialog
           downloadState="success"
           downloadError={null}
+          relaunchError={null}
           onDownload={vi.fn()}
           onDismiss={vi.fn()}
           onClose={vi.fn()}
@@ -290,6 +324,7 @@ describe("H264SetupDialog", () => {
         <H264SetupDialog
           downloadState="error"
           downloadError={null}
+          relaunchError={null}
           onDownload={vi.fn()}
           onDismiss={vi.fn()}
           onClose={vi.fn()}
@@ -306,6 +341,7 @@ describe("H264SetupDialog", () => {
         <H264SetupDialog
           downloadState="error"
           downloadError={{ code: "h264.unsupportedArch", detail: "aarch64" }}
+          relaunchError={null}
           onDownload={vi.fn()}
           onDismiss={vi.fn()}
           onClose={vi.fn()}
@@ -332,6 +368,7 @@ describe("H264SetupDialog", () => {
         <H264SetupDialog
           downloadState="error"
           downloadError={{ code: "h264.downloadTimeout", detail: "timed out" }}
+          relaunchError={null}
           onDownload={vi.fn()}
           onDismiss={vi.fn()}
           onClose={vi.fn()}
