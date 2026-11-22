@@ -22,6 +22,9 @@ PowerShell は `powershell -NoProfile -File <script> ...` で実行する（Git 
 | `win-appdata.ps1`   | `backup -Dir` / `diff -Dir [-IgnoreWindowBounds]`（settings.json を `json-diff.cjs` で意味比較し、差分のキーのパスを表示）/ `restore-settings -Dir` / `restore-all -Dir`（破壊的）。アプリ終了後に復元する |
 | `json-diff.cjs`     | 2 つの JSON を意味比較（キー順・数値表記は無視）。`node json-diff.cjs a.json b.json [--ignore=windowBounds]`                                                                                               |
 | `win-closewait.ps1` | `-ProcId <pid> [-TimeoutSec 30]`。主窓に WM_CLOSE → プロセス消滅を待ち、経過時間と残存有無を出す（強制終了はしない。残れば終了コード 1）                                                                   |
+| `col-add-ext.cjs`   | `node col-add-ext.cjs <https://URL> mcxtest-<名前>`。外部サイトカラムをテスト用に追加（追加ダイアログを CDP で操作）。ラベルが `mcxtest-` で始まらなければ拒否                                             |
+| `col-close.cjs`     | `node col-close.cjs mcxtest-<名前>`。ラベル指定でカラムの閉じるボタン → 確認ダイアログの「削除する」を確定。`mcxtest-` が無いラベル・一致が 1 つでない場合は拒否。**テスト用に追加したカラムだけに使う**   |
+| `settings-edit.cjs` | `get / set / push / remove <キーパス> ['<JSON値>']`。アプリ終了中に `settings.json` を編集（例: `pendingDataDirectoryDeletions` への追記・削除）。アプリ起動中は拒否                                       |
 | `open.cjs`          | 実クリックの代わりに invoke でウィンドウを開く。`node open.cjs media link compose --account=<dir名> --id=<accountId>`                                                                                      |
 
 ### CDP の使い方
@@ -37,6 +40,7 @@ PowerShell は `powershell -NoProfile -File <script> ...` で実行する（Git 
   console.log(await p.evaluate(() => document.title));
   process.exit(0); // 接続を残さない
   ```
+- 外部サイトカラムは `%APPDATA%com.natsuyasai.multicolumnxexternal_columnscolumn-<id>EBWebView` に独立データを持ち、`cdp.cjs ports` / `pages` はそれも走査する（キーは `column-<id>`）
 - 一度に複数ページへ接続して状態をポーリングする場合は、`cdp.account(key)` で各アカウントのページを集め、`labelOf` で名前を付けて `evaluate` を回す
 
 ### 保存ダイアログ
@@ -74,6 +78,12 @@ node scripts/open.cjs media link compose --account=account-<uuid> --id=<accountI
 
 ## 既知の落とし穴
 
+- **heredoc 内のバックスラッシュは消える**ことがある（`<<EOF` 内の `` など）。Windows パスをスクリプトに書くときは `path.join(process.env.APPDATA, "com.natsuyasai.multicolumnx", …)` で組み立て、直書きしない
+- **`win-appdata.ps1` の出力文字コード**: 現行は UTF-8 で出す。旧版や他の PowerShell スクリプトの出力は Shift-JIS で、リダイレクトすると invalid UTF-8 になる。読むときは `Get-Content -Encoding Default <ログ>`
+- **スクラッチの appdata 退避は約 3GB になることがある**（EBWebView が大きい）。退避にはログイン情報（Cookie 等）が含まれるため、試験後に不要ならユーザーに確認したうえで削除する
+- **試験対象ブランチの exe が古いことがある**: exe の更新時刻と HEAD のコミット時刻を比べ、古ければ再ビルドしてから試験する
+- **アプリ起動中に退避・`settings.json` 編集をしない**: 事前に `tasklist` で `multicolumnx.exe` が無いことを確認する
+
 - **vitest / prettier が `.claude/worktrees/` を拾う**: ワークツリーを作った状態で `npm test` / `prettier --check .` を回すと、そちらも走る。対象パスを明示するか、不要なワークツリーを片付ける
 - **computer-use はビルド版 exe の許可が得られない**ことがある。Windows の操作は CDP 方式を使う（computer-use に頼らない）
 - **auto mode の分類器がアプリ内の削除確定などのタップを拒否することがある**。ユーザーへ許可を求め、他のエージェントに代行させない（SKILL.md「分類器に拒否された場合」）
@@ -83,7 +93,7 @@ node scripts/open.cjs media link compose --account=account-<uuid> --id=<accountI
 - 起動中のアプリのデータはロックされうる。退避・復元は終了後に行う
 - **`win-appdata.ps1 backup` は 2 分以上かかることがある**（EBWebView が大きい）。タイムアウトを長め（10 分）にするか、バックグラウンドで実行して完了通知を待つ
 - **Git Bash で `git show <branch>:<path>` を使うときは `MSYS_NO_PATHCONV=1` が必要**（`:` 付きのパスが Windows パスに変換されて失敗する）。例: `MSYS_NO_PATHCONV=1 git show docs/xxx:.claude/skills/autonomous-manual-test/scripts/cdp.cjs`
-- **スキルが未マージのブランチにある場合**（試験対象ブランチに `.claude/skills/autonomous-manual-test/` が無い）: `git show <スキルのブランチ>:<パス>` で読み出し、スクラッチへ書き出して使う。`.ps1` は **UTF-8 BOM 付き**で書くこと（BOM なしだと Windows PowerShell 5.1 が日本語を文字化けさせる）。`git show` の出力をそのままリダイレクトすれば BOM は保たれる
+- **スキルが未マージのブランチにある場合**（試験対象ブランチに `.claude/skills/autonomous-manual-test/` が無い）: `git show <スキルのブランチ>:<パス>` で読み出し、スクラッチへ書き出して使う。`.ps1` は **UTF-8 BOM が 1 つだけ**付いている必要がある（BOM なしだと Windows PowerShell 5.1 が日本語を文字化けさせ、BOM が二重だと先頭が `?<#` と解釈されて構文エラーになる）。**`git show` の出力には元の BOM が既に含まれる**ので、そのまま保存し、BOM を追加しない。保存後に先頭 3 バイトが `EF BB BF` の 1 つだけか確認する: `node -e "const b=require('fs').readFileSync(process.argv[1]);console.log(b.subarray(0,6).toString('hex'))" <ps1>`（`efbbbf3c23` で始まれば 1 つ。`efbbbfefbbbf` なら二重）
 
 ## 結果記録の例
 

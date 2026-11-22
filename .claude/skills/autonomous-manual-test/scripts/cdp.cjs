@@ -2,6 +2,7 @@
 // アプリを win-launch.ps1 で起動すると、WebView2 のデータディレクトリごとに
 //   メイン UI : %LOCALAPPDATA%\<id>\EBWebView\DevToolsActivePort
 //   各アカウント: %APPDATA%\<id>\accounts\<accountId>\EBWebView\DevToolsActivePort
+//   外部サイトカラム: %APPDATA%\<id>\external_columns\column-<id>\EBWebView\DevToolsActivePort
 // が書かれる（1 行目がポート）。メイン UI のページ URL は http://tauri.localhost/ 、
 // カラム / ポップアップ / コンポーズはアカウントのポートに属する。
 //
@@ -42,6 +43,12 @@ function ports() {
   if (fs.existsSync(dir)) {
     for (const d of fs.readdirSync(dir))
       o[d] = readPort(path.join(dir, d, "EBWebView", "DevToolsActivePort"));
+  }
+  // 外部サイトカラムは external_columns\column-<id>\EBWebView に独立データを持つ
+  const ext = path.join(A, "external_columns");
+  if (fs.existsSync(ext)) {
+    for (const d of fs.readdirSync(ext))
+      o[d] = readPort(path.join(ext, d, "EBWebView", "DevToolsActivePort"));
   }
   return o;
 }

@@ -17,6 +17,9 @@ param(
   [string]$Identifier = 'com.natsuyasai.multicolumnx',
   [switch]$IgnoreWindowBounds   # diff で windowBounds を比較対象から外す
 )
+# 出力を UTF-8 にする（既定の Shift-JIS だとリダイレクト先が invalid UTF-8 になる）
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 $roam = Join-Path $env:APPDATA $Identifier
 $local = Join-Path $env:LOCALAPPDATA $Identifier
 $bRoam = Join-Path $Dir 'roaming'

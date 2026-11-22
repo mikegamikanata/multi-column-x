@@ -50,11 +50,14 @@ auto mode の分類器が、アプリ内の削除確定などのタップを拒�
 ## 2. 実施手順
 
 1. **準備**
+   - **退避前に、アプリ（`multicolumnx.exe`）が起動していないことを `tasklist /FI "IMAGENAME eq multicolumnx.exe"` で確認する**（起動中なら正常終了させてから退避する）
    - 試験前のデータを退避する。Windows: `win-appdata.ps1 backup`（2 分以上かかることがある。タイムアウトを長めに、バックグラウンド実行推奨）。Android: `android-device.sh state-save`。退避先は**スクラッチ（リポジトリ外の一時ディレクトリ）**
+   - **試験対象ブランチの exe が古くないか確認する**: exe の更新時刻（`(Get-Item src-tauri/target/release/multicolumnx.exe).LastWriteTime`）と HEAD のコミット時刻（`git log -1 --format=%ci`）を比べ、exe のほうが古ければ再ビルドする
    - ビルド: Windows は `npm run tauri:build`（署名鍵が無く NSIS 段階で失敗するが exe は `src-tauri/target/release/multicolumnx.exe` に生成される。exe の更新時刻で確認する）。Android は `npm run tauri:android:build -- --debug --apk --target x86_64` → `android-device.sh install <apk>`（`adb install -r` でログイン状態を維持）
    - Windows と Android を並行実施する場合、cargo のビルドロックを待つことがある。同時に走らせず順に起動する（ロック待ちは異常ではない）
 2. **起動**: Windows は `win-launch.ps1`（CDP 有効）→ `cdp.cjs pages` で接続確認。Android は `android-device.sh start`
 3. **操作と検証**
+   - テスト用カラムの追加・削除は `col-add-ext.cjs` / `col-close.cjs`、アプリ終了中の `settings.json` 編集は `settings-edit.cjs`（`reference.md`）
    - ポップアップ / コンポーズなどを実クリックで開けないときは `open.cjs`（invoke で開く）を代替手順として使える（`reference.md`）
    - Windows は CDP（`cdp.cjs`）で DOM を読む・操作する。メイン UI は `http://tauri.localhost/`、カラムはアカウントごとの別ポート。OS ネイティブの保存ダイアログは `win-dialog.ps1`、画面は `win-shot.ps1`
    - Android は `android-device.sh`（`tap-text` / `find` で座標特定、`shot` で画面確認）
