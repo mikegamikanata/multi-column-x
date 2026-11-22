@@ -210,9 +210,10 @@
                 <td>Rust → inject（イベント）</td>
                 <td><code>listen</code></td>
                 <td>
-                  ポップアップの
-                  <code>video-download-progress</code> のみ（popup_toolbar
-                  が購読）。
+                  <code>video-download-progress</code> のみ。ポップアップ
+                  （popup_toolbar）とカラム（video_long_press_menu）が購読し、どちらも
+                  <code>listen</code> の <code>target</code> に自 WebView
+                  のラベルを指定して自分宛ての進捗だけを受け取ります。
                 </td>
               </tr>
               <tr>
@@ -549,7 +550,10 @@
             play() を再試行するため、最初の play() だけ通して 1
             度止める工夫付き）。<code>video_long_press_menu</code> は DOM に URL
             が無いため React Fiber の props から動画 variants
-            を取り出します。ダウンロードは Android ブリッジ専用です。
+            を取り出します。ダウンロードは Android
+            ではブリッジへ委譲し、デスクトップでは
+            <code>download_video</code> を invoke
+            して進捗をカラム下端のトーストに表示します。
           </p>
           <p>
             <code>mediaviewer_autoplay</code> は <b>モバイルのカラムだけ</b>に
