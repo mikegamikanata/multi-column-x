@@ -7,6 +7,7 @@ import {
   fireEvent,
   waitFor,
   act,
+  within,
 } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { expectNoJapanese } from "@/test-utils/japanese";
@@ -137,6 +138,35 @@ function mockInvokeWithCurrentSettings() {
   });
 }
 
+const removableExternalColumn: Column = {
+  ...column,
+  id: "col-external",
+  accountId: "acc-missing",
+  pageType: "external",
+  customUrl: "https://example.com",
+};
+
+const getRemoveCalls = () =>
+  mockInvoke.mock.calls.filter((c) => c[0] === "remove_column_webview");
+
+async function findRemoveColumnDialog() {
+  return screen.findByRole("dialog", { name: "カラムの削除" });
+}
+
+function expectColumnKept(columnId: string) {
+  expect(useAppStore.getState().columns.map((c) => c.id)).toContain(columnId);
+  expect(getRemoveCalls()).toHaveLength(0);
+}
+
+async function expectColumnRemoved(columnId: string) {
+  await waitFor(() => {
+    expect(useAppStore.getState().columns.map((c) => c.id)).not.toContain(
+      columnId,
+    );
+  });
+  expect(getRemoveCalls()).toHaveLength(1);
+}
+
 describe("App (desktop)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -166,6 +196,125 @@ describe("App (desktop)", () => {
     render(<App />);
     fireEvent.click(screen.getByTitle("カラムを追加 (Ctrl+N)"));
     expect(screen.getByText("アカウントA")).toBeInTheDocument();
+  });
+
+  describe("カラム削除の確認", () => {
+    beforeEach(() => {
+      useAppStore.setState({ columns: [column] });
+    });
+
+    it("カラムヘッダーの閉じるボタンを押すと、カラム名を含む確認ダイアログが表示されカラムはまだ削除されない", async () => {
+      render(<App />);
+      mockInvoke.mockClear();
+
+      fireEvent.click(screen.getByTitle("カラムを閉じる"));
+
+      const dialog = await findRemoveColumnDialog();
+      expect(dialog).toHaveTextContent(
+        "「アカウントA - ホーム」を削除しますか？",
+      );
+      expectColumnKept("col-1");
+    });
+
+    it("ツールバーのカラム一覧でカラムを閉じると、カラム名を含む確認ダイアログが表示されカラムはまだ削除されない", async () => {
+      useAppStore.setState({ topBarExpanded: true });
+      render(<App />);
+      mockInvoke.mockClear();
+
+      // TopBar はカラムヘッダーより先に描画されるため、先頭が一覧側の閉じるボタン
+      const buttons = screen.getAllByTitle("カラムを閉じる");
+      expect(buttons).toHaveLength(2);
+      fireEvent.click(buttons[0]);
+
+      const dialog = await findRemoveColumnDialog();
+      expect(dialog).toHaveTextContent(
+        "「アカウントA - ホーム」を削除しますか？",
+      );
+      expectColumnKept("col-1");
+    });
+
+    it("確認ダイアログで削除を押すとカラムが削除されダイアログが閉じる", async () => {
+      render(<App />);
+      fireEvent.click(screen.getByTitle("カラムを閉じる"));
+      await findRemoveColumnDialog();
+      mockInvoke.mockClear();
+
+      fireEvent.click(screen.getByRole("button", { name: "削除する" }));
+
+      await expectColumnRemoved("col-1");
+      expect(
+        screen.queryByRole("dialog", { name: "カラムの削除" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("確認ダイアログでキャンセルするとカラムは残りダイアログが閉じる", async () => {
+      render(<App />);
+      fireEvent.click(screen.getByTitle("カラムを閉じる"));
+      await findRemoveColumnDialog();
+      mockInvoke.mockClear();
+
+      fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("dialog", { name: "カラムの削除" }),
+        ).not.toBeInTheDocument();
+      });
+      expectColumnKept("col-1");
+    });
+
+    it("確認ダイアログでEscを押すとカラムは残りダイアログが閉じる", async () => {
+      render(<App />);
+      fireEvent.click(screen.getByTitle("カラムを閉じる"));
+      await findRemoveColumnDialog();
+      mockInvoke.mockClear();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("dialog", { name: "カラムの削除" }),
+        ).not.toBeInTheDocument();
+      });
+      expectColumnKept("col-1");
+    });
+
+    it("外部サイトカラムの確認ダイアログにはログイン情報などデータも削除される旨が表示される", async () => {
+      useAppStore.setState({ columns: [removableExternalColumn] });
+      render(<App />);
+
+      fireEvent.click(screen.getByTitle("カラムを閉じる"));
+
+      const dialog = await findRemoveColumnDialog();
+      expect(dialog).toHaveTextContent(
+        "ログイン情報などこのカラムのデータも削除されます",
+      );
+    });
+
+    it("ホームカラムの確認ダイアログにはデータ削除の注意が表示されない", async () => {
+      render(<App />);
+
+      fireEvent.click(screen.getByTitle("カラムを閉じる"));
+
+      const dialog = await findRemoveColumnDialog();
+      expect(dialog).not.toHaveTextContent("ログイン情報");
+    });
+
+    it("確認ダイアログ表示中は全カラムWebViewが画面外へ退避される", async () => {
+      render(<App />);
+      fireEvent.click(screen.getByTitle("カラムを閉じる"));
+      await findRemoveColumnDialog();
+
+      await waitFor(() => {
+        const resizeCalls = mockInvoke.mock.calls.filter(
+          (c) =>
+            c[0] === "resize_column_webview" &&
+            (c[1] as any).bounds?.columnId === "col-1" &&
+            (c[1] as any).bounds?.x === -9999,
+        );
+        expect(resizeCalls.length).toBeGreaterThan(0);
+      });
+    });
   });
 
   it("ダイアログを開くと全カラムWebViewが画面外へ退避される", async () => {
@@ -636,6 +785,49 @@ describe("App (mobile)", () => {
         "update_mobile_swipe_bar",
         expect.objectContaining({ visible: false }),
       );
+    });
+  });
+
+  describe("カラム削除の確認", () => {
+    async function openRemoveConfirmFromTabAction(label: string) {
+      render(<App />);
+      fireEvent.contextMenu(screen.getByText(label));
+      await screen.findByRole("dialog", { name: label });
+      mockInvoke.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: /削除/ }));
+      return findRemoveColumnDialog();
+    }
+
+    it("タブ操作ダイアログで削除を選ぶと、カラム名を含む確認ダイアログが表示されカラムはまだ削除されない", async () => {
+      const dialog = await openRemoveConfirmFromTabAction("ホーム");
+
+      expect(dialog).toHaveTextContent("「ホーム」を削除しますか？");
+      expectColumnKept("col-1");
+    });
+
+    it("確認ダイアログで削除を押すとカラムが削除されダイアログが閉じる", async () => {
+      await openRemoveConfirmFromTabAction("ホーム");
+      mockInvoke.mockClear();
+
+      fireEvent.click(screen.getByRole("button", { name: "削除する" }));
+
+      await expectColumnRemoved("col-1");
+      expect(
+        screen.queryByRole("dialog", { name: "カラムの削除" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("確認ダイアログでキャンセルするとカラムは残りダイアログが閉じる", async () => {
+      await openRemoveConfirmFromTabAction("ホーム");
+
+      fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("dialog", { name: "カラムの削除" }),
+        ).not.toBeInTheDocument();
+      });
+      expectColumnKept("col-1");
     });
   });
 
@@ -1201,6 +1393,60 @@ describe("App (表示言語)", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Delete account")).toBeInTheDocument();
     expectNoJapanese(document.body);
+  });
+
+  it.each([
+    {
+      名前: "通常",
+      columns: [{ ...column, label: "Main TL" }],
+      message: "Delete “Main TL”?",
+    },
+    {
+      名前: "外部サイト",
+      columns: [{ ...removableExternalColumn, label: "Ext" }],
+      message:
+        "Delete “Ext”? Its data, such as login information, will also be deleted.",
+    },
+  ])(
+    "表示言語が英語のときカラム削除の確認ダイアログ（$名前）の文言が英語になり日本語が表示されない",
+    async ({ columns, message }) => {
+      useAppStore.setState({ columns });
+      await act(async () => {
+        render(<App />);
+      });
+
+      fireEvent.click(screen.getByTitle("Close column"));
+
+      const dialog = await screen.findByRole("dialog", {
+        name: "Delete column",
+      });
+      expect(dialog).toHaveTextContent(message);
+      expect(
+        within(dialog).getByRole("button", { name: "Delete" }),
+      ).toBeInTheDocument();
+      expectNoJapanese(document.body);
+    },
+  );
+
+  it("表示言語が日本語のときカラム削除の確認ダイアログの文言が日本語になる", async () => {
+    useAppStore.setState({
+      accounts: [account],
+      columns: [{ ...removableExternalColumn, label: "外部A" }],
+      globalSettings,
+    });
+    await act(async () => {
+      render(<App />);
+    });
+
+    fireEvent.click(screen.getByTitle("カラムを閉じる"));
+
+    const dialog = await findRemoveColumnDialog();
+    expect(dialog).toHaveTextContent(
+      "「外部A」を削除しますか？ログイン情報などこのカラムのデータも削除されます。",
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "削除する" }),
+    ).toBeInTheDocument();
   });
 
   it("表示言語が英語のとき公式設定ポップアップのタイトルが英語になる", async () => {

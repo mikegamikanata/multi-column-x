@@ -9,7 +9,10 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { columnDisplayName } from "@/components/TopBar/columnDisplay";
+import { isExternalColumn } from "@/services/externalColumn";
 import { getColumnLabel } from "@/types";
+import type { Column } from "@/types";
 import styles from "./App.module.scss";
 import { AccountManager } from "./components/AccountManager/AccountManager";
 import { AccountNameDialog } from "./components/AccountNameDialog/AccountNameDialog";
@@ -209,6 +212,25 @@ const App: React.FC = () => {
   useOfficialSettingsPopupReload(recreateAllWebviews);
   useWebviewScrollRelay(scrollbarRef);
 
+  // カラム削除の確認ダイアログ。id のみ保持し、対象カラムは都度 columns から導出する
+  const [pendingColumnRemovalId, setPendingColumnRemovalId] = useState<
+    string | null
+  >(null);
+  const requestColumnRemoval = useCallback((columnId: string) => {
+    setPendingColumnRemovalId(columnId);
+  }, []);
+  const cancelColumnRemoval = useCallback(() => {
+    setPendingColumnRemovalId(null);
+  }, []);
+  const confirmColumnRemoval = useCallback(() => {
+    const id = pendingColumnRemovalId;
+    setPendingColumnRemovalId(null);
+    if (id) void handleRemoveColumn(id);
+  }, [pendingColumnRemovalId, handleRemoveColumn]);
+  const pendingColumnRemoval = pendingColumnRemovalId
+    ? columns.find((c) => c.id === pendingColumnRemovalId)
+    : undefined;
+
   const handleOpenLinkPopup = useCallback(() => {
     setShowLinkPopupDialog(true);
   }, [setShowLinkPopupDialog]);
@@ -236,6 +258,7 @@ const App: React.FC = () => {
     h264Setup.isDialogOpen ||
     !!pendingAccountName ||
     !!pendingRemoval ||
+    !!pendingColumnRemoval ||
     !!accountNotice ||
     !!settingsLoadNotice ||
     apiRateLimitPopoverOpen;
@@ -428,6 +451,11 @@ const App: React.FC = () => {
     ? columns.find((c) => c.id === tabActionColumnId)
     : undefined;
 
+  const removeColumnLabel = (target: Column) =>
+    isMobile
+      ? getColumnLabel(target, t)
+      : columnDisplayName(target, accounts, t);
+
   if (!isLoaded) {
     return (
       <div className={styles.loading} role="status">
@@ -451,7 +479,7 @@ const App: React.FC = () => {
           onComposeTweet={handleComposeTweet}
           onOpenLinkPopup={handleOpenLinkPopup}
           onJumpToColumn={handleJumpToColumn}
-          onClose={handleRemoveColumn}
+          onClose={requestColumnRemoval}
           onReorderColumnGroup={handleMoveColumnGroup}
           apiRateLimitMonitorEnabled={globalSettings.apiRateLimitMonitorEnabled}
           apiRateLimits={apiRateLimits}
@@ -501,7 +529,7 @@ const App: React.FC = () => {
                 onReloadPage={handleReloadPage}
                 onScrollTop={handleDoubleTapColumn}
                 onSettings={setSettingsColumnId}
-                onClose={handleRemoveColumn}
+                onClose={requestColumnRemoval}
                 unreadCount={unreadCounts[column.id] ?? 0}
                 onClearUnread={clearUnreadCount}
               />
@@ -605,6 +633,24 @@ const App: React.FC = () => {
         />
       )}
 
+      {pendingColumnRemoval && (
+        <ConfirmDialog
+          title={t("messages:app.removeColumn.title")}
+          message={
+            isExternalColumn(pendingColumnRemoval)
+              ? t("messages:app.removeColumn.messageExternal", {
+                  label: removeColumnLabel(pendingColumnRemoval),
+                })
+              : t("messages:app.removeColumn.message", {
+                  label: removeColumnLabel(pendingColumnRemoval),
+                })
+          }
+          confirmLabel={t("messages:app.removeColumn.confirm")}
+          onConfirm={confirmColumnRemoval}
+          onCancel={cancelColumnRemoval}
+        />
+      )}
+
       {accountNotice && (
         <ConfirmDialog
           singleButton
@@ -699,7 +745,7 @@ const App: React.FC = () => {
           }}
           onRemove={() => {
             setTabActionColumnId(null);
-            handleRemoveColumn(tabActionColumn.id);
+            requestColumnRemoval(tabActionColumn.id);
           }}
           onClose={() => setTabActionColumnId(null)}
         />

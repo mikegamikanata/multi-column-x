@@ -42,6 +42,12 @@
       "message": "「{{label}}」を削除しますか？セッションデータも削除されます。",
       "confirm": "削除する"
     },
+    "removeColumn": {
+      "title": "カラムの削除",
+      "message": "「{{label}}」を削除しますか？",
+      "messageExternal": "「{{label}}」を削除しますか？ログイン情報などこのカラムのデータも削除されます。",
+      "confirm": "削除する"
+    },
     "settingsLoadFailedTitle": "設定の読み込みに失敗しました"
   },
   "update": {
