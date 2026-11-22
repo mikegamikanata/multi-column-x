@@ -121,6 +121,8 @@ function renderDesktopColumns(opts?: {
 interface ResizeDeferred {
   columnId: string;
   x: number;
+  /** 発行された時点で未解決だった（他の）invoke の数。重なって発行されたかを見る。 */
+  pendingAtIssue: number;
   resolve: () => void;
   reject: (e: unknown) => void;
 }
@@ -137,6 +139,7 @@ function controlResizeInvokes() {
       const d: ResizeDeferred = {
         columnId,
         x,
+        pendingAtIssue: pending.length,
         resolve: () => {
           pending.splice(pending.indexOf(d), 1);
           resolve();
@@ -553,7 +556,8 @@ describe("useDesktopColumns（再配置の直列化）", () => {
     const ctl = controlResizeInvokes();
     const { result, scrollbarRef } = renderDesktopColumns();
 
-    for (const left of [40, 90, 15, 60, 25]) {
+    // invoke を解決しないまま、スクロールを往復させて止める
+    for (const left of [100, 300, 50, 400]) {
       setScrollLeft(scrollbarRef, left);
       act(() => {
         result.current.handleScrollbarScroll();
@@ -561,21 +565,25 @@ describe("useDesktopColumns（再配置の直列化）", () => {
       act(() => {
         vi.advanceTimersToNextFrame();
       });
-      // 一部の invoke だけ解決して、完了順が入れ替わる状況を作る
-      await act(async () => {
-        ctl.pending[0]?.resolve();
-      });
     }
-    // 保留中の再配置も含め、すべて完了するまで解決し続ける
-    for (let i = 0; i < 5; i++) {
+    // 保留中の再配置も含め、未解決がなくなるまで解決し続ける
+    for (let i = 0; i < 6; i++) {
       await act(async () => {
         ctl.pending.slice().forEach((d) => d.resolve());
       });
       await flush();
     }
+    expect(ctl.pending).toHaveLength(0);
 
-    const lastCol1 = ctl.all.filter((d) => d.columnId === "col-1").pop();
-    expect(lastCol1?.x).toBe(-25);
+    // 各カラムで最後に発行された配置は、止まった時点（scrollLeft=400）に対応する
+    const lastX = (id: string) =>
+      ctl.all.filter((d) => d.columnId === id).pop()?.x;
+    expect(lastX("col-1")).toBe(-400);
+    expect(lastX("col-2")).toBe(350 - 400);
+    // 最後の再配置（カラム数分）は、未解決の invoke が残っていない状態で発行された
+    const lastBatch = ctl.all.slice(-2);
+    expect(lastBatch.map((d) => d.columnId)).toEqual(["col-1", "col-2"]);
+    expect(lastBatch[0].pendingAtIssue).toBe(0);
   });
 
   it("再配置の完了を待つ操作は自分の要求以降の状態が反映されるまで待たされる", async () => {
