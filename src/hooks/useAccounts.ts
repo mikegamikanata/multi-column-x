@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useRef, useState } from "react";
 import i18n from "@/i18n";
+import { isActiveDataDirectory } from "@/lib/dataDirectoryGuard";
 import { ACCOUNT_COLORS } from "../constants/accountColors";
 import { IPC_COMMANDS, IPC_EVENTS } from "../constants/ipc";
 import { logError } from "../lib/log";
@@ -541,19 +542,19 @@ export function useAccounts(reloadAllWebviews?: () => void | Promise<void>) {
    * アプリ設定画面から呼ばれる、削除保留中のデータフォルダの再実行。
    * 各パスへ DELETE_ACCOUNT_DATA を実行し、成功したものを再実行対象から外す。
    * 安全策として、現在登録中のいずれかのアカウントの dataDirectory と一致するパスは
-   * （誤って生きているアカウントのデータを消さないよう）削除を実行せず、対象からのみ外す。
+   * （誤って生きているアカウント・外部カラムのデータを消さないよう）削除を実行せず、対象からのみ外す。
    */
   const retryPendingDataDirectoryDeletions = useCallback(async (): Promise<{
     remaining: number;
   }> => {
-    const { globalSettings, accounts: currentAccounts } =
-      useAppStore.getState();
-    const activeDataDirectories = new Set(
-      currentAccounts.map((a) => a.dataDirectory),
-    );
+    const {
+      globalSettings,
+      accounts: currentAccounts,
+      columns: currentColumns,
+    } = useAppStore.getState();
     const remaining: string[] = [];
     for (const dir of globalSettings.pendingDataDirectoryDeletions) {
-      if (activeDataDirectories.has(dir)) {
+      if (isActiveDataDirectory(dir, currentAccounts, currentColumns)) {
         continue;
       }
       try {

@@ -41,6 +41,7 @@ import { useDialogState } from "./hooks/useDialogState";
 import { useH264Setup } from "./hooks/useH264Setup";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMobileSwipeBarSync } from "./hooks/useMobileSwipeBarSync";
+import { usePendingDataDirectoryCleanup } from "./hooks/usePendingDataDirectoryCleanup";
 import { usePlatformAttribute } from "./hooks/usePlatformAttribute";
 import { usePopupWindowHandlers } from "./hooks/usePopupWindowHandlers";
 import { useSettingsApplyHandlers } from "./hooks/useSettingsApplyHandlers";
@@ -172,6 +173,11 @@ const App: React.FC = () => {
     columns,
     columnScale: globalSettings.columnScale,
   });
+  // 起動時（カラム復元後）に、削除できずに残っているデータフォルダを削除する
+  usePendingDataDirectoryCleanup(
+    columnsRestored,
+    retryPendingDataDirectoryDeletions,
+  );
   const updater = useAppUpdater(isMobile, columnsRestored);
   const whatsNew = useWhatsNew(columnsRestored);
   const h264Setup = useH264Setup(columnsRestored);
