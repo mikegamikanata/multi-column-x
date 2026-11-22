@@ -553,21 +553,29 @@ pub async fn resize_column_webview(
         // 幅クリップ（左右対称）: ウィンドウは常に x>=0 に配置し、はみ出し分だけ幅を縮める。
         // Linux WM がウィンドウを画面内にクランプするため負位置クリップ（案A）は使えない。
         // x_offset は常に 0 以上。完全に画面外のときのみ非表示にする。
-        match linux_column_layout(bounds.x, bounds.width, win_logical_width) {
-            None => {
-                let _ = webview_window.hide();
-                return Ok(());
-            }
-            Some((x_offset, vis_width)) => {
-                let screen_x = inner_pos.x as f64 / scale + x_offset;
+        let layout = linux_column_layout(bounds.x, bounds.width, win_logical_width);
+        // is_visible はイベントループ処理済みの状態を返すため、直前の hide / show 要求が
+        // 未処理だとずれうる（その場合も当て直しが 1 回増減するだけで悪化はしない）。
+        let was_visible = webview_window.is_visible().unwrap_or(false);
+        let (x_offset, vis_width) = layout.unwrap_or((0.0, 1.0));
+        let screen_x = inner_pos.x as f64 / scale + x_offset;
+        for op in linux_column_window_ops(layout.is_some(), was_visible) {
+            match op {
+                LinuxColumnWindowOp::Hide => {
+                    let _ = webview_window.hide();
+                }
                 // show 前に reposition してフラッシュ回避（既存コメント方針を踏襲）
-                webview_window
-                    .set_position(LogicalPosition::new(screen_x, screen_y))
-                    .map_err(|e| e.to_string())?;
-                webview_window
-                    .set_size(LogicalSize::new(vis_width, bounds.height.max(1.0)))
-                    .map_err(|e| e.to_string())?;
-                let _ = webview_window.show();
+                LinuxColumnWindowOp::SetBounds => {
+                    webview_window
+                        .set_position(LogicalPosition::new(screen_x, screen_y))
+                        .map_err(|e| e.to_string())?;
+                    webview_window
+                        .set_size(LogicalSize::new(vis_width, bounds.height.max(1.0)))
+                        .map_err(|e| e.to_string())?;
+                }
+                LinuxColumnWindowOp::Show => {
+                    let _ = webview_window.show();
+                }
             }
         }
     }
@@ -661,6 +669,34 @@ fn linux_column_layout(
     // .min(bounds_width) で要求幅を超えないことを厳密に保証する。
     let vis_width = (right - left).min(bounds_width).max(1.0);
     Some((left, vis_width))
+}
+
+/// Linux カラムウィンドウへ適用する操作。
+#[cfg(target_os = "linux")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LinuxColumnWindowOp {
+    Hide,
+    SetBounds,
+    Show,
+}
+
+/// Linux カラムウィンドウへ適用する操作列を決める純粋関数。
+///
+/// - 完全に画面外（`visible_in_window == false`）: 非表示にするだけ（位置・幅は設定しない）
+/// - 直前まで表示中: 表示前に位置・幅を 1 回設定して表示する（フラッシュ回避）
+/// - 直前まで非表示: 上に加え、表示後にもう一度位置・幅を設定する。
+///   WM によっては map 前（非表示中）の位置指定を無視して map 時に位置を決め直すため。
+#[cfg(target_os = "linux")]
+fn linux_column_window_ops(
+    visible_in_window: bool,
+    was_visible: bool,
+) -> &'static [LinuxColumnWindowOp] {
+    use LinuxColumnWindowOp::*;
+    match (visible_in_window, was_visible) {
+        (false, _) => &[Hide],
+        (true, true) => &[SetBounds, Show],
+        (true, false) => &[SetBounds, Show, SetBounds],
+    }
 }
 
 #[cfg(test)]
@@ -1134,6 +1170,29 @@ mod tests {
     #[allow(non_snake_case)]
     mod linux_layout {
         use super::super::linux_column_layout;
+        use super::super::{linux_column_window_ops, LinuxColumnWindowOp};
+
+        #[test]
+        fn 画面外で非表示だったカラムが画面内に戻るときは表示後に位置と幅を当て直す() {
+            use LinuxColumnWindowOp::*;
+            assert_eq!(
+                linux_column_window_ops(true, false),
+                &[SetBounds, Show, SetBounds]
+            );
+        }
+
+        #[test]
+        fn もともと表示中のカラムは位置と幅を1回だけ設定する() {
+            use LinuxColumnWindowOp::*;
+            assert_eq!(linux_column_window_ops(true, true), &[SetBounds, Show]);
+        }
+
+        #[test]
+        fn 画面外に出たカラムは非表示にし位置と幅は設定しない() {
+            use LinuxColumnWindowOp::*;
+            assert_eq!(linux_column_window_ops(false, true), &[Hide]);
+            assert_eq!(linux_column_window_ops(false, false), &[Hide]);
+        }
 
         #[test]
         fn 左端はみ出しはx_offsetが0でvis_widthがはみ出し分だけ縮む() {
