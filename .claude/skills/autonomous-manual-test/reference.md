@@ -159,6 +159,11 @@ node scripts/open.cjs media link compose --account=account-<uuid> --id=<accountI
 - `/proc/<pid>/environ` は起動時の環境（アプリが実行中に `set_var` した値は見えないことがある）。実効のバックエンドは `linux-window.py info` で X11 窓が見えるかで判断する
 - `wk.cjs eval` の式はシェルのクォートに注意（`$` やバッククォートはシングルクォートで囲む）。ページ内の `fetch` / `invoke` は Promise を返す式にすれば待てる
 - 試験で作ったスクショ・バックアップファイル（個人情報を含むことがある）はスクラッチに置き、不要になったら削除する
+- **worktree で AppImage をビルドするには `src-tauri/gstreamer-plugins/` が必要**（`scripts/build-linux-codec-plugins.sh` の生成物で git 管理外）。無いと bundle 段階で `Failed to copy custom files: "gstreamer-plugins/…" does not exist` になる。生成済みのチェックアウトがあればそこからコピーし、無ければスクリプトを実行する。あわせて CI と同じく `scripts/strip-appimage-wayland-libs.sh` を先に実行する
+- **`verify-appimage-media.sh` はホストでは完走しないことがある**: 第 2 引数のディレクトリに `libopenh264.so.7` を要求するが、Ubuntu 26.04 のホストには `.so.8` しか無く exit 2 で検査 A〜E に届かない。検査 A〜E は CI 相当の Docker（ubuntu:24.04）で行い、ホストでは「OK（一部）」とする
+- **updater-test のビルドは `src-tauri/target/release/` の AppImage・バイナリ・`MultiColumnX.AppDir/` を上書きする**。試験対象の成果物は事前に `cp -p` で退避し、更新試験の後に戻して sha256 を確認する（AppDir は再ビルドしないと戻らない）
+- **ルートの空き容量を確認する**: AppImage 1 本が約 200MB、退避が約 700MB、updater-test の旧版・新版でさらに増える。空きが数 GB しか無いときは不要な成果物から片付ける
+- GTK の保存ダイアログを開いたまま数秒放置したら閉じてダウンロード失敗になったことがある（原因は未調査）。ダイアログが出たら `linux-dialog.py` ですぐ保存する
 
 ## 結果記録の例
 
