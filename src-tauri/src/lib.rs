@@ -75,6 +75,42 @@ fn window_bounds_to_save(
     }))
 }
 
+/// メインウィンドウを閉じるときに、他ウィンドウをどう片付けるかの計画。
+#[cfg(desktop)]
+#[derive(Debug, PartialEq, Eq, Default)]
+struct WindowsToCloseOnMainExit {
+    /// `destroy()` で確実に破棄するもの（`prevent_close` で `close()` が効かない常駐ウィンドウ）。
+    destroy: Vec<String>,
+    /// `close()` で閉じるもの。
+    close: Vec<String>,
+}
+
+/// メイン終了時の後始末対象をラベルから決める純粋関数。
+///
+/// - コンポーズ(`compose-`): 全 OS で destroy（常駐のため close() が効かない）
+/// - ポップアップ(`popup-`): 全デスクトップ OS で close（独立 WebviewWindow）
+/// - カラム(`column-`): Linux のみ close（Windows/macOS は親ウィンドウの子 WebView）
+/// - それ以外（`main` / `add-account-` / `extension-` 等）は対象外
+#[cfg(desktop)]
+fn windows_to_close_on_main_exit<'a>(
+    labels: impl IntoIterator<Item = &'a str>,
+    is_linux: bool,
+) -> WindowsToCloseOnMainExit {
+    use crate::ipc_constants::labels as prefix;
+
+    let mut plan = WindowsToCloseOnMainExit::default();
+    for label in labels {
+        if label.starts_with(prefix::COMPOSE_PREFIX) {
+            plan.destroy.push(label.to_string());
+        } else if label.starts_with(prefix::POPUP_PREFIX)
+            || (is_linux && label.starts_with(prefix::COLUMN_PREFIX))
+        {
+            plan.close.push(label.to_string());
+        }
+    }
+    plan
+}
+
 /// 保存済みサイズから復元時に `set_size` へ渡す内側サイズを求める純粋関数（最小 600x400 にクランプ）。
 #[cfg(desktop)]
 fn restored_inner_size(width: f64, height: f64) -> (u32, u32) {
@@ -217,8 +253,6 @@ pub fn run() {
             if window.label() == crate::ipc_constants::labels::MAIN {
                 save_window_bounds(window);
 
-                use crate::ipc_constants::labels;
-
                 // アプリ終了処理に入る前に、公式設定ポップアップの追跡を止める。
                 // 終了時にポップアップが道連れで閉じられても OFFICIAL_SETTINGS_POPUP_CLOSED を
                 // 誤って emit させないため。
@@ -230,27 +264,25 @@ pub fn run() {
                         .expect("official_settings_popup_label mutex poisoned") = None;
                 }
 
-                // 常駐コンポーズは CloseRequested を prevent_close + hide で握るため、
-                // close() では閉じられず非表示のまま残ってアプリ終了を妨げる。destroy() で明示破棄する。
-                // （全デスクトップ OS 共通）
+                // 閉じる対象のウィンドウは純粋関数で選定する。
+                // - 常駐コンポーズは CloseRequested を prevent_close + hide で握るため close() では
+                //   閉じられず、非表示のまま残ってアプリ終了を妨げる。destroy() で明示破棄する（全 OS）。
+                // - ポップアップは全デスクトップ OS で独立ウィンドウのため close() で閉じる。
+                // - カラムは Linux のみ独立ウィンドウ（Windows/macOS は子 WebView）のため Linux だけ close する。
                 let app = window.app_handle();
-                for (label, ww) in app.webview_windows() {
-                    if label.starts_with(labels::COMPOSE_PREFIX) {
+                let all_labels: Vec<String> = app.webview_windows().keys().cloned().collect();
+                let plan = windows_to_close_on_main_exit(
+                    all_labels.iter().map(String::as_str),
+                    cfg!(target_os = "linux"),
+                );
+                for label in &plan.destroy {
+                    if let Some(ww) = app.get_webview_window(label) {
                         let _ = ww.destroy();
                     }
                 }
-
-                // Linux ではカラム/ポップアップ WebView が独立ウィンドウのため明示的に閉じる。
-                // 他の OS では子 WebView として管理されるため不要。
-                #[cfg(target_os = "linux")]
-                {
-                    let app = window.app_handle();
-                    for (label, ww) in app.webview_windows() {
-                        if label.starts_with(labels::COLUMN_PREFIX)
-                            || label.starts_with(labels::POPUP_PREFIX)
-                        {
-                            let _ = ww.close();
-                        }
+                for label in &plan.close {
+                    if let Some(ww) = app.get_webview_window(label) {
+                        let _ = ww.close();
                     }
                 }
             } else if window
@@ -466,6 +498,89 @@ mod tests {
         assert_eq!(restored_inner_size(600.0, 400.0), (600, 400));
         assert_eq!(restored_inner_size(599.0, 399.0), (600, 400));
         assert_eq!(restored_inner_size(601.0, 401.0), (601, 401));
+    }
+
+    fn strs(v: &[String]) -> Vec<&str> {
+        v.iter().map(String::as_str).collect()
+    }
+
+    #[test]
+    fn メイン終了時はポップアップをすべてclose対象にしコンポーズはdestroy対象にする() {
+        let labels = ["main", "popup-1", "popup-2", "compose-1"];
+        for is_linux in [false, true] {
+            let plan = windows_to_close_on_main_exit(labels, is_linux);
+            assert_eq!(strs(&plan.close), vec!["popup-1", "popup-2"]);
+            assert_eq!(strs(&plan.destroy), vec!["compose-1"]);
+        }
+
+        let plan = windows_to_close_on_main_exit(["main", "popup-1", "column-1"], false);
+        assert_eq!(strs(&plan.close), vec!["popup-1"]);
+    }
+
+    #[test]
+    fn メイン終了時はアカウント追加ウィンドウをポップアップ扱いにしない() {
+        use crate::ipc_constants::labels;
+        let add_account = format!("{}01234567", labels::ADD_ACCOUNT_PREFIX);
+        let extension = format!("{}abc", labels::EXTENSION_PREFIX);
+        for is_linux in [false, true] {
+            let plan = windows_to_close_on_main_exit(
+                ["main", add_account.as_str(), extension.as_str()],
+                is_linux,
+            );
+            assert_eq!(plan, WindowsToCloseOnMainExit::default());
+        }
+    }
+
+    #[test]
+    fn メイン終了時にウィンドウが無ければ空の計画になる() {
+        let plan = windows_to_close_on_main_exit(std::iter::empty::<&str>(), true);
+        assert_eq!(plan, WindowsToCloseOnMainExit::default());
+    }
+
+    #[test]
+    fn linuxではカラムもclose対象になる() {
+        let plan = windows_to_close_on_main_exit(["column-1", "popup-1"], true);
+        assert_eq!(strs(&plan.close), vec!["column-1", "popup-1"]);
+
+        let plan = windows_to_close_on_main_exit(["column-1", "popup-1"], false);
+        assert_eq!(strs(&plan.close), vec!["popup-1"]);
+    }
+
+    #[test]
+    fn メイン終了時は追跡解除をウィンドウ後始末より先に行う() {
+        // 追跡が None なら公式設定ポップアップの閉鎖通知は出ない（popup.rs の
+        // is_tracked_popup 系テストが担保）。そのためポップアップを閉じる前に必ず解除する。
+        let code = production_code();
+        let start = code
+            .find("labels::MAIN {")
+            .expect("メイン分岐が見つからない");
+        let rest = &code[start..];
+        let end = rest
+            .find("} else if")
+            .expect("メイン分岐の終端が見つからない");
+        let body = &rest[..end];
+
+        let untrack = body
+            .find("official_settings_popup_label")
+            .expect("追跡解除が見つからない");
+        let none_assign = untrack
+            + body[untrack..]
+                .find("= None")
+                .expect("追跡解除の None 代入が見つからない");
+        let plan_pos = body
+            .find("windows_to_close_on_main_exit(")
+            .expect("後始末対象の選定が純粋関数を経由していない");
+        let windows_pos = body
+            .find("webview_windows()")
+            .expect("webview_windows が見つからない");
+        assert!(
+            none_assign < plan_pos,
+            "追跡解除が後始末の選定より後ろにある"
+        );
+        assert!(
+            untrack < windows_pos,
+            "追跡解除が webview_windows より後ろにある"
+        );
     }
 
     /// 本番コード部分（テストモジュール以降を除き、`//` 行を除いたもの）を返す。
