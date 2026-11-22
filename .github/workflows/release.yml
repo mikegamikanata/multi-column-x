@@ -198,7 +198,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest, ubuntu-latest]
+        # Linux は ubuntu-24.04 に固定する。実行時に取得する Cisco 配布の OpenH264 2.4.1
+        # (libopenh264.so.7) と、ビルド環境の libopenh264-dev の soname を一致させるため。
+        # ubuntu-latest (26.04) は 2.6.0 (so.8) で不一致になる。openh264_fetch.rs の
+        # OPENH264_VERSION を上げるときは、このランナーも合わせて見直すこと。
+        platform: [windows-latest, ubuntu-24.04]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -213,24 +217,24 @@ jobs:
         with:
           workspaces: src-tauri
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libbz2-dev libfdk-aac-dev libopenh264-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-tools meson ninja-build libva-dev libdrm-dev libgudev-1.0-dev patchelf
       - name: Build Linux codec plugins
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-24.04'
         run: ./scripts/build-linux-codec-plugins.sh
       - run: npm ci
       # AppImage に libwayland-* を同梱させない（Ubuntu 26.04 で EGL_BAD_PARAMETER により灰色画面になるため）。
       # tauri-action の署名は bundler 内で行われるため、bundler が使う linuxdeploy の出力プラグインを
       # 差し替えて AppDir から除外する。後続の事前検査ビルド・tauri-action の両方に効く。
       - name: Strip libwayland from AppImage bundling
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-24.04'
         run: ./scripts/strip-appimage-wayland-libs.sh
       # アップロード前の関門。失敗すると後続の tauri-action に到達せず、AppImage はアップロードされない。
       # 署名鍵は渡さない（createUpdaterArtifacts:false のため不要）。
       - name: Build and verify AppImage media bundle
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get install -y libopenh264-7 gstreamer1.0-tools
           npm run build:inject && npx tauri build --bundles appimage -c '{"bundle":{"createUpdaterArtifacts":false}}'
@@ -246,7 +250,7 @@ jobs:
       # 出荷物がバイト一致する保証がない。失敗するとジョブが赤くなる（リリースは draft のままなので、公開前に気づける）。
       # apt install は事前ステップで済んでいる。
       - name: Re-verify uploaded AppImage media bundle
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           ./scripts/verify-appimage-media.sh "$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n1)" /usr/lib/x86_64-linux-gnu
       - name: Upload CI artifacts
