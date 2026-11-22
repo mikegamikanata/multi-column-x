@@ -14,7 +14,8 @@ export type H264DownloadState = "idle" | "downloading" | "success" | "error";
  */
 export type H264DownloadError = AppErrorInfo | string;
 
-function toDownloadError(e: unknown): H264DownloadError {
+/** invoke の失敗値を表示用の失敗内容に正規化する。 */
+function toErrorInfo(e: unknown): H264DownloadError {
   if (isAppError(e)) return e;
   return e instanceof Error ? e.message : String(e);
 }
@@ -90,7 +91,7 @@ export function useH264Setup(ready: boolean) {
       setDownloadState("success");
     } catch (e) {
       setDownloadState("error");
-      setDownloadError(toDownloadError(e));
+      setDownloadError(toErrorInfo(e));
       logError("useH264Setup:download")(e);
     } finally {
       downloadingRef.current = false;
