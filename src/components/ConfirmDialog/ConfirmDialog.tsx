@@ -12,6 +12,8 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   singleButton?: boolean;
+  /** データの削除など取り消せない操作の確認では "danger" を指定する */
+  variant?: "default" | "danger";
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -22,6 +24,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   onCancel,
   singleButton = false,
+  variant = "default",
 }) => {
   const { t } = useTranslation();
   useEscapeKey(onCancel);
@@ -59,7 +62,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           )}
           <button
             type="button"
-            className={styles.confirmBtn}
+            className={
+              variant === "danger" ? styles.dangerBtn : styles.confirmBtn
+            }
             onClick={onConfirm}
           >
             {confirmLabel ?? t("dialogs:confirm.ok")}
