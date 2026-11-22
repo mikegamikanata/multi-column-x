@@ -181,6 +181,7 @@ try {
 - チェックボックス / ラジオ / トグルの Android 当たり判定は親 label に付ける。`input` 自体には付けない。
 - `StrictMode` と `useRestoreFocus`: 擬似アンマウントで `autoFocus` を打ち消さないよう、戻す条件を絞った（上記）。
 - 契約テストが偽陽性を出さないよう、入力欄判定は要素セレクタ・末尾クラス名（`*Input` / `*Select` / `*Textarea`）に限っている。意図しない一致は `isFormBlock` / `isCheckableCompound` を直す（フィクスチャを先に足す）。
+- 取り消せない操作（アカウント削除・カラム削除など）の確認は `ConfirmDialog` に `variant="danger"` を指定する。確定ボタンが `--mcx-danger-bg` 背景 + `--mcx-danger` の文字・枠・太字になる（新しい色トークンは足さない。初期フォーカスは変えない）。お知らせ（OK だけ）や通常の確認には付けない。
 - **手動確認へ持ち越し（実機）**: TabActionDialog の Android 行間 8px / HelpPopover の Android 44px トリガーが設定行で目立たないか / AccountManager の色パレットが Android 44px で折り返さないか / MobileTabBar の Android でタブが 6.25rem 未満に縮まないこと。
 - **既知の割り切り**: NoAccountsPrompt は `role="region"`（非モーダル。`alertdialog` 化は見送り）/ UpdateDialog・LinkPopupDialog は Esc で閉じる / AccountManager の Esc が重なった ConfirmDialog と同時に閉じる（既存挙動・範囲外）/ WhatsNewDialog の `.notes` はキーボードフォーカス不可（見送り）/ ColumnLayoutTab のセル（`role=button`）内に削除 button がネスト（既存構造）/ PresetsTab の読み込む・削除ボタンのアクセシブルネームが同一 / プリセット削除は確認なし（既存）。
 

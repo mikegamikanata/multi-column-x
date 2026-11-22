@@ -35,7 +35,7 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 
 - [ ] 1 ダイアログ = 主 CTA は 1 つだけ。主 CTA のみ `--mcx-accent-fill` + `--mcx-text-on-accent`
 - [ ] 副次ボタンは `--mcx-surface-muted` + `--mcx-border-strong`
-- [ ] 破壊的操作は `--mcx-danger` 系
+- [ ] 破壊的操作は `--mcx-danger` 系（削除などの確認ダイアログは `ConfirmDialog` の `variant="danger"`）
 - [ ] 設定項目は既存のタブ / グループ（段階的開示）を維持し、一画面に並べすぎない
 
 ### ゲシュタルト（近接・類似）
