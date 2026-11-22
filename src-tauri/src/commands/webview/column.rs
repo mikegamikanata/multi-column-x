@@ -153,6 +153,9 @@ fn build_column_init_script(app: &AppHandle, column: &ColumnData, is_mobile: boo
 
 /// column_id がファイルパスとして安全か（パス区切り文字・親ディレクトリ参照を含まないか）を判定する。
 /// IPC 経由で任意の文字列を受け取る `column_id` に対するパストラバーサル対策の純粋関数部分。
+const EXTERNAL_COLUMNS_DIR: &str = "external_columns";
+const EXTERNAL_COLUMN_DIR_PREFIX: &str = "column-";
+
 fn is_safe_column_id(column_id: &str) -> bool {
     !column_id.is_empty()
         && !column_id.contains('/')
@@ -169,9 +172,57 @@ fn external_column_data_dir(app_data: &Path, column_id: &str) -> Option<PathBuf>
     }
     Some(
         app_data
-            .join("external_columns")
-            .join(format!("column-{column_id}")),
+            .join(EXTERNAL_COLUMNS_DIR)
+            .join(format!("{EXTERNAL_COLUMN_DIR_PREFIX}{column_id}")),
     )
+}
+
+/// `external_column_data_dir` が組み立てる形
+/// （`<app_data>/external_columns/column-<安全なID>`）と完全に一致するパスか。
+/// 字句的判定（存在確認しない）。親ディレクトリ参照・深い階層・別ディレクトリは拒否する。
+pub(crate) fn is_external_column_data_dir(path: &Path, app_data: &Path) -> bool {
+    use std::path::Component;
+    if path.components().any(|c| matches!(c, Component::ParentDir)) {
+        return false;
+    }
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let Some(id) = name.strip_prefix(EXTERNAL_COLUMN_DIR_PREFIX) else {
+        return false;
+    };
+    is_safe_column_id(id) && path.parent() == Some(app_data.join(EXTERNAL_COLUMNS_DIR).as_path())
+}
+
+/// 削除できたら None、再試行しても消せなければ削除予定に登録すべきパス文字列を返す。
+/// 削除処理 `remove` は注入できる（テストで失敗を再現するため）。
+async fn delete_external_dir_with_retry<F>(
+    data_dir: &Path,
+    attempts: u32,
+    interval: std::time::Duration,
+    remove: F,
+) -> Option<String>
+where
+    F: Fn(&Path) -> std::io::Result<()>,
+{
+    let result = crate::commands::account::retry_with_delay(attempts, interval, || async {
+        if data_dir.exists() {
+            remove(data_dir)
+        } else {
+            Ok(())
+        }
+    })
+    .await;
+    match result {
+        Ok(()) => None,
+        Err(e) => {
+            log::warn!(
+                "[delete_external_column_data] failed after retries {}: {e}",
+                data_dir.display()
+            );
+            Some(data_dir.to_string_lossy().to_string())
+        }
+    }
 }
 
 /// external カラム（アカウント非依存の任意URLカラム）専用のデータディレクトリを解決する。
@@ -197,20 +248,25 @@ pub async fn get_external_column_data_directory(
 /// external カラム専用のデータディレクトリを削除する。column_id から Rust 側でパスを
 /// 組み立てるため、呼び出し元（TS 側）は任意パスを直接指定できない。ディレクトリが
 /// 存在しない場合は何もしない（カラム追加前にキャンセルされた場合など）。
+/// WebView2 は破棄直後もフォルダを掴むことがあるため再試行し、それでも消せなければ
+/// 削除予定に登録すべきパスを返す（削除完了なら None）。
 #[tauri::command]
 pub async fn delete_external_column_data(
     caller: tauri::Webview,
     app: AppHandle,
     column_id: String,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     crate::commands::require_main_caller(&caller)?;
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let data_dir = external_column_data_dir(&app_data, &column_id)
         .ok_or_else(|| "invalid column id".to_string())?;
-    if data_dir.exists() {
-        std::fs::remove_dir_all(&data_dir).map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    Ok(delete_external_dir_with_retry(
+        &data_dir,
+        crate::commands::account::DELETE_RETRY_MAX_ATTEMPTS,
+        crate::commands::account::DELETE_RETRY_INTERVAL,
+        |p| std::fs::remove_dir_all(p),
+    )
+    .await)
 }
 
 #[cfg(desktop)]
@@ -610,6 +666,113 @@ fn linux_column_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 外部カラムのデータフォルダ判定は許可形のみ通す() {
+        let app_data = Path::new("/data/app");
+        let ext = app_data.join("external_columns");
+        assert!(is_external_column_data_dir(
+            &ext.join("column-abc123"),
+            app_data
+        ));
+        let rejected = [
+            ext.clone(),
+            ext.join("column-a").join("sub"),
+            ext.join("foo"),
+            ext.join("column-.."),
+            ext.join("column-a..b"),
+            ext.join("column-"),
+            app_data.join("other").join("column-a"),
+            app_data.join("accounts").join("column-a"),
+            PathBuf::from("/etc"),
+            PathBuf::from(""),
+            ext.join("..")
+                .join("accounts")
+                .join("x")
+                .join("..")
+                .join("..")
+                .join("column-a"),
+        ];
+        for path in rejected {
+            assert!(
+                !is_external_column_data_dir(&path, app_data),
+                "path={path:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn 外部カラムのデータフォルダが存在すれば削除されnoneを返す() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("external_columns").join("column-a");
+        std::fs::create_dir_all(dir.join("Default")).unwrap();
+        std::fs::write(dir.join("Default").join("Cookies"), b"x").unwrap();
+        let result = delete_external_dir_with_retry(&dir, 5, std::time::Duration::ZERO, |p| {
+            std::fs::remove_dir_all(p)
+        })
+        .await;
+        assert_eq!(result, None);
+        assert!(!dir.exists());
+    }
+
+    #[tokio::test]
+    async fn 外部カラムのデータフォルダが元から無ければnoneを返す() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("external_columns").join("column-none");
+        let result = delete_external_dir_with_retry(&dir, 5, std::time::Duration::ZERO, |p| {
+            std::fs::remove_dir_all(p)
+        })
+        .await;
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn 使用中で二回失敗した後に削除できればnoneを返す() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("column-a");
+        std::fs::create_dir_all(&dir).unwrap();
+        let calls = AtomicU32::new(0);
+        let result = delete_external_dir_with_retry(
+            &dir,
+            crate::commands::account::DELETE_RETRY_MAX_ATTEMPTS,
+            std::time::Duration::ZERO,
+            |p| {
+                if calls.fetch_add(1, Ordering::SeqCst) < 2 {
+                    Err(std::io::Error::other("locked"))
+                } else {
+                    std::fs::remove_dir_all(p)
+                }
+            },
+        )
+        .await;
+        assert_eq!(result, None);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn 全ての再試行が失敗したらフォルダのパスをsomeで返す() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("column-a");
+        std::fs::create_dir_all(&dir).unwrap();
+        let calls = AtomicU32::new(0);
+        let result = delete_external_dir_with_retry(
+            &dir,
+            crate::commands::account::DELETE_RETRY_MAX_ATTEMPTS,
+            std::time::Duration::ZERO,
+            |_| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Err(std::io::Error::other("locked"))
+            },
+        )
+        .await;
+        assert_eq!(result, Some(dir.to_string_lossy().to_string()));
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            crate::commands::account::DELETE_RETRY_MAX_ATTEMPTS
+        );
+    }
     use crate::commands::settings::ColumnSettings;
 
     fn column(page_type: &str) -> ColumnData {

@@ -38,7 +38,7 @@ vi.mock("../services/externalColumn", () => ({
     async (column: Column, accounts: Account[]) =>
       accounts.find((a) => a.id === column.accountId)?.dataDirectory,
   ),
-  deleteExternalColumnData: vi.fn(async () => undefined),
+  deleteExternalColumnData: vi.fn(async () => null),
 }));
 
 // calculateGridBounds のテストは src/lib/gridLayout.test.ts へ移動した
@@ -1362,7 +1362,7 @@ describe("useColumns handleRemoveColumn external", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockInvoke.mockResolvedValue(undefined);
-    mockDeleteExternalColumnData.mockResolvedValue(undefined);
+    mockDeleteExternalColumnData.mockResolvedValue(null);
     useAppStore.setState({
       accounts: [],
       columns: [
@@ -1410,6 +1410,43 @@ describe("useColumns handleRemoveColumn external", () => {
     });
 
     expect(mockDeleteExternalColumnData).not.toHaveBeenCalled();
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "delete_account_data",
+      expect.anything(),
+    );
+    expect(
+      useAppStore.getState().globalSettings.pendingDataDirectoryDeletions,
+    ).toEqual([]);
+  });
+
+  it("削除関数がnullを返したとき削除保留に登録しない", async () => {
+    mockDeleteExternalColumnData.mockResolvedValue(null);
+    const { result } = renderHook(() => useColumns());
+
+    await act(async () => {
+      await result.current.handleRemoveColumn("col-external");
+    });
+
+    expect(
+      useAppStore.getState().globalSettings.pendingDataDirectoryDeletions,
+    ).toEqual([]);
+  });
+
+  it("削除関数がパスを返したとき削除保留に登録しカラム自体は削除される", async () => {
+    const undeleted = "/app/external_columns/column-col-external";
+    mockDeleteExternalColumnData.mockResolvedValue(undeleted);
+    const { result } = renderHook(() => useColumns());
+
+    await act(async () => {
+      await result.current.handleRemoveColumn("col-external");
+    });
+
+    expect(
+      useAppStore.getState().globalSettings.pendingDataDirectoryDeletions,
+    ).toContain(undeleted);
+    expect(
+      useAppStore.getState().columns.some((c) => c.id === "col-external"),
+    ).toBe(false);
   });
 });
 

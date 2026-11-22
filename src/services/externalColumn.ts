@@ -32,9 +32,12 @@ export async function resolveColumnDataDirectory(
 /**
  * external カラム専用のデータディレクトリを削除する。
  * column_id から Rust 側でパスを組み立てるため、呼び出し側は任意パスを渡さない。
+ * 再試行しても消せなかった場合は、削除予定に登録すべきパスを返す（削除完了なら null）。
  */
 export async function deleteExternalColumnData(
   columnId: string,
-): Promise<void> {
-  await invoke(IPC_COMMANDS.DELETE_EXTERNAL_COLUMN_DATA, { columnId });
+): Promise<string | null> {
+  return invoke<string | null>(IPC_COMMANDS.DELETE_EXTERNAL_COLUMN_DATA, {
+    columnId,
+  });
 }

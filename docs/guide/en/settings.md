@@ -56,7 +56,7 @@ Shown only on Android. It includes items such as "Launch the X app with the post
 - **Official settings** — **"Open official settings"** opens X's official settings screen in a popup window. With the **"Apply to each column"** button on that screen, you can apply those settings to the columns of your other accounts.
 - **WebView** — **"Recreate all WebViews"** recreates all columns in turn (your settings are kept; use it to recover when the display is broken).
 - **About the app** — Shows the current version and the **"Check for updates"** button ([Updating the App](./update)).
-- **Delete data folders** — Shown only when data folders that could not be deleted remain. **"Retry deleting data folders"** retries the deletion.
+- **Delete data folders** — Shown only when data folders that could not be deleted remain (deletion is also attempted automatically at the next launch). **"Retry deleting data folders"** retries the deletion.
 
 Settings take effect when you press **"Apply"**.
 

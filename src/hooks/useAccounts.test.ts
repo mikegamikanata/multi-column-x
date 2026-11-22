@@ -673,6 +673,38 @@ describe("useAccounts retryPendingDataDirectoryDeletions", () => {
     ).toEqual([]);
   });
 
+  it("再実行対象が現存する外部カラムのフォルダと一致する場合は削除せず対象から外す", async () => {
+    useAppStore.setState({
+      columns: [
+        makeColumn({
+          id: "col-live",
+          pageType: "external",
+          accountId: "col-live",
+        }),
+      ],
+      globalSettings: {
+        ...useAppStore.getState().globalSettings,
+        pendingDataDirectoryDeletions: [
+          "/data/external_columns/column-col-live",
+        ],
+      },
+    });
+    mockInvoke.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useAccounts());
+
+    await act(async () => {
+      await result.current.retryPendingDataDirectoryDeletions();
+    });
+
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "delete_account_data",
+      expect.anything(),
+    );
+    expect(
+      useAppStore.getState().globalSettings.pendingDataDirectoryDeletions,
+    ).toEqual([]);
+  });
+
   it("再実行対象が無い場合は何も削除せず残数0が返る", async () => {
     mockInvoke.mockResolvedValue(undefined);
     const { result } = renderHook(() => useAccounts());
