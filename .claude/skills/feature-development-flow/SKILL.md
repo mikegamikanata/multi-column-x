@@ -24,6 +24,7 @@ digraph flow {
   "4. プロパティベーステスト" [shape=box];
   "5. 完了処理(format/lint/test/build)" [shape=box];
   "6. 手動テスト項目出力" [shape=box];
+  "6.5 自律手動テスト" [shape=box];
 
   "1. 要求明確化" -> "1.5 Gherkin仕様定義(承認)";
   "1.5 Gherkin仕様定義(承認)" -> "2. 実装プラン策定";
@@ -35,6 +36,7 @@ digraph flow {
   "仕様明確かつ実装から導出可能?" -> "5. 完了処理(format/lint/test/build)" [label="no"];
   "4. プロパティベーステスト" -> "5. 完了処理(format/lint/test/build)";
   "5. 完了処理(format/lint/test/build)" -> "6. 手動テスト項目出力";
+  "6. 手動テスト項目出力" -> "6.5 自律手動テスト";
 }
 ```
 
@@ -49,6 +51,7 @@ digraph flow {
 | 4. プロパティベーステスト     | 仕様が明確かつ対応コードから実装可能なら作成（TS=fast-check / Rust=proptest / Kotlin=kotest-property）                                                     | `property-based-testing`                                                                    |
 | 5. 完了処理                   | フォーマッタ適用・Lint・全テスト実行・ビルド確認                                                                                                           | `check-creation`                                                                            |
 | 6. 手動テスト項目出力（必須） | `@manual` シナリオと自動チェックで検出できない手動QA観点を `integration-test.md` に出力する                                                                | `integration-test-viewpoints`                                                               |
+| 6.5 自律手動テスト            | `integration-test.md` のうちエージェントが安全に実施できる項目を実機（Windows の CDP / Android エミュレータ）で実施し、結果セルに記録する                  | `autonomous-manual-test`                                                                    |
 
 ## Gherkin仕様駆動ルール（必須）
 
