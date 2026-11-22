@@ -6,6 +6,7 @@ Linux 環境固有のカラム WebView 配置・クリッピング・WebProcess 
 
 - `src-tauri/src/commands/webview/column.rs` — `linux_column_layout`（純粋関数）、`resize_column_webview`
 - `src/lib/rafThrottle.ts` — スクロール→再配置のフレーム間引き
+- `src/lib/serializeLatest.ts` — 再配置の直列化（同時 1 件・実行中の要求は完了後に最新状態で 1 回）
 - `src-tauri/Cargo.toml` — webkit2gtk のバージョンピン留め
 - `src-tauri/src/commands/media_codec.rs` — `check_media_codec_support`（H.264/AAC デコーダ欠如検出）
 - `src-tauri/src/commands/openh264_fetch.rs` — `download_and_enable_h264`（Cisco OpenH264 のオンデマンド取得）
@@ -21,6 +22,7 @@ Linux ではカラムが独立 `WebviewWindow`（親クリップが効かない�
 
 - ウィンドウは**常に論理 X 座標 `>= 0` に配置**する。Linux WM が負座標をクランプするため、「負の `screen_x` でスクリーン左端クリップ」方式は機能しない（左端カラムが全幅のまま居座るデグレードになる）。
 - 左右対称の**幅クリップ**（はみ出し分だけ幅を縮める）。完全に画面外は `hide()`。起動時は `visible(false)` 作成 → 全カラム作成後に `recalculateAllBounds` で配置してから `show()`（誤座標可視化での WebKit 空白カラム対策）。
+- 非表示→表示時は `show()` 後に位置・幅を当て直す（`linux_column_window_ops`）。再配置は `serializeLatest` で直列化し、古い位置指定が新しい位置指定を追い越さないようにする（横スクロール後に 1 カラムだけ古い位置に残る事象の対策）。`is_visible()` はイベントループ処理済みの状態を返すため、直前の `hide()` / `show()` が未処理だとずれうるが、当て直しが 1 回増減するだけで悪化はしない。
 
 **この挙動は過去にインライン実装・テスト無しで複数回デグレードしている。変更する場合は必ず `linux_column_layout` のテスト（example＋プロパティ `x_offset>=0`＋左右の「全幅で居座らない」回帰テスト）で先に仕様を表現すること。テストは実装をなぞらず仕様をエンコードする（過去、実装に追従してテストが壊れていた案があった）。**
 

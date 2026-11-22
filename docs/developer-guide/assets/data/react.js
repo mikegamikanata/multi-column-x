@@ -460,7 +460,7 @@ Object.assign(window.MCX_DATA.flows, {
         label: "invoke('resize_column_webview')",
         kind: "invoke",
         detail:
-          "<p>Linux は WebviewWindow の再配置になり負荷が高いため、スクロール起因の呼び出しは <code>rafThrottle</code> で 1 フレーム 1 回に間引く。</p>",
+          "<p>Linux は WebviewWindow の再配置になり負荷が高いため、スクロール起因の呼び出しは <code>rafThrottle</code> で 1 フレーム 1 回に間引く。さらに再配置は <code>serializeLatest</code> で直列化し、前回の完了前に次を投げない（古い位置指定の追い越し防止）。</p>",
       },
     ],
   },
@@ -1097,6 +1097,12 @@ Object.assign(window.MCX_DATA.catalogs, {
         name: "rafThrottle.ts",
         summary: "rAF で呼び出しを 1 フレーム 1 回に間引く。",
         files: ["src/lib/rafThrottle.ts"],
+      },
+      {
+        name: "serializeLatest.ts",
+        summary:
+          "非同期処理を同時 1 件に直列化し、実行中の要求は完了後に 1 回だけ実行する。",
+        files: ["src/lib/serializeLatest.ts"],
       },
       {
         name: "log.ts",

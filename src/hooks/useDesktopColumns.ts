@@ -12,6 +12,7 @@ import {
 } from "../lib/gridLayout";
 import { logError } from "../lib/log";
 import { rafThrottle } from "../lib/rafThrottle";
+import { serializeLatest } from "../lib/serializeLatest";
 import {
   createColumnWebview,
   resizeColumnWebview,
@@ -68,16 +69,8 @@ export function useDesktopColumns({
     Record<string, ColumnBounds>
   >({});
 
-  // 全カラムのboundsを再計算して更新
-  const recalculateAllBounds = useCallback(async () => {
-    const { isMobile } = useAppStore.getState();
-    if (isMobile) {
-      if (activeColumnId) {
-        await setActiveColumn(activeColumnId);
-      }
-      return;
-    }
-
+  // デスクトップの全カラム再配置（1 回分）。状態は実行開始時に読む。
+  const recalculateDesktopBounds = useCallback(async () => {
     if (!containerRef.current) return;
     const containerHeight = containerRef.current.clientHeight;
     const scrollLeft = scrollbarRef.current?.scrollLeft ?? 0;
@@ -99,7 +92,33 @@ export function useDesktopColumns({
         ),
       ),
     );
-  }, [activeColumnId, setActiveColumn, containerRef, scrollbarRef]);
+  }, [containerRef, scrollbarRef]);
+
+  // 再配置は直列化する（同時実行 1 件まで。実行中の要求は完了後に最新状態で 1 回だけ実行）。
+  // 前回の resize_column_webview の完了前に次を投げると、Linux で古い位置指定が新しい位置指定を
+  // 追い越して残り、横スクロール後に一部のカラムだけ位置が戻らないことがある。
+  const recalculateDesktopRef = useRef(recalculateDesktopBounds);
+  recalculateDesktopRef.current = recalculateDesktopBounds;
+  const serializedRecalculate = useMemo(
+    () => serializeLatest(() => recalculateDesktopRef.current()),
+    [],
+  );
+  useEffect(
+    () => () => serializedRecalculate.cancel(),
+    [serializedRecalculate],
+  );
+
+  // 全カラムのboundsを再計算して更新
+  const recalculateAllBounds = useCallback(async () => {
+    const { isMobile } = useAppStore.getState();
+    if (isMobile) {
+      if (activeColumnId) {
+        await setActiveColumn(activeColumnId);
+      }
+      return;
+    }
+    await serializedRecalculate();
+  }, [activeColumnId, setActiveColumn, serializedRecalculate]);
 
   const restoreDesktopColumns = useCallback(
     async (
