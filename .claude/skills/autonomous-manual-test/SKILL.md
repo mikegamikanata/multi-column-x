@@ -83,7 +83,7 @@ auto mode の分類器が、アプリ内の削除確定などのタップを拒�
 6. **後片付け**（必ず実施。失敗しても飛ばさない）
    - アプリを正常終了する: Windows は `win-closewait.ps1`（`win-window.ps1 close` で主窓にだけ WM_CLOSE を送り、プロセス消滅を待って経過時間を出す。タイトル空の 16x16 ヘルパー窓には送らない）。残ったプロセスは最後の手段としてだけ強制終了する
    - Windows: `win-appdata.ps1 diff` で `settings.json` が退避時と同一か意味比較し（差分のキーのパスが出る。`windowBounds` だけの差は `-IgnoreWindowBounds` で除外。`windowBounds` は client サイズで保存されるので `win-window.ps1 info` の client 値と比べる）、意図しない差分があれば `restore-settings` で戻す。テスト用に追加したカラム等が残っていないことも確認する
-   - Linux: `linux-closewait.sh <pid>` で正常終了し（`GDK_BACKEND=x11` 起動なので窓経由で終了できる。強制終了はしない）、`linux-appdata.sh diff <退避> --ignore-window-bounds` で `settings.json` が退避時と同一か確認する（`windowBounds` の高さが終了時に増える既知の挙動があるため除外してよいが、除外したことを結果に書く）。意図しない差分は `restore-settings`、データを動かした項目は `restore-all`（アプリ終了後に実行）で戻す。`linux-procs.sh mounts` で `/tmp/.mount_*` が残っていないことも確認する
+   - Linux: `linux-closewait.sh <pid>` で正常終了し（`GDK_BACKEND=x11` 起動なので窓経由で終了できる。強制終了はしない）、`linux-appdata.sh diff <退避> --ignore-window-bounds` で `settings.json` が退避時と同一か確認する（#287 より前のビルドでは終了時に `windowBounds` の高さが増える。#287 を含むビルドで増えるなら NG（要判断）として記録し、除外したら結果に書く）。意図しない差分は `restore-settings`、データを動かした項目は `restore-all`（アプリ終了後に実行）で戻す。`linux-procs.sh mounts` で `/tmp/.mount_*` が残っていないことも確認する
    - Android: 端末設定を `state-restore` で戻し、`state-save` し直して記録と一致することを確認する。機内モードにしたなら必ず解除する
    - 一時ファイル（保存した動画、退避データ）はスクラッチ内に限り、リポジトリに混ぜない
 7. **報告**: 実施した項目数・OK/NG/未実施の内訳、NG の詳細、代替手順を使った項目、分類器に拒否された項目、後片付けの確認結果（settings.json の一致、端末設定の復元）を報告する

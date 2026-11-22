@@ -96,7 +96,7 @@ node scripts/open.cjs media link compose --account=account-<uuid> --id=<accountI
 `GDK_BACKEND=x11`（既定）で起動すると、`xwininfo -root -tree` に主窓が `"MultiColumnX": ("multicolumnx" "Multicolumnx")`、カラムが `"Tauri App": ("multicolumnx" ...)` の独立窓として座標付きで出る（ほかに 10x10 / 2x2 の `multicolumnx` ヘルパー窓が出ることがある。mutter のフレーム窓 `mutter-x11-frames` は対象外）。`linux-window.py close` が主窓だけに `WM_PROTOCOLS / WM_DELETE_WINDOW` の ClientMessage を送ると、約 1 秒でプロセスが消える（`linux-closewait.sh`）。Wayland ネイティブでは外部から正常終了させる手段が無い。
 
 - アプリ本体が `WAYLAND_DISPLAY` の存在を見て `GDK_BACKEND=x11` を設定する（`src-tauri/src/main.rs`）ため、Wayland セッションでは `--wayland` で起動しても XWayland のままだった（`linux-window.py info` で X11 窓が見える）。実際のネイティブ Wayland で動かすにはアプリ側の変更が要る
-- 終了時に `settings.json` の `appSettings.globalSettings.windowBounds.height` が増える（例: 1131 → 1168。X11 起動で再現。既知の不具合 #287 系の可能性）。diff は `--ignore-window-bounds` を使い、除外したことを結果に書く
+- #287（保存サイズを `inner_size()` に変更）より前のビルドでは、終了時に `windowBounds.height` が増えた（例: 1131 → 1168。37px は mutter のタイトルバーの高さと符合）。#287 を含む develop のビルドでは 3 回連続で起動・終了しても値が変わらないことを確認した。差分が出たら試験対象ビルドが #287 を含むか確認し、含むのに増えるなら NG（要判断）として記録する。`--ignore-window-bounds` は古いビルドを試験するときだけ使い、使ったことを結果に書く
 - SIGTERM でも止められる（`kill -TERM <pid>`）。強制終了はしない
 
 ### スクリーンショット
@@ -156,7 +156,7 @@ node scripts/open.cjs media link compose --account=account-<uuid> --id=<accountI
 - **OOM**: `/tmp` の残骸（`.mount_*` / `appimage_extracted_*`、4.5GB の実績）とカラム 8 本が重なってメモリが枯渇し、デスクトップが落ちた。起動前に `free -h` と残骸を確認する（`linux-launch.sh` が表示する）。残骸は他の実行のものかもしれないので、削除はユーザーに確認する
 - **AppImage 起動中は `/tmp/.mount_*` にマウントされる**。`linux-launch.sh` が返す PID はそのマウント上の `multicolumnx` 自身。AppImage ファイルを動かす試験は写しで行う
 - **アプリ起動中に退避・復元をしない**（`linux-appdata.sh` が拒否する）。`restore-settings` は `settings.json` だけで、`settings.json.prev` は戻さない
-- 終了時に `windowBounds` の高さが増える（上記「正常終了」）
+- 古いビルドでは終了時に `windowBounds` の高さが増える（上記「正常終了」）
 - `/proc/<pid>/environ` は起動時の環境（アプリが実行中に `set_var` した値は見えないことがある）。実効のバックエンドは `linux-window.py info` で X11 窓が見えるかで判断する
 - `wk.cjs eval` の式はシェルのクォートに注意（`$` やバッククォートはシングルクォートで囲む）。ページ内の `fetch` / `invoke` は Promise を返す式にすれば待てる
 - 試験で作ったスクショ・バックアップファイル（個人情報を含むことがある）はスクラッチに置き、不要になったら削除する
