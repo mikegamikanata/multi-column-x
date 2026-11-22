@@ -123,6 +123,8 @@ AAC-LC プロファイルのコア特許は失効済み（Fedora が2017年以�
 - **C（デコード）**: 同梱環境のみで `scripts/fixtures/h264-high-aac.mp4`（High / I420 + AAC）を `decodebin3` で再生し、30 秒以内に `Got EOS` に到達する（`vah264dec` はランク NONE にして openh264 を使う）。progressive 経路のみの担保で、MSE 経路は手動確認が必要。
 - **D（rpath）**: `gst-optional` 配下と `libgstvideoparsersbad.so` を `ldd` し、`libgst*` がすべて AppImage 内（`usr/`）に解決され、`not found` が無い（`libva*` はホスト依存のため許容）。C は `usr/lib` をパスに含むため rpath 自体は検証できず、D が `$ORIGIN/../../../../lib` を担保する。
 
+リリースランナーは `ubuntu-24.04` に固定する。理由は、実行時に取得する Cisco 配布の OpenH264 2.4.1（`libopenh264.so.7`）と、ビルド環境の `libopenh264-7` の soname を一致させるため（`ubuntu-latest` = 26.04 は 2.6.0 / `.so.8`）。`ubuntu-latest` に戻す場合は、`OPENH264_VERSION`・`libopenh264-N` パッケージ名・`verify-appimage-media.sh` の `libopenh264.so.7` を同時に更新すること。
+
 `release.yml` の `desktop` ジョブ（ubuntu のみ）では、検査を 2 回実行する。
 
 - **事前ゲート（`Build and verify AppImage media bundle`）**: tauri-action の**前**に、`createUpdaterArtifacts:false` で AppImage をビルドして検査する。失敗するとジョブがそこで止まり、tauri-action に到達しないため AppImage はアップロードされない。署名鍵は渡さない。
