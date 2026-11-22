@@ -317,6 +317,53 @@ describe("useH264Setup", () => {
       await waitFor(() => expect(relaunchCalls()).toHaveLength(1));
     });
 
+    it("再起動に失敗すると再起動エラーの状態が保持される", async () => {
+      const failure = {
+        code: "relaunch.appImageMissing",
+        detail: "/opt/app.AppImage",
+      };
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === IPC_COMMANDS.RELAUNCH_APP) return Promise.reject(failure);
+        return Promise.resolve(undefined);
+      });
+      const { result } = renderHook(() => useH264Setup(false));
+
+      act(() => {
+        result.current.relaunchApp();
+      });
+
+      await waitFor(() =>
+        expect(result.current.relaunchError).toEqual(failure),
+      );
+    });
+
+    it("再起動を押し直すと前回の再起動エラーが消える", async () => {
+      let attempt = 0;
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === IPC_COMMANDS.RELAUNCH_APP) {
+          attempt += 1;
+          return attempt === 1
+            ? Promise.reject({
+                code: "relaunch.appImageMissing",
+                detail: "/opt/app.AppImage",
+              })
+            : new Promise(() => {});
+        }
+        return Promise.resolve(undefined);
+      });
+      const { result } = renderHook(() => useH264Setup(false));
+      act(() => {
+        result.current.relaunchApp();
+      });
+      await waitFor(() => expect(result.current.relaunchError).not.toBeNull());
+
+      act(() => {
+        result.current.relaunchApp();
+      });
+
+      expect(result.current.relaunchError).toBeNull();
+    });
+
     it("ダウンロードに失敗するとエラー内容が表示される", async () => {
       setupInvoke({}, () => Promise.reject(new Error("接続できません")));
       const { result } = renderHook(() => useH264Setup(true));

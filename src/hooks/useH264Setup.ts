@@ -14,8 +14,11 @@ export type H264DownloadState = "idle" | "downloading" | "success" | "error";
  */
 export type H264DownloadError = AppErrorInfo | string;
 
+/** 「今すぐ再起動」の失敗内容。扱いは H264DownloadError と同じ。 */
+export type H264RelaunchError = AppErrorInfo | string;
+
 /** invoke の失敗値を表示用の失敗内容に正規化する。 */
-function toErrorInfo(e: unknown): H264DownloadError {
+function toErrorInfo(e: unknown): AppErrorInfo | string {
   if (isAppError(e)) return e;
   return e instanceof Error ? e.message : String(e);
 }
@@ -58,6 +61,9 @@ export function useH264Setup(ready: boolean) {
   const [h264Available, setH264Available] = useState(true);
   const [downloadState, setDownloadState] = useState<H264DownloadState>("idle");
   const [downloadError, setDownloadError] = useState<H264DownloadError | null>(
+    null,
+  );
+  const [relaunchError, setRelaunchError] = useState<H264RelaunchError | null>(
     null,
   );
   // 案内ダイアログを閉じた（または設定画面から開始した）後に再表示しないための状態
@@ -112,7 +118,12 @@ export function useH264Setup(ready: boolean) {
   const close = useCallback(() => setClosed(true), []);
 
   const relaunchApp = useCallback(() => {
-    requestAppRelaunch().catch(logError("useH264Setup:relaunch"));
+    // 押し直したときは結果が出るまで前回の失敗を出さない
+    setRelaunchError(null);
+    requestAppRelaunch().catch((e: unknown) => {
+      setRelaunchError(toErrorInfo(e));
+      logError("useH264Setup:relaunch")(e);
+    });
   }, []);
 
   const isDialogOpen =
@@ -126,6 +137,7 @@ export function useH264Setup(ready: boolean) {
     isDialogOpen,
     downloadState,
     downloadError,
+    relaunchError,
     download,
     dismiss,
     close,
