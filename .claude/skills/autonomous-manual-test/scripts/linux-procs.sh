@@ -42,9 +42,11 @@ case "$cmd" in
     for p in $(descendants "$root"); do
       n=$((n + 1))
       # fd は readlink、maps / environ は grep -a。権限が無いファイルは読めないだけで無視する
-      if { tr '\0' '\n' < "/proc/$p/environ"; } 2>/dev/null | grep -qF -- "$needle"; then echo "HIT environ pid=$p ($(cat /proc/$p/comm))"; hit=$((hit + 1)); fi
+      env_txt="$( { tr '\0' '\n' < "/proc/$p/environ"; } 2>/dev/null || true)"
+      if grep -qF -- "$needle" <<<"$env_txt"; then echo "HIT environ pid=$p ($(cat /proc/$p/comm))"; hit=$((hit + 1)); fi
       if grep -qF -- "$needle" "/proc/$p/maps" 2>/dev/null; then echo "HIT maps pid=$p ($(cat /proc/$p/comm))"; hit=$((hit + 1)); fi
-      if find "/proc/$p/fd" -maxdepth 1 -type l -exec readlink {} + 2>/dev/null | grep -qF -- "$needle"; then echo "HIT fd pid=$p ($(cat /proc/$p/comm))"; hit=$((hit + 1)); fi
+      fd_txt="$(find "/proc/$p/fd" -maxdepth 1 -type l -exec readlink {} + 2>/dev/null || true)"
+      if grep -qF -- "$needle" <<<"$fd_txt"; then echo "HIT fd pid=$p ($(cat /proc/$p/comm))"; hit=$((hit + 1)); fi
     done
     echo "検査したプロセス数=$n 一致=$hit"
     [ "$hit" -eq 0 ]
@@ -63,7 +65,8 @@ case "$cmd" in
     target="${3:?usage: linux-procs.sh kill <root-pid> <pid> [signal]}"
     sig="${4:-KILL}"
     if [ "$target" = "$root" ]; then echo "root 自身は対象外" >&2; exit 1; fi
-    if ! descendants "$root" | grep -qx "$target"; then echo "$target は $root の子孫ではない。kill しない" >&2; exit 1; fi
+    desc="$(descendants "$root")"
+    if ! grep -qx -- "$target" <<<"$desc"; then echo "$target は $root の子孫ではない。kill しない" >&2; exit 1; fi
     echo "kill -$sig $target ($(cat "/proc/$target/comm"))"
     kill "-$sig" "$target"
     ;;
