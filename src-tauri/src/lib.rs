@@ -51,12 +51,48 @@ fn merge_window_bounds(
     settings
 }
 
+/// 終了時に保存するウィンドウ領域を決める純粋関数。
+///
+/// - 位置は枠を含むウィンドウ左上（`outer_position`）。`set_position` が外側左上基準のため。
+/// - サイズは枠を含まない内側（`inner_size`）。`set_size` が内側（クライアント領域）サイズを
+///   設定するため、枠込みの値を保存すると復元のたびに枠分だけ大きくなる。
+/// - 最小化中は座標が画面外（Windows では -32000 付近）・サイズが極小になるため `None`
+///   （保存せず前回の保存値を維持する）。
+#[cfg(desktop)]
+fn window_bounds_to_save(
+    outer_position: (i32, i32),
+    inner_size: (u32, u32),
+    is_minimized: bool,
+) -> Option<serde_json::Value> {
+    if is_minimized {
+        return None;
+    }
+    Some(serde_json::json!({
+        "x": outer_position.0 as f64,
+        "y": outer_position.1 as f64,
+        "width": inner_size.0 as f64,
+        "height": inner_size.1 as f64,
+    }))
+}
+
+/// 保存済みサイズから復元時に `set_size` へ渡す内側サイズを求める純粋関数（最小 600x400 にクランプ）。
+#[cfg(desktop)]
+fn restored_inner_size(width: f64, height: f64) -> (u32, u32) {
+    (width.max(600.0) as u32, height.max(400.0) as u32)
+}
+
 #[cfg(desktop)]
 fn save_window_bounds(window: &tauri::Window) {
     let Ok(pos) = window.outer_position() else {
         return;
     };
-    let Ok(size) = window.outer_size() else {
+    let Ok(size) = window.inner_size() else {
+        return;
+    };
+    // 取得失敗は「最小化ではない」扱いにする（保存を止めて古い値が残り続けるより安全）
+    let minimized = window.is_minimized().unwrap_or(false);
+    let Some(bounds) = window_bounds_to_save((pos.x, pos.y), (size.width, size.height), minimized)
+    else {
         return;
     };
     let Ok(store) = window.app_handle().store("settings.json") else {
@@ -65,12 +101,6 @@ fn save_window_bounds(window: &tauri::Window) {
     let settings = store
         .get("appSettings")
         .unwrap_or_else(|| serde_json::json!({}));
-    let bounds = serde_json::json!({
-        "x": pos.x as f64,
-        "y": pos.y as f64,
-        "width": size.width as f64,
-        "height": size.height as f64,
-    });
     let value = merge_window_bounds(settings, bounds);
     store.set("appSettings", value);
     if let Err(e) =
@@ -164,8 +194,7 @@ pub fn run() {
                             let _ = window
                                 .set_position(PhysicalPosition::new(wb.x as i32, wb.y as i32));
                         }
-                        let clamped_w = wb.width.max(600.0) as u32;
-                        let clamped_h = wb.height.max(400.0) as u32;
+                        let (clamped_w, clamped_h) = restored_inner_size(wb.width, wb.height);
                         let _ = window.set_size(PhysicalSize::new(clamped_w, clamped_h));
                     }
                 }
@@ -376,6 +405,121 @@ mod tests {
         assert_eq!(
             merged_from_array["globalSettings"]["windowBounds"],
             sample_bounds()
+        );
+    }
+
+    #[test]
+    fn 終了時の保存サイズは枠を含まない内側サイズになる() {
+        // 外側 1957x1375 / 内側 1941x1336 のウィンドウでは内側を保存する
+        let bounds = window_bounds_to_save((100, 50), (1941, 1336), false)
+            .expect("通常状態では保存対象になる");
+
+        assert_eq!(bounds["width"], 1941.0);
+        assert_eq!(bounds["height"], 1336.0);
+        assert_ne!(bounds["width"], 1957.0);
+        assert_ne!(bounds["height"], 1375.0);
+    }
+
+    #[test]
+    fn 終了時の保存位置は外側左上の座標になる() {
+        let bounds = window_bounds_to_save((100, 50), (1941, 1336), false)
+            .expect("通常状態では保存対象になる");
+
+        assert_eq!(bounds["x"], 100.0);
+        assert_eq!(bounds["y"], 50.0);
+    }
+
+    #[test]
+    fn 最小化中は保存対象がなくnoneになる() {
+        assert!(window_bounds_to_save((100, 50), (1941, 1336), true).is_none());
+        // Windows の最小化中は位置が画面外・サイズが極小になる
+        assert!(window_bounds_to_save((-32000, -32000), (160, 28), true).is_none());
+    }
+
+    #[test]
+    fn 保存されたサイズで復元した内側サイズは保存値と一致する() {
+        assert_eq!(restored_inner_size(1941.0, 1336.0), (1941, 1336));
+    }
+
+    #[test]
+    fn 保存した領域を復元してもサイズが変化しない() {
+        let bounds = window_bounds_to_save((100, 50), (1941, 1336), false)
+            .expect("通常状態では保存対象になる");
+        let width = bounds["width"].as_f64().expect("width は数値");
+        let height = bounds["height"].as_f64().expect("height は数値");
+
+        // 保存 → 復元を繰り返しても増えない
+        let mut size = restored_inner_size(width, height);
+        for _ in 0..3 {
+            let saved = window_bounds_to_save((100, 50), size, false).expect("保存対象になる");
+            size = restored_inner_size(
+                saved["width"].as_f64().expect("width は数値"),
+                saved["height"].as_f64().expect("height は数値"),
+            );
+        }
+        assert_eq!(size, (1941, 1336));
+    }
+
+    #[test]
+    fn 復元サイズは最小600x400にクランプされる() {
+        assert_eq!(restored_inner_size(100.0, 100.0), (600, 400));
+        assert_eq!(restored_inner_size(600.0, 400.0), (600, 400));
+        assert_eq!(restored_inner_size(599.0, 399.0), (600, 400));
+        assert_eq!(restored_inner_size(601.0, 401.0), (601, 401));
+    }
+
+    /// 本番コード部分（テストモジュール以降を除き、`//` 行を除いたもの）を返す。
+    fn production_code() -> String {
+        include_str!("lib.rs")
+            .split("#[cfg(all(test, desktop))]")
+            .next()
+            .expect("split は必ず1要素以上を返す")
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn save_window_bounds関数は内側サイズを取得し外側サイズを保存に使わない() {
+        let code = production_code();
+        let start = code
+            .find("fn save_window_bounds")
+            .expect("save_window_bounds が見つからない");
+        let rest = &code[start..];
+        let end = rest.find("\nfn ").unwrap_or(rest.len());
+        let body = &rest[..end];
+
+        assert!(body.contains("inner_size()"), "内側サイズを取得していない");
+        assert!(
+            !body.contains("outer_size()"),
+            "外側サイズを取得している（復元のたびに枠分大きくなる）"
+        );
+        assert!(
+            body.contains("outer_position()"),
+            "外側位置を取得していない"
+        );
+        assert!(
+            body.contains("window_bounds_to_save("),
+            "保存値の決定が純粋関数を経由していない"
+        );
+        assert!(
+            body.contains("is_minimized()"),
+            "最小化状態を確認していない"
+        );
+    }
+
+    #[test]
+    fn 復元処理は内側サイズ計算関数を経由して設定する() {
+        let code = production_code();
+
+        assert!(
+            code.contains("restored_inner_size(wb.width, wb.height)"),
+            "復元サイズが純粋関数を経由していない"
+        );
+        assert!(
+            !code.contains("wb.width.max(600.0)"),
+            "復元サイズのクランプが直書きされている"
         );
     }
 }
