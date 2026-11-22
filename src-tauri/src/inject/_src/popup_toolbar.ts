@@ -571,12 +571,19 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
 
   const listen = window.__TAURI__?.event?.listen;
   if (listen) {
-    listen<VideoDownloadProgressPayload>(VIDEO_DOWNLOAD_PROGRESS, function (e) {
-      downloadStatus.textContent = formatVideoDownloadProgressText(e.payload);
-      if (e.payload.phase !== "downloading") {
-        clearDownloadFeedbackAfterDelay();
-      }
-    }).catch(function (err: unknown) {
+    // 既定 target（Any）は他 WebView 宛ての進捗（カラムのダウンロード）も受け取るため、自ラベルに限定する。
+    const ownLabel =
+      window.__TAURI_INTERNALS__?.metadata?.currentWebview?.label;
+    listen<VideoDownloadProgressPayload>(
+      VIDEO_DOWNLOAD_PROGRESS,
+      function (e) {
+        downloadStatus.textContent = formatVideoDownloadProgressText(e.payload);
+        if (e.payload.phase !== "downloading") {
+          clearDownloadFeedbackAfterDelay();
+        }
+      },
+      ownLabel ? { target: ownLabel } : undefined,
+    ).catch(function (err: unknown) {
       console.error("[popup_toolbar]", err);
     });
   }

@@ -44,6 +44,7 @@ const tauriListenMock = vi.fn(
     _handler: (
       payload: TauriEventPayload<VideoDownloadProgressPayload>,
     ) => void,
+    _options?: { target?: string },
   ) => Promise.resolve<() => void>(() => undefined),
 );
 
@@ -985,10 +986,46 @@ describe("inject/popup_toolbar の動画ダウンロード進捗イベント受�
     window.__mcxTargetHref = "";
     window.__mcxEscCloseEnabled = false;
     delete window.__mcxPopupBridge;
+    delete window.__TAURI_INTERNALS__;
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    delete window.__TAURI_INTERNALS__;
+  });
+
+  it("自WebViewのラベルが取れるときはそのラベル宛てに限定してlistenする", async () => {
+    window.__TAURI_INTERNALS__ = {
+      metadata: { currentWebview: { label: "popup-1" } },
+    } as typeof window.__TAURI_INTERNALS__;
+
+    await importToolbar();
+
+    const call = tauriListenMock.mock.calls.find(
+      (c) => c[0] === "video-download-progress",
+    );
+    expect(call?.[2]).toEqual({ target: "popup-1" });
+  });
+
+  it("自WebViewのラベルが取れないときは従来どおりtarget指定なしでlistenし進捗表示が更新される", async () => {
+    await importToolbar();
+
+    const call = tauriListenMock.mock.calls.find(
+      (c) => c[0] === "video-download-progress",
+    );
+    expect(call?.[2]).toBeUndefined();
+
+    getListenHandler()({
+      event: "video-download-progress",
+      payload: {
+        fileIndex: 1,
+        fileCount: 1,
+        current: 50,
+        total: 100,
+        phase: "downloading",
+      },
+    });
+    expect(getStatus().textContent).toBe("ダウンロード中 50%");
   });
 
   it("進捗イベントを受信するとdownloadStatusのテキストが更新される", async () => {
