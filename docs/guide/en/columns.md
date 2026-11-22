@@ -37,7 +37,7 @@ Use the buttons in the column header.
 - **Refresh** — Refreshes the column manually.
 - **Reload page** — Reloads the column's page.
 - **Settings (gear)** — Opens the settings for that column ([Per-column settings](#per-column-settings)).
-- **Close column (✕)** — Removes the column.
+- **Close column (✕)** — Removes the column. A confirmation dialog appears, and the column is removed when you choose Delete. For an external site column, its data, such as login information, is deleted as well.
 
 To reorder or rearrange columns, use the **"Column layout"** tab in the app settings ([Grid layout](#grid-layout-advanced)).
 
