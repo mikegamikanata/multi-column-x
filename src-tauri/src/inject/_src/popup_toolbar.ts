@@ -42,6 +42,7 @@ interface VideoDownloadProgressPayload {
  * - "downloading": total が分かればパーセンテージを表示、不明なら省略する。
  * - "completed" / "failed": その旨のテキストを表示する。
  * - fileCount > 1 の場合（HLSの映像+音声）は "(fileIndex/fileCount)" を併記する。
+ * video_long_press_menu.ts の formatLongPressDownloadText と同じ組み立て（同期すること）。
  */
 export function formatVideoDownloadProgressText(
   payload: VideoDownloadProgressPayload,
