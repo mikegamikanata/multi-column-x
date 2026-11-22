@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import * as extensionsService from "@/services/extensions";
 import { expectAccessibleControls } from "@/test-utils/a11y";
@@ -2336,5 +2336,72 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
         message.querySelector('[aria-hidden="true"][data-kind="warning"]'),
       ).not.toBeNull();
     });
+  });
+});
+
+describe("AppSettingsPanel 更新確認の結果表示", () => {
+  let scrollSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    scrollSpy.mockRestore();
+  });
+
+  it.each(["none", "error"] as const)(
+    "更新確認の結果が表示されると結果の位置までスクロールする（%s）",
+    (result) => {
+      const { rerender } = render(<AppSettingsPanel {...defaultProps} />);
+      expect(scrollSpy).not.toHaveBeenCalled();
+
+      rerender(
+        <AppSettingsPanel {...defaultProps} updateManualResult={result} />,
+      );
+
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(scrollSpy).toHaveBeenCalledWith({ block: "nearest" });
+      expect(scrollSpy.mock.contexts[0]).toBe(screen.getByRole("status"));
+    },
+  );
+
+  it.each([
+    ["none" as const, "最新のバージョンです"],
+    ["error" as const, "更新の確認に失敗しました"],
+  ])(
+    "更新確認の結果はスクリーンリーダーに読み上げられる状態で表示される（%s）",
+    (result, text) => {
+      render(
+        <AppSettingsPanel {...defaultProps} updateManualResult={result} />,
+      );
+      expect(screen.getByRole("status")).toHaveTextContent(text);
+    },
+  );
+
+  it("更新確認の結果が出る前は結果の読み上げ領域もスクロールも無い", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(scrollSpy).not.toHaveBeenCalled();
+  });
+
+  it("結果が変わらない再描画ではスクロールが呼ばれず上へスクロールしても引き戻されない", () => {
+    const { rerender } = render(
+      <AppSettingsPanel {...defaultProps} updateManualResult="none" />,
+    );
+    scrollSpy.mockClear();
+
+    rerender(
+      <AppSettingsPanel
+        {...defaultProps}
+        updateManualResult="none"
+        updateChecking
+        appVersion="0.2.0"
+      />,
+    );
+
+    expect(scrollSpy).not.toHaveBeenCalled();
   });
 });

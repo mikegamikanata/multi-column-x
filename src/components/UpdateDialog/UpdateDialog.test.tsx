@@ -21,6 +21,18 @@ describe("UpdateDialog", () => {
     expect(screen.getByText(/バグ修正/)).toBeInTheDocument();
   });
 
+  it("更新があるときは更新ダイアログが表示される", () => {
+    render(
+      <UpdateDialog
+        update={update}
+        installing={false}
+        onInstall={vi.fn()}
+        onLater={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("更新するでonInstallを呼ぶ", () => {
     const onInstall = vi.fn();
     render(

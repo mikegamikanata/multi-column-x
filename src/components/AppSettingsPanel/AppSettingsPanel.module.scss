@@ -315,6 +315,11 @@
   margin: 0;
 }
 
+// 更新確認の結果をスクロールで見せるとき、下端ぴったりでなく余白を残して止める
+.updateResult {
+  scroll-margin-bottom: t.$space-3;
+}
+
 .errorText {
   color: var(--mcx-danger);
   font-size: t.$font-size-xs;
