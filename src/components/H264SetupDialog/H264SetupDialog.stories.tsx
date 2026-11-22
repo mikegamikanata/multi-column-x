@@ -109,6 +109,7 @@ const meta: Meta<typeof H264SetupDialog> = {
   args: {
     downloadState: "idle",
     downloadError: null,
+    relaunchError: null,
     onDownload: fn(),
     onDismiss: fn(),
     onClose: fn(),
@@ -178,6 +179,31 @@ export const SuccessDark: Story = {
   name: "成功（ダーク）",
   args: { downloadState: "success" },
   decorators: [withTheme("dark")],
+};
+
+export const RelaunchFailed: Story = {
+  name: "再起動失敗（ライト）",
+  args: {
+    downloadState: "success",
+    relaunchError: {
+      code: "relaunch.appImageMissing",
+      detail: "/opt/app.AppImage",
+    },
+  },
+  decorators: [withTheme("light")],
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "AppImage が見つからない",
+    );
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "/opt/app.AppImage",
+    );
+    // 再起動も「後で」も押せるまま残る
+    await expect(canvas.getByRole("button", { name: "後で" })).toBeEnabled();
+    await userEvent.click(canvas.getByRole("button", { name: "今すぐ再起動" }));
+    await expect(args.onRelaunch).toHaveBeenCalledTimes(1);
+  },
 };
 
 export const ErrorState: Story = {

@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use crate::commands::app_error::AppError;
+use crate::commands::app_error::{codes, AppError};
 use crate::commands::media_codec::detect_appimage_dir;
 
 /// 新プロセスへ渡さないキー。`MULTI_COLUMN_X_LD_PATH_PRIMED` は `linux_codec_env::REEXEC_GUARD_ENV` と同じ値
@@ -122,6 +122,22 @@ pub(crate) fn choose_cwd(
         .map(PathBuf::from)
         .find(|p| is_dir(p))
         .unwrap_or_else(|| PathBuf::from("/"))
+}
+
+/// 再起動する AppImage 本体が実在するか確かめる。起動後に移動・名前変更・削除されていたら
+/// 種別付きのエラー（detail は本体のパス）を返し、画面で原因と対処を示せるようにする。
+pub(crate) fn ensure_appimage_exists(
+    program: &Path,
+    is_file: impl Fn(&Path) -> bool,
+) -> Result<(), AppError> {
+    if is_file(program) {
+        Ok(())
+    } else {
+        Err(AppError::with_detail(
+            codes::RELAUNCH_APPIMAGE_MISSING,
+            program.display(),
+        ))
+    }
 }
 
 /// 起動方法を決める（純粋関数）。`APPIMAGE` と `APPDIR` が両方あり非空で、
@@ -320,12 +336,7 @@ pub async fn relaunch_app(
     #[cfg(target_os = "linux")]
     if let Some(prepared) = appimage_launch_from_process() {
         // 実在確認は計画作成時に行う（Exit 時の spawn 失敗は UI に返せないため）。無ければ終了しない。
-        if !prepared.launch.program.is_file() {
-            return Err(AppError::internal(format!(
-                "APPIMAGE does not exist: {}",
-                prepared.launch.program.display()
-            )));
-        }
+        ensure_appimage_exists(&prepared.launch.program, |p| p.is_file())?;
         *pending.0.lock().map_err(AppError::internal)? = Some(prepared);
         // spawn は RunEvent::Exit（lib.rs の run コールバック → spawn_pending_relaunch）で行う。
         app.exit(0);
@@ -340,6 +351,19 @@ pub async fn relaunch_app(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn appimage本体が見つからないときは再起動せずappimageが見つからない種別のエラーになる() {
+        let err = ensure_appimage_exists(Path::new("/opt/app.AppImage"), |_| false).unwrap_err();
+
+        assert_eq!(err.code, codes::RELAUNCH_APPIMAGE_MISSING);
+        assert_eq!(err.detail.as_deref(), Some("/opt/app.AppImage"));
+    }
+
+    #[test]
+    fn appimage本体が実在するときは再起動を続行する() {
+        assert!(ensure_appimage_exists(Path::new("/opt/app.AppImage"), |_| true).is_ok());
+    }
 
     const APPDIR: &str = "/tmp/.mount_abc";
     const OH: &str = "/home/u/.local/share/com.natsuyasai.multicolumnx/gstreamer-openh264";

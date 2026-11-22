@@ -1287,6 +1287,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
     h264Available: false,
     downloadState: "idle" as const,
     downloadError: null,
+    relaunchError: null,
     onEnable: vi.fn(),
     onRelaunch: vi.fn(),
   };
@@ -1460,6 +1461,46 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
     expect(screen.queryByText("H.264: 有効化済み")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "今すぐ再起動" }));
     expect(h264Base.onRelaunch).toHaveBeenCalledTimes(1);
+  });
+
+  it("設定画面で再起動に失敗すると再起動ボタンの近くにエラーが表示される", () => {
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        isLinux
+        h264Setup={{
+          ...h264Base,
+          h264Available: true,
+          downloadState: "success",
+          relaunchError: {
+            code: "relaunch.appImageMissing",
+            detail: "/opt/app.AppImage",
+          },
+        }}
+      />,
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("AppImage が見つからない");
+    expect(alert).toHaveTextContent("/opt/app.AppImage");
+    const relaunch = screen.getByRole("button", { name: "今すぐ再起動" });
+    expect(relaunch).toBeEnabled();
+    fireEvent.click(relaunch);
+    expect(h264Base.onRelaunch).toHaveBeenCalledTimes(1);
+  });
+
+  it("再起動に失敗していないときは設定画面にエラーが表示されない", () => {
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        isLinux
+        h264Setup={{
+          ...h264Base,
+          h264Available: true,
+          downloadState: "success",
+        }}
+      />,
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("h264の取得に失敗するとエラー文が表示され再試行できる", () => {
@@ -1916,6 +1957,7 @@ describe("AppSettingsPanel 英語表示", () => {
     h264Available: false,
     downloadState: "idle" as const,
     downloadError: null,
+    relaunchError: null,
     onEnable: vi.fn(),
     onRelaunch: vi.fn(),
   };
@@ -2140,6 +2182,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
     h264Available: false,
     downloadState: "error" as const,
     downloadError: null,
+    relaunchError: null,
     onEnable: vi.fn(),
     onRelaunch: vi.fn(),
   };

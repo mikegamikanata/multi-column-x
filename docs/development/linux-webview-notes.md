@@ -192,6 +192,7 @@ CPU 使用率の参考値（WebKitWebProcess 合計、5 秒間隔 12 サンプ�
 - 作業ディレクトリは `OWD` → `HOME` → `/` の順に、空でなく `APPDIR` 配下でなく実在するものを選ぶ。
 - 子は `setsid` で親から切り離し、標準入力を閉じ、fd 3 以上のうち CLOEXEC が立っていないものだけを `/proc/self/fd` から列挙して `pre_exec` で `close` する。`close_range` による全閉じは使わない。std の `Command` が exec 失敗の報告に使う CLOEXEC のパイプまで閉じてしまい、起動失敗が成功に見えるため。`/proc/self/fd` が読めなければ fd を閉じずに続行する。
 - 起動は `RunEvent::Exit` で行う。`relaunch_app` は計画（`PendingRelaunch`）を作ってアプリの終了を要求するだけにする。計画作成時に `APPIMAGE` が存在しなければ `Err` を返し、アプリは終了しない。`Exit` 時の spawn 失敗はログのみ。呼び出し元はメインウィンドウに限る。
+- `APPIMAGE` が存在しないとき（起動後に本体を移動・名前変更・削除した場合）のエラーは種別 `relaunch.appImageMissing`（`detail` は本体のパス）で返す。フロントは「今すぐ再起動」を押した場所（H.264 ダイアログ / 設定画面の動画再生の項目）のボタン近くに `role="alert"` で表示し、ボタンは残して再試行できるようにする（`useH264Setup` の `relaunchError`。押し直すと結果が出るまで前回の失敗を消す）。ログに出すだけでは画面に何も出ず、押しても反応が無いように見えるため。
 
 **不採用案**:
 

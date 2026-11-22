@@ -722,6 +722,7 @@ const App: React.FC = () => {
             h264Available: h264Setup.h264Available,
             downloadState: h264Setup.downloadState,
             downloadError: h264Setup.downloadError,
+            relaunchError: h264Setup.relaunchError,
             onEnable: h264Setup.openFromSettings,
             onRelaunch: h264Setup.relaunchApp,
           }}
@@ -780,6 +781,7 @@ const App: React.FC = () => {
         <H264SetupDialog
           downloadState={h264Setup.downloadState}
           downloadError={h264Setup.downloadError}
+          relaunchError={h264Setup.relaunchError}
           onDownload={h264Setup.download}
           onDismiss={h264Setup.dismiss}
           onClose={h264Setup.close}
