@@ -45,6 +45,7 @@ argument-hint: "対象の integration-test.md のパス（省略時は現在の�
 - AppImage の改名・削除・置換は `~/mcx-test` やスクラッチに作った**写し**に限る（ビルド成果物そのものは動かさない）
 - `gsettings` など OS の設定は変更しない（AT-SPI のために `toolkit-accessibility` を変えることも不可）。環境変数はプロセス単位でだけ設定する
 - ユーザーデータ（`gstreamer-openh264/`、`accounts/` など）を動かす・消す項目は、退避してから行い、試験後に必ず戻す。戻したことは `linux-appdata.sh diff` 等で確認する
+- **合成キー入力・マウス入力（`Atspi.generate_keyboard_event` / `generate_mouse_event`、XTest など）は原則使わない**。送り先はその時点でフォーカスのある窓で、他アプリに文字列や Enter が入りうる。DOM 操作は `wk.cjs`、ダイアログは `linux-dialog.py`（AT-SPI のアクション・テキスト設定）で行う。やむを得ず使う場合は直前にアクティブ窓が試験対象のダイアログであることを確認し、使ったことを報告に書く
 - Wayland のスクリーンショット（ポータルの許可ダイアログが出る）は自動化しない。画面は `linux-shot.sh`（X11 窓）と `wk.cjs shot`（WebView 単位）で取る
 - 起動前に空きメモリと `/tmp` の残骸を確認する（カラム多数＋残骸で OOM になりデスクトップが落ちた実績がある）。残骸の削除はユーザーの確認を取る
 
