@@ -9,3 +9,6 @@ docs/.vitepress/dist
 
 # Google Search Console の所有権確認ファイル（内容を一字でも変えると確認に失敗するため整形しない）
 docs/guide/public/google*.html
+
+# Claude Code の別セッション用 git worktree（別ブランチの作業ツリーを整形しない）
+.claude/worktrees/
