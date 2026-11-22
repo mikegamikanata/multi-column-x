@@ -70,7 +70,7 @@ argument-hint: "対象のプラン名や対象範囲（省略時は現在のブ�
 - 変更内容に基づく確認観点の一覧が出力されている
 - 自動テスト済みの項目には注記がある
 
-出力後は `superpowers:finishing-a-development-branch` でマージ/PRの判断に進む。
+出力後は `autonomous-manual-test` で、エージェントが自律実施できる項目（安全ルールの範囲内）を実施して結果を記録し、その後 `superpowers:finishing-a-development-branch` でマージ/PRの判断に進む。
 
 ## 禁止事項
 
