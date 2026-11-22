@@ -435,7 +435,11 @@
                 </li>
                 <li>
                   <code>recalculateAllBounds</code> が全カラムの bounds
-                  を再計算し <code>resize_column_webview</code> を並列で呼ぶ。
+                  を再計算し
+                  <code>resize_column_webview</code> を並列で呼ぶ。再配置自体は
+                  <code>serializeLatest</code>
+                  で直列化し、実行中の要求は完了後に最新状態で 1
+                  回だけ実行する。
                 </li>
                 <li>
                   リサイズは 100ms デバウンス、スクロールは
