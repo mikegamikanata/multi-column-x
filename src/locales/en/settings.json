@@ -72,7 +72,7 @@
     }
   },
   "display": {
-    "title": "Display",
+    "title": "Theme & size",
     "uiScale": {
       "label": "App UI display size",
       "override": "Change the app UI display size",
