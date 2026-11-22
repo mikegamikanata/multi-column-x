@@ -53,7 +53,7 @@ Object.assign(window.MCX_DATA.flows, {
         to: "rs",
         label: "(desktop) 保存済み windowBounds をメインウィンドウへ適用",
         detail:
-          "<p>ストアの <code>appSettings.globalSettings.windowBounds</code> を読み、いずれかのモニタ上に 100px 以上見える場合のみ位置を復元。サイズは最小 600x400 にクランプして適用する。Android には無い処理。</p>",
+          "<p>ストアの <code>appSettings.globalSettings.windowBounds</code> を読み、いずれかのモニタ上に 100px 以上見える場合のみ位置を復元。サイズは内側（<code>inner_size</code>）で保存・復元し、最小 600x400 にクランプして適用する（位置は外側左上。最小化中の終了は保存しない）。Android には無い処理。</p>",
         files: ["src-tauri/src/lib.rs"],
       },
       {
@@ -981,7 +981,7 @@ Object.assign(window.MCX_DATA.details, {
     layer: "rust",
     summary:
       "エントリポイントとアプリ組み立て。プラグイン・State・setup・ウィンドウイベント・コマンド登録を担う。",
-    body: "<p><code>main.rs</code> は <code>run()</code> を呼ぶだけ。<code>lib.rs::run()</code> が Builder にプラグイン（opener/os/store/notification/log、desktop は updater/process/dialog）と State を登録し、<code>setup</code> で設定復旧とストア登録、<code>on_window_event</code>（desktop）で終了時処理、<code>generate_handler!</code> でコマンドを登録する。</p><ul><li>メイン CloseRequested: windowBounds 保存 → 公式設定ポップアップ追跡停止 → 常駐コンポーズの destroy → Linux はカラム/ポップアップを close</li><li>popup- の CloseRequested: 公式設定ポップアップの閉じを検出して emit</li></ul>",
+    body: "<p><code>main.rs</code> は <code>run()</code> を呼ぶだけ。<code>lib.rs::run()</code> が Builder にプラグイン（opener/os/store/notification/log、desktop は updater/process/dialog）と State を登録し、<code>setup</code> で設定復旧とストア登録、<code>on_window_event</code>（desktop）で終了時処理、<code>generate_handler!</code> でコマンドを登録する。</p><ul><li>メイン CloseRequested: windowBounds 保存（最小化中は保存しない）→ 公式設定ポップアップ追跡停止 → 常駐コンポーズの destroy → Linux はカラム/ポップアップを close</li><li>popup- の CloseRequested: 公式設定ポップアップの閉じを検出して emit</li></ul>",
     files: ["src-tauri/src/main.rs", "src-tauri/src/lib.rs"],
     related: ["rust.settings", "rust.acl"],
   },
