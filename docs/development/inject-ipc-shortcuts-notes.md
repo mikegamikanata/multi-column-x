@@ -30,6 +30,15 @@ inject スクリプトは X(twitter.com) の実 DOM 構造に依存する。X �
 - `eval_in_webview` 用の Rust 側テンプレート文字列には、グローバル変数名（`window.__multiColumnX` など）が**文字列として直接埋め込まれている**。グローバル変数名を変更する場合、型定義2箇所・inject 各スクリプトのローカル定数に加えて、このテンプレート文字列内の埋め込みも別途更新が必要になる。見落としやすい同期漏れポイント。
 - コマンド名・イベント名・ラベルプレフィックスを変更する際は、Rust 側の IPC 定数定義・TS 側の IPC 定数定義・inject 側の参照用定数ドキュメント・各 inject スクリプトのローカル定数・両方の `window` 型定義、という**5箇所同期**が必要。ショートカット追加時の複数箇所同期と同種の、より広い範囲に及ぶ配線ルールとして把握しておくこと。
 
+### 既知の警告（対応不要）: X ページの DevTools に出る `ipc.localhost` の CSP 違反
+
+- 現象: カラム等の X ページの DevTools コンソールに、`http://ipc.localhost`（macOS / Linux は `ipc://localhost`）への接続が CSP の `connect-src` 違反で拒否された旨の警告が、ページごとに 1 回出る。機能への影響は無い。
+- 原因: X ページ自身の CSP に ipc 宛てが含まれない。Tauri の IPC（`tauri-2.12.7` の `scripts/ipc-protocol.js` 37-72 行付近）は、初回の `fetch`（37 行）が失敗すると `console.warn` を出して `customProtocolIpcFailed = true` にし、`postMessage` 方式へフォールバックする（59-68 行）。設計どおりの挙動で、以降は `postMessage` で通信する。
+- 不採用にした案（再検討する場合の記録）:
+  - B: inject で ipc 宛ての `fetch` だけ即 reject するラップ。CSP のログは消えるが、Tauri 側の `console.warn` は残り、リスクの割に得が小さい。
+  - C: `postMessage` 側の差し替え。値が `defineProperty` で固定されているため不可。
+  - D: CSP ヘッダの書き換え。公式の手段が無い。
+
 ## 多言語（`__mcxI18n`）
 
 inject の自前 UI 文言（ポップアップで開くメニュー、ヘッダーカスタマイズ、ポップアップツールバー、前回の続きへ戻るボタン、動画長押しメニュー）は日本語・英語に対応している。

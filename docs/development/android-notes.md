@@ -79,6 +79,12 @@ gitignore 対象の Android 生成ファイル（`src-tauri/gen/android/tauri.se
 - Service に FAIL アクションを足さなかったのは、`ACTION_FINISH` で `stopSelf` した後の `startService` はバックグラウンドからの起動制限で失敗しうるため（失敗の通知は Service の寿命に依存させない）。
 - ポップアップの「動画をダウンロード」ボタン（`popup_toolbar.ts`）は、Android では `__mcxPopupBridge` に `downloadVideo` を送り、`PopupSessionBridge` → `AppBridge.onVideoDownloadRequest` で長押しメニューと同じ Rust 処理に渡る。ブリッジも Tauri IPC も無い（届ける手段が無い）ポップアップではボタンを出さない。以前は desktop 専用コマンド `download_video` を呼んでいたため、Android では押しても無反応だった。
 
+### 既知の挙動: 同名で再保存すると「(1)」が付き、保存直後に一時 0B に見える（OS 仕様・記録のみ）
+
+- 保存は SAF `ActivityResultContracts.CreateDocument("*/*")`（`MainActivity.kt` 78-82 行付近）で文書を作成し、その後 `openOutputStream` + `copyTo`（同 61-70 行付近の `VideoSaveQueue` の `write`）で一時ファイルの中身を書き込む。
+- 同じ名前の動画を再保存すると、保存先に同名があるため名前の末尾に「(1)」が付く。また、文書の作成からコピー完了までの間は 0B のファイルとして見える。どちらも OS（DocumentsUI / ドキュメントプロバイダ）の仕様で、アプリは介入できない。`IS_PENDING` は MediaStore へ直接書く場合専用で、SAF には使えない。
+- 別件の注意（今回は対象外）: コピーは SAF のコールバック（`saveVideoLauncher` → `VideoSaveQueue.onResult`）の中、つまり UI スレッド上で行われる。大きなファイルでは ANR のリスクがある。必要なら別課題として扱う。
+
 ## 文字列リソース（多言語）
 
 - 利用者に見えるネイティブ文言は `app/src/main/res/values/strings.xml`（既定＝英語）と `res/values-ja/strings.xml`（日本語）で管理する。**端末の言語に従い、アプリ内の `language` 設定とは独立**（現状は動画ダウンロードの通知文言のみ。進捗の通知＝`VideoDownloadForegroundService` と失敗の通知＝`VideoDownloadNotifications.kt`）。`app_name` / `main_activity_title` は既定のみ。
