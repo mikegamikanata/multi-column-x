@@ -840,6 +840,57 @@ export const AndroidTapTargets: Story = {
   },
 };
 
+// 更新確認ボタンの押下で結果（最新）が出る状態を再現するラッパー
+function UpdateCheckHarness(
+  props: React.ComponentProps<typeof AppSettingsPanel>,
+) {
+  const [result, setResult] = useState<"idle" | "none" | "error">("idle");
+  return (
+    <AppSettingsPanel
+      {...props}
+      updateManualResult={result}
+      onCheckUpdate={() => setResult("none")}
+    />
+  );
+}
+
+export const UpdateCheckResultScrollsIntoView: Story = {
+  name: "更新確認の結果が下端でも見える位置まで自動スクロールされる",
+  render: (args) => <UpdateCheckHarness {...args} />,
+  decorators: [
+    (Story) => (
+      <MobileRoot>
+        <Story />
+      </MobileRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const restorePlatform = setPlatform("android");
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      const panel = queryPanel(canvasElement);
+      const scroller = findScroller(panel);
+      scroller.scrollTop = scroller.scrollHeight;
+      await userEvent.click(canvas.getByRole("button", { name: "更新を確認" }));
+      const result = await canvas.findByRole("status");
+      const area = (result.closest('[role="tabpanel"]') ??
+        scroller) as HTMLElement;
+      // スクロールの反映を待つ
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(null)),
+      );
+      const resultRect = result.getBoundingClientRect();
+      const areaRect = area.getBoundingClientRect();
+      await expect(resultRect.top).toBeGreaterThanOrEqual(areaRect.top);
+      await expect(resultRect.bottom).toBeLessThanOrEqual(areaRect.bottom);
+    } finally {
+      await restoreViewport();
+      restorePlatform();
+    }
+  },
+};
+
 export const KeyboardFocusShowsRing: Story = {
   name: "キーボードでフォーカスしたボタンにはフォーカスリングが出る",
   play: async ({ canvasElement }) => {

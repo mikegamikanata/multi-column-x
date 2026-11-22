@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { StatusMark } from "@/components/StatusMark/StatusMark";
 import styles from "./AppSettingsPanel.module.scss";
@@ -32,6 +32,12 @@ export const AppInfoSections: React.FC<AppInfoSectionsProps> = ({
   onRetryDataDirectoryDeletion,
 }) => {
   const { t } = useTranslation();
+  const resultRef = useRef<HTMLParagraphElement>(null);
+  // 結果が変わったときだけ見える位置へ寄せる（依存を増やすと再描画のたびに引き戻される）
+  useEffect(() => {
+    if (updateManualResult === "idle") return;
+    resultRef.current?.scrollIntoView({ block: "nearest" });
+  }, [updateManualResult]);
   return (
     <>
       <section className={styles.section}>
@@ -80,13 +86,21 @@ export const AppInfoSections: React.FC<AppInfoSectionsProps> = ({
             : t("settings:info.app.check")}
         </button>
         {updateManualResult === "none" && (
-          <p className={styles.hint}>
+          <p
+            ref={resultRef}
+            role="status"
+            className={`${styles.hint} ${styles.updateResult}`}
+          >
             <StatusMark kind="success" />
             {t("settings:info.app.upToDate")}
           </p>
         )}
         {updateManualResult === "error" && (
-          <p className={styles.hint}>
+          <p
+            ref={resultRef}
+            role="status"
+            className={`${styles.hint} ${styles.updateResult}`}
+          >
             <StatusMark kind="warning" />
             {t("settings:info.app.checkFailed")}
           </p>

@@ -10,6 +10,9 @@ beforeEach(async () => {
   await i18n.changeLanguage("ja");
 });
 
+// jsdom には scrollIntoView が無いため、呼び出しても落ちないようにする
+Element.prototype.scrollIntoView ??= vi.fn();
+
 // Tauri APIをモック
 Object.defineProperty(window, "__TAURI__", {
   value: {
