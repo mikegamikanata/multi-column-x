@@ -63,6 +63,9 @@ pub mod codes {
     #[cfg_attr(not(all(desktop, target_os = "linux")), allow(dead_code))]
     pub const H264_EXTRACT_FAILED: &str = "h264.extractFailed";
     pub const H264_DOWNLOAD_TIMEOUT: &str = "h264.downloadTimeout";
+    // 使用箇所（relaunch_app の AppImage 経路）は Linux 限定のため、他環境では未使用警告を抑止する。
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+    pub const RELAUNCH_APPIMAGE_MISSING: &str = "relaunch.appImageMissing";
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]

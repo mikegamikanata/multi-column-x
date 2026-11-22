@@ -26,6 +26,17 @@ describe("describeAppError", () => {
     typeof describeAppError
   >[1];
 
+  it("AppImageが見つからないエラーは原因と対処を示す文言に翻訳される", () => {
+    const message = describeAppError(
+      { code: "relaunch.appImageMissing", detail: "/opt/app.AppImage" },
+      tJa,
+    );
+
+    expect(message).toContain("AppImage が見つからないため再起動できません");
+    expect(message).toContain("移動・名前変更していないか確認");
+    expect(message).toContain("/opt/app.AppImage");
+  });
+
   it("未知のコードは日本語の汎用文言になる", () => {
     expect(describeAppError({ code: "no.such" }, tJa)).toBe(
       "予期しないエラーが発生しました",
