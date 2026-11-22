@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { getColumnLabel } from "@/types";
 import styles from "./App.module.scss";
 import { AccountManager } from "./components/AccountManager/AccountManager";
 import { AccountNameDialog } from "./components/AccountNameDialog/AccountNameDialog";
@@ -687,7 +688,7 @@ const App: React.FC = () => {
 
       {tabActionColumn && (
         <TabActionDialog
-          columnLabel={tabActionColumn.label || tabActionColumn.pageType}
+          columnLabel={getColumnLabel(tabActionColumn, t)}
           onReload={() => {
             setTabActionColumnId(null);
             handleReloadPage(tabActionColumn.id);

@@ -638,6 +638,33 @@ describe("App (mobile)", () => {
       );
     });
   });
+
+  it.each([
+    {
+      名前: "ラベル未設定のホームカラムでは、タブ操作ダイアログのタイトルがタブバーと同じホームのページ種別名になる",
+      override: {},
+      expected: "ホーム",
+    },
+    {
+      名前: "ラベル未設定でホームのタブ名を設定したホームでは、タブ操作ダイアログのタイトルが設定したホームのタブ名になる",
+      override: { homeTabName: "メインTL" },
+      expected: "メインTL",
+    },
+    {
+      名前: "ラベル「仕事」を設定したカラムでは、タブ操作ダイアログのタイトルが仕事になる",
+      override: { label: "仕事" },
+      expected: "仕事",
+    },
+  ])("$名前", async ({ override, expected }) => {
+    useAppStore.setState({ columns: [{ ...column, ...override }] });
+    render(<App />);
+
+    fireEvent.contextMenu(screen.getByText(expected));
+
+    const dialog = await screen.findByRole("dialog", { name: expected });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getAllByText(expected)).toHaveLength(2);
+  });
 });
 
 describe("App (テーマ適用時のnight_mode Cookie反映)", () => {
