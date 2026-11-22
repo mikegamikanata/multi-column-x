@@ -1,5 +1,5 @@
 ---
-description: "develop最新化からbump-version実行・PRマージ・Releaseアクション実行までのバージョン更新一連作業を行う"
+description: "develop最新化からbump-version実行・リリース前試験（結果をPRに記載）・PRマージ・Releaseアクション実行までのバージョン更新一連作業を行う"
 user-invocable: true
 argument-hint: "（省略可）バグfixのみか機能追加を含むか。省略時はユーザーに確認する"
 ---
@@ -64,6 +64,15 @@ gh pr create --base main --head develop --title "v<new-version>" --body "v<new-v
 ```
 
 - PR タイトルは `v<new-version>`（過去の慣例に合わせる）
+- 本文は仮のもの。Phase 5.5 でリリース前試験の項目と結果に書き換える
+
+### Phase 5.5: リリース前試験を実施し、結果をリリースPRに記載する
+
+`pre-release-test` スキルを、Phase 5 で作成した PR 番号を引数にして実行する（省略不可）。
+
+- `docs/release/pre-release-checklist.md` の項目で試験を実施し、**試験項目とその結果を Phase 5 の PR 本文に記載する**（チェックリスト自体には結果を書かない）
+- 前回リリース以降の変更に対してチェックリストの項目が不足していれば、`pre-release-test` の Step 2 に従って項目を追加する（結果を含まない別 PR）
+- 試験結果を報告し、**リリース可否をユーザーに確認してから** Phase 6 に進む（確認ゲート。飛ばさない）。リリース不可・保留と判断された場合はここで止まる
 
 ### Phase 6: CI 確認 → 承認 → マージ
 
@@ -99,6 +108,7 @@ gh workflow run release.yml --ref main
 ## 完了条件
 
 - develop / main 双方のバージョン表記ファイルが新バージョンで一致している
+- develop → main の PR の本文に、リリース前試験の項目と結果が記載されている
 - develop → main の PR がマージ済み（develop ブランチは削除されていない）
 - `release.yml` が main を対象に起動している
 
@@ -106,5 +116,6 @@ gh workflow run release.yml --ref main
 
 - Phase 2 のバージョン確定をユーザー承認なしに進めること
 - CI が red のまま承認・マージすること
+- Phase 5.5 のリリース前試験を省略すること、試験結果を PR 本文に記載しないまま、またはリリース可否のユーザー確認なしにマージすること
 - `gh pr merge` に `-d`/`--delete-branch` を付けて develop を削除すること
 - bump-version.sh 以外の方法（手動 sed 等）でバージョンファイルを書き換えること
