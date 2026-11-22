@@ -574,9 +574,12 @@
           </div>
           <ul>
             <li>
-              <code>delete_account_data</code> は
-              <code>accounts</code> 配下のパスのみ許可し、ファイルロックに備えて
-              200ms 間隔でリトライ。
+              <code>delete_account_data</code> は <code>accounts</code> 配下と
+              <code>external_columns</code> 直下の
+              <code>column-&lt;ID&gt;</code>
+              のみ許可し、ファイルロックに備えて 200ms 間隔でリトライ。
+              <code>delete_external_column_data</code>
+              も同じリトライを行い、消せなければ削除予定に積むパスを返す。
             </li>
             <li>
               再認証（既存アカウントのログインし直し）は新セッションのディレクトリを返し、呼び出し側が対象アカウントへ

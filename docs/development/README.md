@@ -13,6 +13,7 @@
 - [api-rate-limit-operations-notes.md](api-rate-limit-operations-notes.md) — API レート制限モニターのヘッダ仕様、severity 判定ロジック、operationName（bucketKey）一覧
 - [topbar-column-reorder-notes.md](topbar-column-reorder-notes.md) — TopBar（desktop）のカラム並び替え（dnd-kit）のドラッグしきい値・click 抑制・Storybook play 上の注意
 - [backup-restore-notes.md](backup-restore-notes.md) — バックアップ／リストア（ファイル形式、ホワイトリスト出力、アカウント紐づけ、復元手順、退避、Android SAF、xUserId 取得）
+- [external-column-data-cleanup-notes.md](external-column-data-cleanup-notes.md) — 外部サイトカラム削除時のデータフォルダ削除（再試行 → 削除予定 → 起動時削除、許可パス、不採用案）
 - [settings-file-crash-safety-notes.md](settings-file-crash-safety-notes.md) — settings.json のアトミック書き込み、起動時の検査と復旧、`.prev` 世代、読み込み失敗時の保存ガード
 - [browser-extensions-notes.md](browser-extensions-notes.md) — ブラウザ拡張機能（Windows のみ）：永続化（`browserExtensions` キー）、reconcile、WebView2 の PoC で確認した事実、不採用案、落とし穴、macOS / Linux を見送った調査結果
 - [i18n-notes.md](i18n-notes.md) — 多言語対応（日本語／英語）：辞書とキーの規約、名前空間、用語集、新規文言の追加手順、React 外・純粋関数での翻訳、`expectNoJapanese` によるテスト
