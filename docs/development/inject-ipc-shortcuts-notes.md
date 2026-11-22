@@ -276,3 +276,11 @@ X の XHR ラッパーは `timeout` の既定が 0（無制限）で固定のタ
 - 実例: `hide_ad_matcher.ts` を新設した際、トップレベルの `AD_TEXTS` が `return_to_last_read.js` の同名と衝突した。matcher にはモジュール固有の接頭辞を付ける（`HIDE_AD_TEXTS` など）。
 - 検出: `inject_concat.contract.test.ts` が、ビルド済み inject を連結して構文チェックする（`build:inject` 後に有効）。`mod.rs` に inject を追加したらこのテストの対象リストにも追加する。
 - 実機で CDP から検証するときは `Page.reload` しない（注入済みの設定が消える）。アプリを再起動して確認する。
+
+## 動画ダウンロード（デスクトップのカラム `video_long_press_menu.ts`）
+
+- 送信経路は `chooseLongPressDownloadTransport` で選ぶ。Android ブリッジ（`__mcxVideoDownloadBridge`）があれば `__TAURI__` の有無に関わらずブリッジ優先、無ければ `download_video` を invoke、どちらも無ければ何もしない。
+- 進捗イベント `video-download-progress` は Rust が `emit_to(webview.label(), …)` で呼び出し元 WebView 宛てに送る。ただし JS の `listen` は既定 target（Any）だと宛先ラベルに関係なく全 emit を受け取るため、**`listen` には必ず `{ target: 自 WebView のラベル }` を指定する**（ラベルは `__TAURI_INTERNALS__.metadata.currentWebview.label`）。カラムもポップアップもこの指定が必要で、片方が欠けると他 WebView のダウンロード進捗が混入する。ラベルが取れないカラムでは購読しない。購読は起動時に1回だけ行う（クリック時の登録は取りこぼしの恐れがある）。
+- 保存ダイアログのキャンセルは Rust がイベントを出さず `Ok(())` で終わるため、トーストは出ない。開始前エラーは invoke の reject でのみ通知される（失敗トースト + `console.error`）。ダウンロード中のエラーは失敗イベントと reject の両方が来るため、失敗イベント受信済みなら reject 側はトーストを上書きしない。新しい進捗のたびに自動消去タイマーを解除する。
+- トーストは `textContent` を直接設定する。`__mcxI18n.apply` は key しか記録せず、言語切替の再適用で `{file}` `{percent}` が補間されなくなる。`pointer-events: none` で操作を妨げない。inject は X ページ内 DOM のため rem 規約は適用しない（px）。
+- 文言は popup と共通の `popupToolbar.download.*` を再利用する。`formatLongPressDownloadText`（`video_long_press_menu.ts`）と `formatVideoDownloadProgressText`（`popup_toolbar.ts`）はファイル間 import できないため複製で、変更時は両方を同期する。

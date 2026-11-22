@@ -1,8 +1,10 @@
 // src-tauri/src/inject/_src/video_long_press_menu.ts
 // column WebView上で動画要素を長押し、またはPCでは右クリック（いずれも contextmenu イベント）
 // した際に独自メニューを表示する。desktop/mobile 共通で注入される。
-// 「動画をダウンロード」は Android 専用（動画ダウンロード要求を Android ブリッジ
-// window.__mcxVideoDownloadBridge へ委譲。ブリッジが無い desktop では実質何もしない）。
+// 「動画をダウンロード」は Android ではブリッジ window.__mcxVideoDownloadBridge へ委譲し、
+// desktop（ブリッジ無し）では Rust コマンド download_video を invoke する。
+// desktop の進捗は自 WebView 宛てのイベント video-download-progress で受け取り、
+// カラム下端のトーストに表示する。
 // 「動画をポップアップで表示」は videoPopupEnabled 設定に従い desktop/mobile 共通で有効。
 // メニュー描画パターンは context_menu.ts を踏襲する。
 
@@ -40,6 +42,10 @@ function isLongPressRecord(value: unknown): value is Record<string, unknown> {
 function applyText(el: Element, key: string): void {
   if (window.__mcxI18n) window.__mcxI18n.apply(el, key);
   else el.textContent = key;
+}
+
+function tr(key: string, params?: Record<string, string | number>): string {
+  return window.__mcxI18n?.t(key, params) ?? key;
 }
 
 const VIDEO_PLAYER_SELECTOR = '[data-testid="videoComponent"]';
@@ -203,8 +209,160 @@ export function extractLongPressQuotedTweetId(
   return (props.tweet as Record<string, unknown>).id_str as string;
 }
 
+// --- 動画ダウンロード（desktop）の純粋関数 ---
+
+export type LongPressDownloadTransport = "bridge" | "invoke" | "none";
+
+/** 送信経路を選ぶ。Android ブリッジがあれば常に優先し、無ければ invoke、どちらも無ければ none。 */
+export function chooseLongPressDownloadTransport(env: {
+  hasBridge: boolean;
+  hasInvoke: boolean;
+}): LongPressDownloadTransport {
+  if (env.hasBridge) return "bridge";
+  return env.hasInvoke ? "invoke" : "none";
+}
+
+export interface LongPressDownloadProgress {
+  fileIndex: number;
+  fileCount: number;
+  current: number;
+  total: number | null;
+  phase: "downloading" | "completed" | "failed";
+}
+
+/**
+ * 進捗イベントからトースト文言を組み立てる。
+ * popup_toolbar.ts の formatVideoDownloadProgressText と同じ組み立て（同期すること）。
+ */
+export function formatLongPressDownloadText(
+  payload: LongPressDownloadProgress,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  const { fileIndex, fileCount, current, total, phase } = payload;
+  const fileLabel = fileCount > 1 ? ` (${fileIndex}/${fileCount})` : "";
+  if (phase === "completed") {
+    return t("popupToolbar.download.completed", { file: fileLabel });
+  }
+  if (phase === "failed") {
+    return t("popupToolbar.download.failed", { file: fileLabel });
+  }
+  if (total === null) {
+    return t("popupToolbar.download.downloading", { file: fileLabel });
+  }
+  const percent = total === 0 ? 0 : Math.floor((current / total) * 100);
+  return t("popupToolbar.download.downloadingPercent", {
+    file: fileLabel,
+    percent,
+  });
+}
+
+/** 完了・失敗のトーストは自動で消す。ダウンロード中は消さない。 */
+export function shouldAutoDismissLongPressToast(
+  phase: LongPressDownloadProgress["phase"],
+): boolean {
+  return phase !== "downloading";
+}
+
 (function () {
   const OPEN_POPUP_WINDOW = "open_popup_window";
+  const DOWNLOAD_VIDEO = "download_video";
+  // イベント名定数の一覧は src/constants/ipc.ts の IPC_EVENTS を参照
+  const VIDEO_DOWNLOAD_PROGRESS = "video-download-progress";
+  const DOWNLOAD_TOAST_ID = "tv-video-download-toast";
+  const DOWNLOAD_TOAST_DISMISS_DELAY_MS = 3000;
+
+  let toastEl: HTMLDivElement | null = null;
+  let toastTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastDownloadPhase: LongPressDownloadProgress["phase"] | null = null;
+
+  function clearToastTimer(): void {
+    if (toastTimer !== null) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+  }
+
+  function hideDownloadToast(): void {
+    clearToastTimer();
+    toastEl?.remove();
+    toastEl = null;
+  }
+
+  function createDownloadToastElement(): HTMLDivElement {
+    const el = document.createElement("div");
+    el.id = DOWNLOAD_TOAST_ID;
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    el.style.cssText = [
+      "position: fixed",
+      "bottom: 24px",
+      "left: 50%",
+      "transform: translateX(-50%)",
+      "z-index: 2147483647",
+      "pointer-events: none",
+      "background: #15202b",
+      "color: #e7e9ea",
+      "border: 1px solid #38444d",
+      "border-radius: 8px",
+      "padding: 8px 16px",
+      "font-family: sans-serif",
+      "font-size: 14px",
+      "line-height: 1.4",
+      "max-width: calc(100% - 32px)",
+      "box-shadow: 0 4px 16px rgba(0,0,0,0.5)",
+      "text-align: center",
+    ].join(";");
+    return el;
+  }
+
+  function showDownloadToast(text: string, autoDismiss: boolean): void {
+    clearToastTimer();
+    if (!toastEl || !toastEl.isConnected) {
+      toastEl =
+        (document.getElementById(DOWNLOAD_TOAST_ID) as HTMLDivElement | null) ??
+        createDownloadToastElement();
+      document.documentElement.appendChild(toastEl);
+    }
+    // 言語切替の再適用で補間が失われるため apply() は使わず、textContent に直接設定する。
+    toastEl.textContent = text;
+    if (autoDismiss) {
+      toastTimer = setTimeout(
+        hideDownloadToast,
+        DOWNLOAD_TOAST_DISMISS_DELAY_MS,
+      );
+    }
+  }
+
+  function onDownloadInvokeRejected(err: unknown): void {
+    console.error("[video_long_press_menu]", err);
+    // 失敗イベント（ファイル番号付き）を優先する
+    if (lastDownloadPhase === "failed") return;
+    lastDownloadPhase = "failed";
+    showDownloadToast(tr("popupToolbar.download.failed", { file: "" }), true);
+  }
+
+  // 進捗は自 WebView 宛てのイベントだけを購読する。既定 target は他 WebView 宛ての emit も
+  // 受け取ってしまうため、ラベルが取れないときは購読しない。
+  function startDownloadProgressListener(): void {
+    const listen = window.__TAURI__?.event?.listen;
+    const ownLabel =
+      window.__TAURI_INTERNALS__?.metadata?.currentWebview?.label;
+    if (!listen || !ownLabel) return;
+    listen<LongPressDownloadProgress>(
+      VIDEO_DOWNLOAD_PROGRESS,
+      function (e) {
+        lastDownloadPhase = e.payload.phase;
+        showDownloadToast(
+          formatLongPressDownloadText(e.payload, tr),
+          shouldAutoDismissLongPressToast(e.payload.phase),
+        );
+      },
+      { target: ownLabel },
+    ).catch(function (err: unknown) {
+      console.error("[video_long_press_menu]", err);
+    });
+  }
+  startDownloadProgressListener();
 
   let menu: HTMLDivElement | null = null;
 
@@ -229,10 +387,29 @@ export function extractLongPressQuotedTweetId(
     const variants = extractLongPressVideoVariantsFromPlayer(videoEl);
     if (!variants) return;
     const suggestedFileName = extractLongPressVideoIdFromPlayer(videoEl) ?? "";
-    postBridgeMessage(window.__mcxVideoDownloadBridge, {
-      type: "downloadVideo",
-      payload: JSON.stringify({ variants, suggestedFileName }),
+    const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI__?.invoke;
+    const transport = chooseLongPressDownloadTransport({
+      hasBridge: window.__mcxVideoDownloadBridge !== undefined,
+      hasInvoke: invoke !== undefined,
     });
+    if (transport === "bridge") {
+      // Android: 従来どおりネイティブへ委譲する（進捗と結果は Android の通知）
+      postBridgeMessage(window.__mcxVideoDownloadBridge, {
+        type: "downloadVideo",
+        payload: JSON.stringify({ variants, suggestedFileName }),
+      });
+      return;
+    }
+    if (transport === "invoke" && invoke) {
+      lastDownloadPhase = null;
+      try {
+        invoke(DOWNLOAD_VIDEO, { variants, suggestedFileName }).catch(
+          onDownloadInvokeRejected,
+        );
+      } catch (err) {
+        onDownloadInvokeRejected(err); // 同期 throw も漏らさない
+      }
+    }
   }
 
   function isLongPressVideoPopupEnabled(): boolean {

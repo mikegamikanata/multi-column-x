@@ -666,7 +666,9 @@
             ファイル、HLS のみなら映像・音声を別ファイルで保存。 URL は
             <code>video.twimg.com</code> 系のみ許可（SSRF 対策）、検証を経る公開
             API と実 I/O を分離。進捗は
-            <code>video-download-progress</code>。Android
+            <code>video-download-progress</code>（呼び出し元 WebView
+            のラベル宛てに <code>emit_to</code>。受け手は <code>listen</code> に
+            <code>target</code> 指定が必要）。Android
             はネイティブ通知付きの別経路（<code>handle_android_video_download_request</code>）。
           </p>
 

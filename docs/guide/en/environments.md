@@ -43,14 +43,14 @@ See [Installation](./install) and [Updating the App](./update) for details.
 
 ## Popups and posting
 
-| Feature                            | Windows | Linux | Android | Notes                                                                                                   |
-| ---------------------------------- | :-----: | :---: | :-----: | ------------------------------------------------------------------------------------------------------- |
-| Popup display of images and videos |    ○    |   ○   |    ○    |                                                                                                         |
-| Popup display of any URL           |    ○    |   ○   |    ○    |                                                                                                         |
-| Compose post window                |    ○    |   ○   |    ○    |                                                                                                         |
-| "Launch the X app to post"         |   －    |  －   |    ○    | Desktop uses the in-app compose screen. On Android, set it with "Posting (Android)" in the app settings |
-| Downloading videos                 |    ○    |   ○   |    ○    | On desktop, from the popup toolbar; on Android, from the long-press menu on a video                     |
-| Closing popups with the Esc key    |    ○    |   ○   |   －    | Popups in separate windows exist only on desktop (the "Popup windows" setting is also desktop only)     |
+| Feature                            | Windows | Linux | Android | Notes                                                                                                                    |
+| ---------------------------------- | :-----: | :---: | :-----: | ------------------------------------------------------------------------------------------------------------------------ |
+| Popup display of images and videos |    ○    |   ○   |    ○    |                                                                                                                          |
+| Popup display of any URL           |    ○    |   ○   |    ○    |                                                                                                                          |
+| Compose post window                |    ○    |   ○   |    ○    |                                                                                                                          |
+| "Launch the X app to post"         |   －    |  －   |    ○    | Desktop uses the in-app compose screen. On Android, set it with "Posting (Android)" in the app settings                  |
+| Downloading videos                 |    ○    |   ○   |    ○    | On desktop, from the right-click menu on a column and the popup toolbar; on Android, from the long-press menu on a video |
+| Closing popups with the Esc key    |    ○    |   ○   |   －    | Popups in separate windows exist only on desktop (the "Popup windows" setting is also desktop only)                      |
 
 ## Settings and data
 
