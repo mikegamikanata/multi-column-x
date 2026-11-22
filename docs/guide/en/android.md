@@ -29,7 +29,7 @@ _Each tab is one column. Use the button on the right to open and close the menu.
 **Long-press** a tab (or perform the equivalent of a right-click) to open the action menu.
 
 - **Settings** — Opens that column's individual settings.
-- **Delete** — Deletes that column.
+- **Delete** — Deletes that column. A confirmation dialog appears, and the column is deleted when you choose Delete. For an external site column, its data, such as login information, is deleted as well.
 - **Reload** — Reloads that column.
 
 ![Long-press menu on a tab](../images/android-tab-action-dialog.png)

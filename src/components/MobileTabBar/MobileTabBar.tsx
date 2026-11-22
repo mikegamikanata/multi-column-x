@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import type { AppTFunction } from "@/i18n/types";
 import { isAutoReloadSupported } from "@/lib/autoReloadTarget";
+import { getColumnLabel } from "@/types";
 import ChevronLeftIcon from "../../assets/icons/chevron-left.svg?react";
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg?react";
 import LinkIcon from "../../assets/icons/link.svg?react";
@@ -10,15 +10,9 @@ import PersonIcon from "../../assets/icons/person.svg?react";
 import PlusIcon from "../../assets/icons/plus.svg?react";
 import SettingsIcon from "../../assets/icons/settings.svg?react";
 import { useAutoReload } from "../../hooks/useAutoReload";
-import { getPageTypeLabel } from "../../types";
 import type { Column, Account, ApiRateLimitBucket } from "../../types";
 import { ApiRateLimitIndicator } from "../ApiRateLimitIndicator/ApiRateLimitIndicator";
 import styles from "./MobileTabBar.module.scss";
-
-function getTabLabel(column: Column, t: AppTFunction): string {
-  if (column.label) return column.label;
-  return getPageTypeLabel(column, t);
-}
 
 interface TabItemProps {
   column: Column;
@@ -130,7 +124,7 @@ const TabItem: React.FC<TabItemProps> = ({
         className={styles.accountColor}
         style={{ backgroundColor: account?.color ?? "#888" }}
       />
-      <span className={styles.label}>{getTabLabel(column, t)}</span>
+      <span className={styles.label}>{getColumnLabel(column, t)}</span>
       {showCountdown && <span className={styles.countdown}>{remaining}s</span>}
     </div>
   );
