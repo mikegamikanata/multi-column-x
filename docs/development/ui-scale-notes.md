@@ -68,6 +68,7 @@ Android では画面が狭く、表示サイズを大きくすると中央カー
   - `.tab` は Android で `min-height: 2.75rem` を指定する（44px 以上）。`android-tap-target` は `min-width` も上書きするため、`min-width: 6.25rem` を持つ `.tab` には使わない（`ui-design-principles-notes.md`）。バー高さ 3.5rem は 44px を超えているので、高さは増やさない。
   - バー高さ `3.5rem`（`MOBILE_TAB_BAR_HEIGHT_REM`）は `gridLayout.contract.test.ts` が SCSS を読んで検証し、カラム WebView の bounds にも使うため増やさない。高さを増やす（メニューを2段にする）案は gridLayout の定数変更が必要になるため不採用。
   - API レート制限インジケーターのモバイル用ポップオーバーは `position: fixed` で、祖先に `transform` などが無いため、`.menu` の `overflow` ではクリップされない。
+  - **メニュー溢れ時の自動スクロールとフェード**: 展開時に `useMenuOverflowFade` が `.menu` の `scrollLeft` を末尾へ代入し（折りたたみで先頭へ戻す）、隠れている側の端に `.fade`（`aria-hidden`・`pointer-events: none`）を出す。判定は純粋関数 `getMenuFadeState`（`lib/menuOverflowFade.ts`、誤差 1px、LTR のみ）。フェードは `.menu` の子にするとスクロールで流れるため、`.menuWrap`（`position: relative`）の下に兄弟として絶対配置する。`scrollIntoView` は祖先スクロールへ波及し得るため使わない。ボタン数が変わる `apiRateLimitMonitorEnabled` の切替ではスクロール位置を触らず判定だけやり直す。ResizeObserver は jsdom に無いのでガード付き。大サイズで末尾へ送ると開閉トグルが左に隠れ、折りたたむには左へスクロールが必要（要求どおりの割り切り）。
   - 通常サイズでも幅 360px・メニュー展開時は、メニューが約 344px になりタブ最小幅と合わせて収まらず横スクロールになる（以前はタブ領域がほぼ潰れていた）。実機での確認が必要。
 - **`position: fixed; left: 50%; transform: translate(-50%, -50%)` の要素**は、`left: 50%` の基準により shrink-to-fit 幅が画面の半分までに制限され、文字が大きいと窮屈に折り返す。幅は `width: min(○rem, calc(100% - 2rem))` のように明示し、縦も `max-height: calc(100% - 2rem); overflow-y: auto` で収める（アカウント未登録の案内 `NoAccountsPrompt` の事例）。
 

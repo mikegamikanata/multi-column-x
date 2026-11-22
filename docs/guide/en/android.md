@@ -19,6 +19,7 @@ You operate the app with the **tab bar** at the bottom of the screen.
   - 👤 Manage accounts
   - ＋ Add column
   - API rate limit display (when "Enable the API usage monitor" is on in the app settings)
+- When a larger text size means the buttons no longer fit on screen, opening the menu scrolls it to the right end, and the edge with hidden buttons fades out. Swipe the menu left or right to reach the hidden buttons.
 
 ![The Android tab bar](../images/android-tab-bar.png)
 

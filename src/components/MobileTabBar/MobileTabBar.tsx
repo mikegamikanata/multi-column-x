@@ -13,6 +13,7 @@ import { useAutoReload } from "../../hooks/useAutoReload";
 import type { Column, Account, ApiRateLimitBucket } from "../../types";
 import { ApiRateLimitIndicator } from "../ApiRateLimitIndicator/ApiRateLimitIndicator";
 import styles from "./MobileTabBar.module.scss";
+import { useMenuOverflowFade } from "./useMenuOverflowFade";
 
 interface TabItemProps {
   column: Column;
@@ -171,6 +172,10 @@ export const MobileTabBar: React.FC<Props> = ({
   const { t } = useTranslation();
   const sorted = [...columns].sort((a, b) => a.order - b.order);
   const [expanded, setExpanded] = useState(false);
+  const { menuRef, fade, onScroll } = useMenuOverflowFade(
+    expanded,
+    apiRateLimitMonitorEnabled,
+  );
 
   return (
     <nav className={styles.tabBar} aria-label={t("mobile:tabBarLabel")}>
@@ -208,90 +213,106 @@ export const MobileTabBar: React.FC<Props> = ({
           );
         })}
       </div>
-      <div className={styles.menu}>
-        <button
-          type="button"
-          className={styles.actionBtn}
-          aria-label={t("mobile:composeTweet")}
-          title={t("mobile:composeTweet")}
-          onClick={onComposeTweet}
-        >
-          <PencilIcon width={18} height={18} data-testid="icon-pencil" />
-        </button>
+      <div className={styles.menuWrap}>
+        <div ref={menuRef} className={styles.menu} onScroll={onScroll}>
+          <button
+            type="button"
+            className={styles.actionBtn}
+            aria-label={t("mobile:composeTweet")}
+            title={t("mobile:composeTweet")}
+            onClick={onComposeTweet}
+          >
+            <PencilIcon width={18} height={18} data-testid="icon-pencil" />
+          </button>
 
-        <button
-          type="button"
-          className={styles.toggleBtn}
-          onClick={() => setExpanded((prev) => !prev)}
-          aria-label={t("mobile:toggleMenu")}
-          aria-expanded={expanded}
-          title={t("mobile:toggleMenu")}
-        >
-          {expanded ? (
-            <ChevronRightIcon
-              width={18}
-              height={18}
-              data-testid="icon-chevron-right"
-            />
-          ) : (
-            <ChevronLeftIcon
-              width={18}
-              height={18}
-              data-testid="icon-chevron-left"
-            />
-          )}
-        </button>
-        {expanded && (
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.actionBtn}
-              aria-label={t("mobile:openLinkPopup")}
-              title={t("mobile:openLinkPopup")}
-              onClick={onOpenLinkPopup}
-            >
-              <LinkIcon width={18} height={18} data-testid="icon-link" />
-            </button>
-            <button
-              type="button"
-              className={styles.actionBtn}
-              aria-label={t("mobile:appSettings")}
-              title={t("mobile:appSettings")}
-              onClick={onAppSettings}
-            >
-              <SettingsIcon
+          <button
+            type="button"
+            className={styles.toggleBtn}
+            onClick={() => setExpanded((prev) => !prev)}
+            aria-label={t("mobile:toggleMenu")}
+            aria-expanded={expanded}
+            title={t("mobile:toggleMenu")}
+          >
+            {expanded ? (
+              <ChevronRightIcon
                 width={18}
                 height={18}
-                data-testid="icon-settings"
+                data-testid="icon-chevron-right"
               />
-            </button>
-            <button
-              type="button"
-              className={styles.actionBtn}
-              aria-label={t("mobile:accountManager")}
-              title={t("mobile:accountManager")}
-              onClick={onAccountManager}
-            >
-              <PersonIcon width={18} height={18} data-testid="icon-person" />
-            </button>
-            <button
-              type="button"
-              className={styles.actionBtn}
-              aria-label={t("mobile:addColumn")}
-              title={t("mobile:addColumn")}
-              onClick={onAddColumn}
-            >
-              <PlusIcon width={18} height={18} data-testid="icon-plus" />
-            </button>
-            {apiRateLimitMonitorEnabled && (
-              <ApiRateLimitIndicator
-                accounts={accounts}
-                apiRateLimits={apiRateLimits}
-                onOpenChange={onApiRateLimitPopoverOpenChange}
-                isMobile
+            ) : (
+              <ChevronLeftIcon
+                width={18}
+                height={18}
+                data-testid="icon-chevron-left"
               />
             )}
-          </div>
+          </button>
+          {expanded && (
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.actionBtn}
+                aria-label={t("mobile:openLinkPopup")}
+                title={t("mobile:openLinkPopup")}
+                onClick={onOpenLinkPopup}
+              >
+                <LinkIcon width={18} height={18} data-testid="icon-link" />
+              </button>
+              <button
+                type="button"
+                className={styles.actionBtn}
+                aria-label={t("mobile:appSettings")}
+                title={t("mobile:appSettings")}
+                onClick={onAppSettings}
+              >
+                <SettingsIcon
+                  width={18}
+                  height={18}
+                  data-testid="icon-settings"
+                />
+              </button>
+              <button
+                type="button"
+                className={styles.actionBtn}
+                aria-label={t("mobile:accountManager")}
+                title={t("mobile:accountManager")}
+                onClick={onAccountManager}
+              >
+                <PersonIcon width={18} height={18} data-testid="icon-person" />
+              </button>
+              <button
+                type="button"
+                className={styles.actionBtn}
+                aria-label={t("mobile:addColumn")}
+                title={t("mobile:addColumn")}
+                onClick={onAddColumn}
+              >
+                <PlusIcon width={18} height={18} data-testid="icon-plus" />
+              </button>
+              {apiRateLimitMonitorEnabled && (
+                <ApiRateLimitIndicator
+                  accounts={accounts}
+                  apiRateLimits={apiRateLimits}
+                  onOpenChange={onApiRateLimitPopoverOpenChange}
+                  isMobile
+                />
+              )}
+            </div>
+          )}
+        </div>
+        {fade.start && (
+          <div
+            aria-hidden="true"
+            data-fade="start"
+            className={[styles.fade, styles.fadeStart].join(" ")}
+          />
+        )}
+        {fade.end && (
+          <div
+            aria-hidden="true"
+            data-fade="end"
+            className={[styles.fade, styles.fadeEnd].join(" ")}
+          />
         )}
       </div>
     </nav>
