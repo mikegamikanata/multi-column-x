@@ -12,14 +12,17 @@
 
 PowerShell は `powershell -NoProfile -File <script> ...` で実行する（Git Bash からも同じ）。パスは引数で渡す。
 
-| スクリプト        | 用途                                                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `win-launch.ps1`  | `-Exe <exe>`。`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=0` で起動し PID を出す。`-PidFile` で PID をファイルにも書く         |
-| `cdp.cjs`         | CDP 接続ヘルパー（ライブラリ兼 CLI）。`ports` / `pages` / `eval <main\|accountId\|all> "<式>" [--label=…]`                                        |
-| `win-window.ps1`  | `info` / `all` / `set -X -Y -W -H` / `close` / `min` / `restore` / `max`。`close` は主窓（タイトル `MultiColumnX`）にだけ WM_CLOSE                |
-| `win-shot.ps1`    | `-ProcId -Out <png>`。PrintWindow（`PW_RENDERFULLCONTENT`）で主窓を撮る。他窓に隠れていても撮れる                                                 |
-| `win-dialog.ps1`  | OS 保存ダイアログ。`info`（有無確認）/ `dump`（UIA で既定ファイル名等）/ `save -Path <フルパス>` / `cancel`                                       |
-| `win-appdata.ps1` | `backup -Dir` / `diff -Dir`（settings.json を正規化 JSON で比較）/ `restore-settings -Dir` / `restore-all -Dir`（破壊的）。アプリ終了後に復元する |
+| スクリプト          | 用途                                                                                                                                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `win-launch.ps1`    | `-Exe <exe>`。`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=0` で起動し PID を出す。`-PidFile` で PID をファイルにも書く                                                                  |
+| `cdp.cjs`           | CDP 接続ヘルパー（ライブラリ兼 CLI）。`ports` / `pages` / `eval <main\|accountId\|all> "<式>" [--label=…]`                                                                                                 |
+| `win-window.ps1`    | `info` / `all` / `set -X -Y -W -H` / `close` / `min` / `restore` / `max`。`close` は主窓（タイトル `MultiColumnX`）にだけ WM_CLOSE                                                                         |
+| `win-shot.ps1`      | `-ProcId -Out <png>`。PrintWindow（`PW_RENDERFULLCONTENT`）で主窓を撮る。他窓に隠れていても撮れる                                                                                                          |
+| `win-dialog.ps1`    | OS 保存ダイアログ。`info`（有無確認）/ `dump`（UIA で既定ファイル名等）/ `save -Path <フルパス>` / `cancel`                                                                                                |
+| `win-appdata.ps1`   | `backup -Dir` / `diff -Dir [-IgnoreWindowBounds]`（settings.json を `json-diff.cjs` で意味比較し、差分のキーのパスを表示）/ `restore-settings -Dir` / `restore-all -Dir`（破壊的）。アプリ終了後に復元する |
+| `json-diff.cjs`     | 2 つの JSON を意味比較（キー順・数値表記は無視）。`node json-diff.cjs a.json b.json [--ignore=windowBounds]`                                                                                               |
+| `win-closewait.ps1` | `-ProcId <pid> [-TimeoutSec 30]`。主窓に WM_CLOSE → プロセス消滅を待ち、経過時間と残存有無を出す（強制終了はしない。残れば終了コード 1）                                                                   |
+| `open.cjs`          | 実クリックの代わりに invoke でウィンドウを開く。`node open.cjs media link compose --account=<dir名> --id=<accountId>`                                                                                      |
 
 ### CDP の使い方
 
@@ -43,9 +46,20 @@ PowerShell は `powershell -NoProfile -File <script> ...` で実行する（Git 
 3. `save -Path <スクラッチ内のフルパス>` で保存、またはキャンセルの検証なら `cancel`
 4. 保存後にファイルの存在とサイズ（可能なら再生可能か）を根拠にする
 
+### 代替手順の例: ポップアップ等を invoke で開く
+
+実クリックで開けない・手間がかかるときは、`open.cjs` が CDP 経由で Tauri コマンドを invoke して開く（メイン UI から `open_link_popup_window` / `open_compose_window`、カラム WebView から `open_popup_window`）。アカウントのデータ dir 名は `node cdp.cjs ports` で、`--id` はアカウント ID（settings.json）で分かる。結果セルには「代替: invoke で開いた」と明記する。
+
+```
+node scripts/open.cjs media link compose --account=account-<uuid> --id=<accountId>
+```
+
 ### 正常終了
 
-`win-window.ps1 close -ProcId <pid>` のあと、プロセスが消えるまで待つ（`tasklist` で数十秒まで）。終了時に `windowBounds` 等が `settings.json` に保存されるため、終了直後の値を比較に使う。残る場合のみ最後の手段で強制終了する。
+`win-closewait.ps1 -ProcId <pid>` で主窓に WM_CLOSE を送り、プロセスが消えるまで待つ（既定 30 秒。経過時間と残存有無が出る）。終了時に `windowBounds` 等が `settings.json` に保存されるため、終了直後の値を比較に使う。
+
+- **`windowBounds` は client（内側）サイズで保存される**。`win-window.ps1 info` の `outer` ではなく `client w= h=` の値と比べる
+- `win-window.ps1 set` で `-H` が効かないとき: 旧版はパラメータ `$H` とループ変数 `$h` が（大文字小文字非区別で）衝突していた。現行は `$hw` で修正済み。PowerShell スクリプトを書くときは同様の衝突に注意する残る場合のみ最後の手段で強制終了する。
 
 ## Android スクリプト（`scripts/android-device.sh`）
 
@@ -67,6 +81,9 @@ PowerShell は `powershell -NoProfile -File <script> ...` で実行する（Git 
 - 正常終了で主窓以外（tao のタイトル空 16x16 ヘルパー窓）に WM_CLOSE を送ると挙動が不安定になる
 - Windows と Android を並行実施すると cargo ロック待ちが発生する。ロック待ちは異常ではない
 - 起動中のアプリのデータはロックされうる。退避・復元は終了後に行う
+- **`win-appdata.ps1 backup` は 2 分以上かかることがある**（EBWebView が大きい）。タイムアウトを長め（10 分）にするか、バックグラウンドで実行して完了通知を待つ
+- **Git Bash で `git show <branch>:<path>` を使うときは `MSYS_NO_PATHCONV=1` が必要**（`:` 付きのパスが Windows パスに変換されて失敗する）。例: `MSYS_NO_PATHCONV=1 git show docs/xxx:.claude/skills/autonomous-manual-test/scripts/cdp.cjs`
+- **スキルが未マージのブランチにある場合**（試験対象ブランチに `.claude/skills/autonomous-manual-test/` が無い）: `git show <スキルのブランチ>:<パス>` で読み出し、スクラッチへ書き出して使う。`.ps1` は **UTF-8 BOM 付き**で書くこと（BOM なしだと Windows PowerShell 5.1 が日本語を文字化けさせる）。`git show` の出力をそのままリダイレクトすれば BOM は保たれる
 
 ## 結果記録の例
 

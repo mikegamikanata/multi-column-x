@@ -5,6 +5,7 @@
   Cmd: info | all | set | close | min | restore | max
 .EXAMPLE   .\win-window.ps1 all -ProcId 1234
 .EXAMPLE   .\win-window.ps1 set -ProcId 1234 -X 100 -Y 100 -W 1200 -H 800
+  注意: PowerShell は変数名の大文字小文字を区別しない。パラメータ $H（高さ）とループ変数 $h は衝突するので、ループ変数は $hw を使うこと。
 #>
 param(
   [Parameter(Position = 0)][string]$Cmd = 'info',
@@ -39,12 +40,12 @@ function Get-Info($h) {
 }
 $main = @([McxW]::Of($ProcId) | Where-Object { (Get-Title $_) -eq $Title })
 switch ($Cmd) {
-  'info'    { foreach ($h in $main) { "title=$(Get-Title $h) $(Get-Info $h)" } }
-  'all'     { foreach ($h in [McxW]::Of($ProcId)) { "$h '$(Get-Title $h)' $(Get-Info $h)" } }
-  'set'     { foreach ($h in $main) { [McxW]::SetWindowPos($h, [IntPtr]::Zero, $X, $Y, $W, $H, 0x14) | Out-Null } }
-  'close'   { foreach ($h in $main) { [McxW]::PostMessage($h, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }; "WM_CLOSE -> $($main.Count) window(s)" }
-  'min'     { foreach ($h in $main) { [McxW]::ShowWindow($h, 6) | Out-Null } }
-  'restore' { foreach ($h in $main) { [McxW]::ShowWindow($h, 9) | Out-Null } }
-  'max'     { foreach ($h in $main) { [McxW]::ShowWindow($h, 3) | Out-Null } }
+  'info'    { foreach ($hw in $main) { "title=$(Get-Title $hw) $(Get-Info $hw)" } }
+  'all'     { foreach ($hw in [McxW]::Of($ProcId)) { "$hw '$(Get-Title $hw)' $(Get-Info $hw)" } }
+  'set'     { foreach ($hw in $main) { [McxW]::SetWindowPos($hw, [IntPtr]::Zero, $X, $Y, $W, $H, 0x14) | Out-Null } }
+  'close'   { foreach ($hw in $main) { [McxW]::PostMessage($hw, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }; "WM_CLOSE -> $($main.Count) window(s)" }
+  'min'     { foreach ($hw in $main) { [McxW]::ShowWindow($hw, 6) | Out-Null } }
+  'restore' { foreach ($hw in $main) { [McxW]::ShowWindow($hw, 9) | Out-Null } }
+  'max'     { foreach ($hw in $main) { [McxW]::ShowWindow($hw, 3) | Out-Null } }
   default   { throw "不明な Cmd: $Cmd" }
 }

@@ -8,7 +8,7 @@ argument-hint: "対象の integration-test.md のパス（省略時は現在の�
 
 `integration-test-viewpoints`（フェーズ6）が出力した `integration-test.md` のうち、**エージェントが安全に実施できる項目は毎回エージェントが実施し、結果セルに記録する**。人間のテスターには、自律実施できなかった項目（と判断が要る項目）だけが残る状態にする。
 
-スクリプトの使い方・実機操作のコツ・落とし穴は `reference.md` を参照。スクリプトは `scripts/` にある。
+スクリプトの使い方・実機操作のコツ・落とし穴は `reference.md` を参照。スクリプトは `scripts/` にある。試験対象のブランチにこのスキルが無い（未マージ）場合は、`reference.md` の「既知の落とし穴」の手順で `git show` から読み出して使う。
 
 ## 使うタイミング
 
@@ -50,11 +50,12 @@ auto mode の分類器が、アプリ内の削除確定などのタップを拒�
 ## 2. 実施手順
 
 1. **準備**
-   - 試験前のデータを退避する。Windows: `win-appdata.ps1 backup`。Android: `android-device.sh state-save`。退避先は**スクラッチ（リポジトリ外の一時ディレクトリ）**
+   - 試験前のデータを退避する。Windows: `win-appdata.ps1 backup`（2 分以上かかることがある。タイムアウトを長めに、バックグラウンド実行推奨）。Android: `android-device.sh state-save`。退避先は**スクラッチ（リポジトリ外の一時ディレクトリ）**
    - ビルド: Windows は `npm run tauri:build`（署名鍵が無く NSIS 段階で失敗するが exe は `src-tauri/target/release/multicolumnx.exe` に生成される。exe の更新時刻で確認する）。Android は `npm run tauri:android:build -- --debug --apk --target x86_64` → `android-device.sh install <apk>`（`adb install -r` でログイン状態を維持）
    - Windows と Android を並行実施する場合、cargo のビルドロックを待つことがある。同時に走らせず順に起動する（ロック待ちは異常ではない）
 2. **起動**: Windows は `win-launch.ps1`（CDP 有効）→ `cdp.cjs pages` で接続確認。Android は `android-device.sh start`
 3. **操作と検証**
+   - ポップアップ / コンポーズなどを実クリックで開けないときは `open.cjs`（invoke で開く）を代替手順として使える（`reference.md`）
    - Windows は CDP（`cdp.cjs`）で DOM を読む・操作する。メイン UI は `http://tauri.localhost/`、カラムはアカウントごとの別ポート。OS ネイティブの保存ダイアログは `win-dialog.ps1`、画面は `win-shot.ps1`
    - Android は `android-device.sh`（`tap-text` / `find` で座標特定、`shot` で画面確認）
    - **見た目だけでなく DOM・設定値・ファイルなどの客観的な根拠**を 1 項目につき 1 つ以上取る（例: 計算済みスタイル、`settings.json` の値、保存されたファイルのサイズ）
@@ -65,8 +66,8 @@ auto mode の分類器が、アプリ内の削除確定などのタップを拒�
    - NG は `Win: NG（現象・根拠）`、実施しない項目は `未実施（理由）` と書く
    - 代替手順を使ったら `代替: …` を明記する
 6. **後片付け**（必ず実施。失敗しても飛ばさない）
-   - アプリを正常終了する: Windows は `win-window.ps1 close`（主窓にだけ WM_CLOSE。タイトル空の 16x16 ヘルパー窓には送らない）。残ったプロセスは最後の手段としてだけ強制終了する
-   - Windows: `win-appdata.ps1 diff` で `settings.json` が退避時と同一か比較し、差分があれば `restore-settings` で戻す。テスト用に追加したカラム等が残っていないことも確認する
+   - アプリを正常終了する: Windows は `win-closewait.ps1`（`win-window.ps1 close` で主窓にだけ WM_CLOSE を送り、プロセス消滅を待って経過時間を出す。タイトル空の 16x16 ヘルパー窓には送らない）。残ったプロセスは最後の手段としてだけ強制終了する
+   - Windows: `win-appdata.ps1 diff` で `settings.json` が退避時と同一か意味比較し（差分のキーのパスが出る。`windowBounds` だけの差は `-IgnoreWindowBounds` で除外。`windowBounds` は client サイズで保存されるので `win-window.ps1 info` の client 値と比べる）、意図しない差分があれば `restore-settings` で戻す。テスト用に追加したカラム等が残っていないことも確認する
    - Android: 端末設定を `state-restore` で戻し、`state-save` し直して記録と一致することを確認する。機内モードにしたなら必ず解除する
    - 一時ファイル（保存した動画、退避データ）はスクラッチ内に限り、リポジトリに混ぜない
 7. **報告**: 実施した項目数・OK/NG/未実施の内訳、NG の詳細、代替手順を使った項目、分類器に拒否された項目、後片付けの確認結果（settings.json の一致、端末設定の復元）を報告する
