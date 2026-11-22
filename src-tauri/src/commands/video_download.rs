@@ -52,10 +52,13 @@ fn build_progress_payload(
 /// 進捗発行の間引き状態（前回emit時刻・初回フラグ・直近の進捗値）を保持し、
 /// `video::should_emit_progress` による間引き判定つきで `app.emit_to` する。
 /// mp4用・HLS用それぞれの進捗コールバックはこの構造体を介してイベントを発行する。
+///
+/// `emit_to` は AnyLabel 宛て（`target_label` は呼び出し元 WebView のラベル）。受け手の JS は
+/// `listen` に `target` を指定すること（既定 target は宛先に関係なく全 emit を受け取る）。
 #[cfg(desktop)]
 struct ProgressEmitter<'a> {
     app: &'a tauri::AppHandle,
-    window_label: String,
+    target_label: String,
     file_index: u32,
     file_count: u32,
     last_emit_at: Option<std::time::Instant>,
@@ -68,13 +71,13 @@ struct ProgressEmitter<'a> {
 impl<'a> ProgressEmitter<'a> {
     fn new(
         app: &'a tauri::AppHandle,
-        window_label: String,
+        target_label: String,
         file_index: u32,
         file_count: u32,
     ) -> Self {
         Self {
             app,
-            window_label,
+            target_label,
             file_index,
             file_count,
             last_emit_at: None,
@@ -118,7 +121,7 @@ impl<'a> ProgressEmitter<'a> {
         let payload =
             build_progress_payload(self.file_index, self.file_count, current, total, phase);
         let _ = self.app.emit_to(
-            &self.window_label,
+            &self.target_label,
             crate::ipc_constants::events::VIDEO_DOWNLOAD_PROGRESS,
             payload,
         );
@@ -199,11 +202,13 @@ async fn pick_save_path(
 #[tauri::command]
 pub async fn download_video(
     app: tauri::AppHandle,
-    window: tauri::Window,
+    webview: tauri::Webview,
     variants: Vec<video::VideoVariantInput>,
     #[allow(non_snake_case)] suggestedFileName: String,
 ) -> Result<(), String> {
-    let window_label = window.label().to_string();
+    // 進捗の宛先は呼び出し元 WebView。Windows/macOS のカラムはメインウィンドウの子 WebView で
+    // window ラベルは "main" になり、宛先を絞れない。
+    let target_label = webview.label().to_string();
 
     let plan = plan_download(&variants)?;
     let base_name = video::sanitize_filename(&suggestedFileName);
@@ -219,7 +224,7 @@ pub async fn download_video(
 
             let client = http::build_client()?;
 
-            let mut emitter = ProgressEmitter::new(&app, window_label.clone(), 1, 1);
+            let mut emitter = ProgressEmitter::new(&app, target_label.clone(), 1, 1);
             let result = video::download_to_file_or_cleanup(&path, |mut file| {
                 let client = &client;
                 let url = &url;
@@ -264,7 +269,7 @@ pub async fn download_video(
             };
 
             if let Some(path) = pick_save_path(&app, format!("{base_name}_video.mp4")).await? {
-                let mut emitter = ProgressEmitter::new(&app, window_label.clone(), 1, file_count);
+                let mut emitter = ProgressEmitter::new(&app, target_label.clone(), 1, file_count);
                 let result = video::download_to_file_or_cleanup(&path, |mut file| {
                     let client = &client;
                     let video_playlist_url = &tracks.video_playlist_url;
@@ -294,7 +299,7 @@ pub async fn download_video(
             if let Some(audio_url) = tracks.audio_playlist_url {
                 if let Some(path) = pick_save_path(&app, format!("{base_name}_audio.m4a")).await? {
                     let mut emitter =
-                        ProgressEmitter::new(&app, window_label.clone(), 2, file_count);
+                        ProgressEmitter::new(&app, target_label.clone(), 2, file_count);
                     let result = video::download_to_file_or_cleanup(&path, |mut file| {
                         let client = &client;
                         let audio_url = &audio_url;
@@ -568,6 +573,21 @@ fn finish_android_video_download(
 #[cfg(all(test, not(target_os = "android")))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn download_videoは呼び出し元webview宛てに進捗を送る() {
+        const SOURCE: &str = include_str!("video_download.rs");
+        let start = SOURCE
+            .find("pub async fn download_video(")
+            .expect("download_video の定義が見つかること");
+        let end = SOURCE[start..]
+            .find(") -> Result")
+            .expect("引数リストの終端が見つかること")
+            + start;
+        let signature = &SOURCE[start..end];
+        assert!(signature.contains("webview: tauri::Webview"));
+        assert!(!signature.contains("tauri::Window"));
+    }
 
     fn mp4(bitrate: Option<u64>, url: &str) -> video::VideoVariantInput {
         video::VideoVariantInput {
