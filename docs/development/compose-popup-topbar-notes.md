@@ -14,6 +14,8 @@
 
 - プログラムから確実に破棄する経路（置換・失敗時フォールバック・アプリ終了）は `destroy()` を使うこと。
 - `prevent_close` を使う常駐ウィンドウを新設したら、`src-tauri/src/lib.rs` のメインウィンドウ `CloseRequested` ハンドラに明示 `destroy()` を必ず追加すること。忘れると不可視ウィンドウが残りアプリプロセスが終了しなくなる。
+- ポップアップ（`popup-`）は `prevent_close` を使わない独立 `WebviewWindow` のため `close()` で閉じる（`destroy()` は不要）。メイン終了時の後始末は純粋関数 `windows_to_close_on_main_exit`（`src-tauri/src/lib.rs`）で決める。コンポーズは全 OS で destroy、ポップアップは全デスクトップ OS で close、カラムは Linux のみ close（Windows/macOS は子 WebView）。
+- 公式設定ポップアップの閉鎖通知の誤発火を防ぐため、追跡解除（`official_settings_popup_label = None`）はポップアップを閉じる前に行うこと（契約テストあり）。
 
 ## ウィンドウ位置・サイズ永続化
 
