@@ -224,17 +224,38 @@ class MainActivity : TauriActivity() {
         override fun handleOnBackPressed() {
           // 1. ポップアップが開いていれば最前面を閉じる
           if (closeTopPopupWebView()) return
-          // 2. アクティブなカラム WebView が戻れる履歴を持っていれば戻る
-          val activeWv = activeColumnWebViewId?.let { columnWebViews[it] }
-          if (activeWv != null && activeWv.canGoBack()) {
-            activeWv.goBack()
+          // 2. メイン画面（アプリ設定の詳細画面など）が戻る操作を処理するか問い合わせる
+          val main = mainWebView
+          if (main == null) {
+            handleNativeBack()
             return
           }
-          // 3. それ以外はアプリをバックグラウンドへ（終了しない）
-          moveTaskToBack(true)
+          main.evaluateJavascript(MAIN_PAGE_BACK_SCRIPT) { result ->
+            if (!isBackConsumedByMainPage(result)) handleNativeBack()
+          }
         }
       },
     )
+  }
+
+  // メイン画面が戻る操作を処理しなかったときの従来の戻る処理
+  private fun handleNativeBack() {
+    // アクティブなカラム WebView が戻れる履歴を持っていれば戻る
+    val activeWv = activeColumnWebViewId?.let { columnWebViews[it] }
+    if (activeWv != null && activeWv.canGoBack()) {
+      activeWv.goBack()
+      return
+    }
+    // それ以外はアプリをバックグラウンドへ（終了しない）
+    moveTaskToBack(true)
+  }
+
+  // メイン画面の WebView（戻る操作の問い合わせ先）。WryActivity.onWebViewCreate で保持する
+  private var mainWebView: WebView? = null
+
+  override fun onWebViewCreate(webView: WebView) {
+    super.onWebViewCreate(webView)
+    mainWebView = webView
   }
 
   // AddAccount Activity を account_id を Intent Extra として渡して起動する。

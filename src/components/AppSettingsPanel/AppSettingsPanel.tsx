@@ -20,6 +20,7 @@ import {
   removeExtension,
   setExtensionEnabled,
 } from "@/services/extensions";
+import { useAndroidBackHandler } from "../../hooks/useAndroidBackHandler";
 import { useBackupFlow } from "../../hooks/useBackupFlow";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useRestoreFocus } from "../../hooks/useRestoreFocus";
@@ -154,6 +155,11 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
   const [mobileDetail, setMobileDetail] = useState<SettingsCategoryId | null>(
     null,
   );
+  // Android の戻る操作: 詳細画面ならカテゴリ一覧に戻す（一覧ではネイティブ側の既定動作に委ねる）
+  useAndroidBackHandler(isMobile && mobileDetail !== null, () => {
+    setMobileDetail(null);
+    return true;
+  });
   const [initialDraft] = useState<SettingsDraft>(() =>
     createSettingsDraft(settings),
   );

@@ -57,6 +57,7 @@ import {
   useWebviewScrollRelay,
 } from "./hooks/useWebviewEvents";
 import { useWhatsNew } from "./hooks/useWhatsNew";
+import { installAndroidBackBridge } from "./lib/androidBackHandler";
 import { resolveExtensionPageAccountId } from "./lib/extensionsSupport";
 import { getHeaderHeight, getTopBarHeight } from "./lib/gridLayout";
 import { reloadColumnOrRecreate } from "./services/columnReload";
@@ -161,6 +162,10 @@ const App: React.FC = () => {
   const uiScaleFactor = useUiScale(globalSettings.uiScale ?? "auto", isMobile);
   // CSS のプラットフォーム別スタイル用に <html> へ data-platform を付与する。
   usePlatformAttribute(isMobile);
+  // Android の戻る操作をネイティブ（MainActivity）から問い合わせられるよう入口を公開する。
+  useEffect(() => {
+    if (isMobile) installAndroidBackBridge();
+  }, [isMobile]);
 
   const { columnsRestored, appVersion } = useAppBootstrap({
     setIsMobile,

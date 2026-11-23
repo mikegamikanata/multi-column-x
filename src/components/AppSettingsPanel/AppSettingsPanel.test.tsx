@@ -9,6 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import * as extensionsService from "@/services/extensions";
 import { expectAccessibleControls } from "@/test-utils/a11y";
 import { expectNoJapanese } from "@/test-utils/japanese";
@@ -2289,6 +2290,88 @@ describe("AppSettingsPanel Androidの2階層", () => {
       screen.getByRole("heading", { level: 2, name: "閲覧・フィルタ" }),
     ).toBeInTheDocument();
     expect(screen.getByText("正規表現が不正です: /[[/")).toBeInTheDocument();
+  });
+});
+
+describe("AppSettingsPanel Androidの戻る操作", () => {
+  beforeEach(() => {
+    mockStoreState.isMobile = true;
+  });
+
+  it("モバイルで詳細画面を表示中に端末の戻る操作をするとカテゴリ一覧に戻る", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    openCategory("メディア");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "メディア" }),
+    ).toBeInTheDocument();
+
+    let handled = false;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+
+    expect(handled).toBe(true);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "アプリ設定" }),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("モバイルで詳細画面から戻っても編集中の値は保持される", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("表示");
+    テーマをライトに変更する();
+
+    act(() => {
+      handleAndroidBack();
+    });
+
+    expect(categoryItem("表示")).toHaveAccessibleName(/未適用の変更あり/);
+  });
+
+  it("モバイルでカテゴリ一覧を表示中の戻る操作は画面側では処理されない", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+
+    let handled = true;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+
+    expect(handled).toBe(false);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "アプリ設定" }),
+    ).toBeInTheDocument();
+  });
+
+  it("詳細画面から一覧に戻った後の戻る操作は画面側では処理されない", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("メディア");
+    act(() => {
+      handleAndroidBack();
+    });
+
+    let handled = true;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+
+    expect(handled).toBe(false);
+  });
+
+  it("アプリ設定を閉じた後の戻る操作は画面側では処理されない", () => {
+    const { unmount } = render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("メディア");
+    unmount();
+
+    expect(handleAndroidBack()).toBe(false);
+  });
+
+  it("デスクトップでは戻る操作は画面側では処理されない", () => {
+    mockStoreState.isMobile = false;
+    render(<AppSettingsPanel {...defaultProps} />);
+
+    expect(handleAndroidBack()).toBe(false);
   });
 });
 
