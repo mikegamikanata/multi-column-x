@@ -107,6 +107,25 @@ const AdSettingsSection: React.FC<SectionProps> = ({ draft, set }) => {
   );
 };
 
+const GrokSettingsSection: React.FC<SectionProps> = ({ draft, set }) => {
+  const { t } = useTranslation();
+  return (
+    <section className={styles.section}>
+      <h3 className={styles.sectionTitle}>
+        {t("settings:general.grok.title")}
+      </h3>
+      <label className={styles.checkLabel}>
+        <input
+          type="checkbox"
+          checked={draft.hideGrokButtonEnabled}
+          onChange={(e) => set("hideGrokButtonEnabled", e.target.checked)}
+        />
+        {t("settings:general.grok.hide")}
+      </label>
+    </section>
+  );
+};
+
 export const ApiRateLimitSettingsSection: React.FC<SectionProps> = ({
   draft,
   set,
@@ -212,6 +231,7 @@ export const FilterSettingsSections: React.FC<FilterSettingsSectionsProps> = ({
       error={repostHiddenUserIdsError}
     />
     <AdSettingsSection draft={draft} set={set} />
+    <GrokSettingsSection draft={draft} set={set} />
   </>
 );
 

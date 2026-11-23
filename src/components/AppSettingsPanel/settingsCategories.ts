@@ -90,6 +90,7 @@ export const DRAFT_KEY_CATEGORY: Record<keyof SettingsDraft, DraftCategoryId> =
     globalNgWordsText: "filter",
     globalRepostHiddenUserIdsText: "filter",
     hideAdEnabled: "filter",
+    hideGrokButtonEnabled: "filter",
     popupEscCloseEnabled: "media",
     videoAutoPlayStopEnabled: "media",
     hardwareVideoDecodeEnabled: "media",

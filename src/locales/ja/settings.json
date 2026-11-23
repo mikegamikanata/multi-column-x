@@ -29,7 +29,7 @@
       },
       "filter": {
         "label": "閲覧・フィルタ",
-        "desc": "X公式設定・NGワード・リポスト非表示・広告"
+        "desc": "X公式設定・NGワード・リポスト非表示・広告・Grokボタン"
       },
       "media": {
         "label": "メディア",
@@ -87,6 +87,10 @@
     "ad": {
       "title": "広告",
       "hide": "広告を非表示にする"
+    },
+    "grok": {
+      "title": "Grok",
+      "hide": "ポスト内の Grok ボタンを非表示にする"
     },
     "apiRateLimit": {
       "title": "API残量モニター",

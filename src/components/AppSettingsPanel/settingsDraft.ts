@@ -37,6 +37,7 @@ export interface SettingsDraft {
   blurImageEnabled: boolean;
   blurImageAmount: string;
   hideAdEnabled: boolean;
+  hideGrokButtonEnabled: boolean;
   apiRateLimitMonitorEnabled: boolean;
   columnScale: ColumnScale;
   uiScale: UiScale;
@@ -91,6 +92,7 @@ export function createSettingsDraft(settings: GlobalSettings): SettingsDraft {
     blurImageEnabled: settings.blurImageEnabled,
     blurImageAmount: settings.blurImageAmount,
     hideAdEnabled: settings.hideAdEnabled,
+    hideGrokButtonEnabled: settings.hideGrokButtonEnabled ?? false,
     apiRateLimitMonitorEnabled: settings.apiRateLimitMonitorEnabled ?? true,
     columnScale: settings.columnScale ?? "default",
     uiScale: settings.uiScale ?? "auto",
@@ -146,6 +148,7 @@ export function toGlobalSettingsPatch(
     blurImageEnabled: draft.blurImageEnabled,
     blurImageAmount: draft.blurImageAmount,
     hideAdEnabled: draft.hideAdEnabled,
+    hideGrokButtonEnabled: draft.hideGrokButtonEnabled,
     apiRateLimitMonitorEnabled: draft.apiRateLimitMonitorEnabled,
     language: draft.language,
     useXAppForCompose: draft.useXAppForCompose,
