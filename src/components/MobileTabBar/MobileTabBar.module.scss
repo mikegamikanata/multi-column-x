@@ -91,9 +91,13 @@
     min-height: t.$tap-target-min;
   }
 
-  &:hover {
-    color: var(--mcx-text);
-    background: var(--mcx-surface-hover);
+  // タッチ端末ではタップしたタブの :hover が次に別の要素を触るまで残り、選択中に見えてしまう。
+  // スワイプでカラムを切り替えてもタブバーには触れないため、ホバーできる端末だけに限定する
+  @media (hover: hover) {
+    &:hover {
+      color: var(--mcx-text);
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {
