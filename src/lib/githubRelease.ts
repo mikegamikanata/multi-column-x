@@ -9,6 +9,10 @@ const GITHUB_RELEASES_API =
   "https://api.github.com/repos/natsuyasai/multi-column-x/releases";
 const REPO_RELEASES_PATH = "/repos/natsuyasai/multi-column-x/releases";
 
+/** 既定ブラウザで開くリリース一覧ページ。固定値（capability の許可 URL と一致させること）。 */
+export const RELEASES_PAGE_URL =
+  "https://github.com/natsuyasai/multi-column-x/releases";
+
 /** 更新試験ビルドではローカル配信サーバー、それ以外は GitHub Releases API。呼び出し時に評価する。 */
 export function releasesApiBase(): string {
   const base = import.meta.env.VITE_UPDATER_RELEASE_API_BASE;

@@ -85,10 +85,10 @@ mod tests {
             let permissions = json["permissions"]
                 .as_array()
                 .expect("permissions 配列が見つからない");
-            for permission in permissions {
-                let permission = permission.as_str().unwrap().to_string();
+            // オブジェクト形式（スコープ付きのプラグイン権限）は対象外なので文字列だけを見る。
+            for permission in permissions.iter().filter_map(|p| p.as_str()) {
                 if permission.starts_with("allow-") && !permission.contains(':') {
-                    result.insert(permission);
+                    result.insert(permission.to_string());
                 }
             }
         }
@@ -104,8 +104,9 @@ mod tests {
             .as_array()
             .expect("permissions 配列が見つからない")
             .iter()
-            .map(|v| v.as_str().unwrap().to_string())
+            .filter_map(|v| v.as_str())
             .filter(|s| s.starts_with("allow-") && !s.contains(':'))
+            .map(|s| s.to_string())
             .collect()
     }
 
@@ -225,6 +226,46 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn メインウィンドウのopener許可はリリース一覧のurlだけに限定されている() {
+        let json: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json"))
+                .expect("default.json のパースに失敗した");
+        let permissions = json["permissions"]
+            .as_array()
+            .expect("permissions 配列が見つからない");
+
+        // `opener:` で始まる識別子（文字列形式・オブジェクト形式の両方）を集める。
+        let opener_identifiers: Vec<&str> = permissions
+            .iter()
+            .filter_map(|p| p.as_str().or_else(|| p["identifier"].as_str()))
+            .filter(|id| id.starts_with("opener:"))
+            .collect();
+        assert_eq!(
+            opener_identifiers,
+            vec!["opener:allow-open-url"],
+            "default.json の opener 許可は opener:allow-open-url のみでなければならない"
+        );
+
+        let scoped = permissions
+            .iter()
+            .find(|p| p["identifier"].as_str() == Some("opener:allow-open-url"))
+            .expect("opener:allow-open-url はスコープ付き（オブジェクト形式）で指定する");
+        let allow = scoped["allow"]
+            .as_array()
+            .expect("opener:allow-open-url に allow 配列が無い");
+        assert_eq!(allow.len(), 1, "許可 URL は 1 件だけでなければならない");
+        assert_eq!(
+            allow[0],
+            serde_json::json!({ "url": "https://github.com/natsuyasai/multi-column-x/releases" }),
+            "許可 URL はリリース一覧ページのみでなければならない"
+        );
+        assert!(
+            scoped.get("deny").is_none(),
+            "スコープに deny が混ざっていない（単純な許可 1 件のみ）"
+        );
     }
 
     #[test]
