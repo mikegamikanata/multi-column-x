@@ -109,30 +109,36 @@
   },
   "columnDefaults": {
     "autoReload": {
-      "title": "カラムデフォルト - 自動更新",
+      "title": "自動更新",
       "enable": "自動更新を有効にする",
       "interval": "更新間隔（秒）",
       "countdown": "カウントダウンを表示する"
     },
     "display": {
-      "title": "カラムデフォルト - 表示",
+      "title": "表示",
       "hideHeader": "ヘッダーを非表示にする",
       "hideTweetInput": "投稿欄を非表示にする",
       "showCustomMenu": "カスタムメニューボタンを表示する",
       "restoreScroll": "写真閲覧後のスクロール位置を復元する"
     },
     "image": {
-      "title": "カラムデフォルト - 画像",
+      "title": "画像",
       "smallImage": "画像を縮小表示する",
-      "width": "幅（例: 50%, 200px）",
-      "blur": "画像をぼかして表示する",
-      "blurAmount": "ブラー量（例: 10px）"
+      "width": "幅（例: 50%, 200px）"
+    },
+    "imageBlur": {
+      "title": "画像ブラー",
+      "enable": "画像をぼかして表示する",
+      "amount": "ブラー量（例: 10px）"
+    },
+    "applyAll": {
+      "button": "既存の全カラムに適用",
+      "hint": "編集中の自動更新・表示・画像・画像ブラー・カスタム CSS の既定値を、いま開いているすべてのカラムに適用します。"
     },
     "customCss": {
-      "title": "カラムデフォルト - カスタムCSS",
+      "title": "カスタム CSS",
       "placeholder": "/* カスタムCSSを入力 */",
-      "hint": "新しく追加するカラムに適用されます",
-      "applyAll": "既存の全カラムに適用"
+      "hint": "新しく追加するカラムに適用されます"
     }
   },
   "layout": {
@@ -167,7 +173,7 @@
   },
   "info": {
     "officialSettings": {
-      "title": "公式設定",
+      "title": "X公式設定",
       "hint": "X公式の設定画面をポップアップウィンドウで開きます。開いた画面から他アカウントへ設定を適用できます。",
       "open": "公式設定を開く"
     },

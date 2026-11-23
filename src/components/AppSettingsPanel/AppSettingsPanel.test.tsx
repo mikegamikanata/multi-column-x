@@ -1094,6 +1094,21 @@ describe("AppSettingsPanel 設定パッチの全項目反映", () => {
       blurImageAmount: "20px",
     });
   });
+
+  it("既存の全カラムに適用ボタンはカスタムCSSセクションの中に無い", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    const cssSection = screen
+      .getByRole("heading", { level: 3, name: "カスタム CSS" })
+      .closest("section") as HTMLElement;
+    expect(
+      within(cssSection).queryByRole("button", {
+        name: "既存の全カラムに適用",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "既存の全カラムに適用" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("AppSettingsPanel 削除保留データフォルダの再実行", () => {
@@ -1594,7 +1609,7 @@ describe("AppSettingsPanel 一般タブのグループ構成", () => {
   it("表示言語が日本語のとき表示グループ内の欄の見出しがテーマと表示サイズになる", () => {
     render(<AppSettingsPanel {...defaultProps} />);
     expect(
-      within(グループ要素("表示")).getByRole("heading", { level: 3 })
+      within(グループ要素("表示")).getAllByRole("heading", { level: 3 })[0]
         .textContent,
     ).toBe("テーマと表示サイズ");
   });
@@ -1604,8 +1619,9 @@ describe("AppSettingsPanel 一般タブのグループ構成", () => {
     await act(() => i18n.changeLanguage("en"));
     try {
       expect(
-        within(グループ要素("Display")).getByRole("heading", { level: 3 })
-          .textContent,
+        within(グループ要素("Display")).getAllByRole("heading", {
+          level: 3,
+        })[0].textContent,
       ).toBe("Theme & size");
     } finally {
       await act(() => i18n.changeLanguage("ja"));
@@ -1626,7 +1642,7 @@ describe("AppSettingsPanel 一般タブのグループ構成", () => {
           level: 2,
           name: groupTitle,
         });
-        const h3 = within(group).getByRole("heading", { level: 3 });
+        const h3 = within(group).getAllByRole("heading", { level: 3 })[0];
         expect(h3.textContent).not.toBe(h2.textContent);
         expect(i18n.t("settings:display.title", { lng })).not.toBe(
           i18n.t("settings:panel.groups.display", { lng }),
@@ -1637,19 +1653,24 @@ describe("AppSettingsPanel 一般タブのグループ構成", () => {
     },
   );
 
-  it("閲覧・フィルタグループにNGワード・リポスト非表示ユーザー・広告・API残量モニターが含まれる", () => {
+  it("閲覧・フィルタグループにNGワード・リポスト非表示ユーザー・広告が含まれ、API残量モニターは含まれない", () => {
     render(<AppSettingsPanel {...defaultProps} />);
     const group = グループ要素("閲覧・フィルタ");
     for (const name of [
       /グローバルNGワード/,
       /リポストを非表示にするユーザー/,
       /広告/,
-      /API残量モニター/,
     ]) {
       expect(
         within(group).getByRole("heading", { level: 3, name }),
       ).toBeInTheDocument();
     }
+    expect(
+      within(group).queryByRole("heading", {
+        level: 3,
+        name: /API残量モニター/,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("デスクトップではポップアップ設定がメディアグループに表示される", () => {
@@ -1748,8 +1769,9 @@ describe("AppSettingsPanel 一般タブのグループ構成", () => {
         }),
       ).toBeInTheDocument();
       expect(
-        within(グループ要素("表示")).getByRole("heading", { level: 3 }),
-      ).toBeInTheDocument();
+        within(グループ要素("表示")).getAllByRole("heading", { level: 3 })
+          .length,
+      ).toBeGreaterThan(0);
       expect(
         within(グループ要素("新規カラムの既定値")).getAllByRole("heading", {
           level: 3,
@@ -2219,7 +2241,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
       screen.getByRole("textbox", { name: "グローバルNGワード" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("textbox", { name: "カラムデフォルト - カスタムCSS" }),
+      screen.getByRole("textbox", { name: "カスタム CSS" }),
     ).toBeInTheDocument();
   });
 

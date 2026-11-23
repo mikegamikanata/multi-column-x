@@ -30,7 +30,11 @@ import type {
   Account,
   ColumnSettings,
 } from "../../types";
-import { AppInfoSections } from "./AppInfoSections";
+import {
+  AboutAppSection,
+  MaintenanceSections,
+  OfficialSettingsSection,
+} from "./AppInfoSections";
 import styles from "./AppSettingsPanel.module.scss";
 import { BackupTab } from "./BackupTab";
 import { ColumnDefaultsSections } from "./ColumnDefaultsSections";
@@ -39,6 +43,7 @@ import { DisplaySettingsSection } from "./DisplaySettingsSection";
 import { ExtensionsTab } from "./ExtensionsTab";
 import {
   AndroidSettingsSections,
+  ApiRateLimitSettingsSection,
   FilterSettingsSections,
   PopupSettingsSection,
   VideoSettingsSection,
@@ -275,6 +280,7 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
             >
               <SettingsGroup title={t("settings:panel.groups.display")}>
                 <DisplaySettingsSection draft={draft} set={set} />
+                <ApiRateLimitSettingsSection draft={draft} set={set} />
               </SettingsGroup>
 
               <SettingsGroup title={t("settings:panel.groups.columnDefaults")}>
@@ -316,16 +322,14 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
               )}
 
               <SettingsGroup title={t("settings:panel.groups.maintenance")}>
-                <AppInfoSections
+                <OfficialSettingsSection
                   onOpenOfficialSettings={onOpenOfficialSettings}
+                />
+                <MaintenanceSections
                   onReloadAllWebviews={() => {
                     onReloadAllWebviews();
                     onClose();
                   }}
-                  appVersion={appVersion}
-                  updateChecking={updateChecking}
-                  updateManualResult={updateManualResult}
-                  onCheckUpdate={onCheckUpdate}
                   pendingDataDirectoryDeletionCount={
                     pendingDataDirectoryDeletionCount
                   }
@@ -339,6 +343,12 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
                   onRetryDataDirectoryDeletion={
                     handleRetryDataDirectoryDeletion
                   }
+                />
+                <AboutAppSection
+                  appVersion={appVersion}
+                  updateChecking={updateChecking}
+                  updateManualResult={updateManualResult}
+                  onCheckUpdate={onCheckUpdate}
                 />
               </SettingsGroup>
             </form>

@@ -9,7 +9,7 @@ interface ColumnDefaultsSectionsProps {
   onApplyToAllColumns: () => void;
 }
 
-/** 「カラムデフォルト」セクション群（自動更新・表示・画像・カスタムCSS） */
+/** 「カラムデフォルト」セクション群（全カラム適用・自動更新・表示・画像・画像ブラー・カスタムCSS） */
 export const ColumnDefaultsSections: React.FC<ColumnDefaultsSectionsProps> = ({
   draft,
   set,
@@ -18,6 +18,19 @@ export const ColumnDefaultsSections: React.FC<ColumnDefaultsSectionsProps> = ({
   const { t } = useTranslation();
   return (
     <>
+      <section className={styles.section}>
+        <p className={styles.hint}>
+          {t("settings:columnDefaults.applyAll.hint")}
+        </p>
+        <button
+          type="button"
+          className={styles.applyAllBtn}
+          onClick={onApplyToAllColumns}
+        >
+          {t("settings:columnDefaults.applyAll.button")}
+        </button>
+      </section>
+
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>
           {t("settings:columnDefaults.autoReload.title")}
@@ -127,17 +140,23 @@ export const ColumnDefaultsSections: React.FC<ColumnDefaultsSectionsProps> = ({
             />
           </label>
         )}
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>
+          {t("settings:columnDefaults.imageBlur.title")}
+        </h3>
         <label className={styles.checkLabel}>
           <input
             type="checkbox"
             checked={draft.blurImageEnabled}
             onChange={(e) => set("blurImageEnabled", e.target.checked)}
           />
-          {t("settings:columnDefaults.image.blur")}
+          {t("settings:columnDefaults.imageBlur.enable")}
         </label>
         {draft.blurImageEnabled && (
           <label className={styles.fieldLabel}>
-            {t("settings:columnDefaults.image.blurAmount")}
+            {t("settings:columnDefaults.imageBlur.amount")}
             <input
               type="text"
               className={styles.textInput}
@@ -164,13 +183,6 @@ export const ColumnDefaultsSections: React.FC<ColumnDefaultsSectionsProps> = ({
         <p className={styles.hint}>
           {t("settings:columnDefaults.customCss.hint")}
         </p>
-        <button
-          type="button"
-          className={styles.applyAllBtn}
-          onClick={onApplyToAllColumns}
-        >
-          {t("settings:columnDefaults.customCss.applyAll")}
-        </button>
       </section>
     </>
   );
