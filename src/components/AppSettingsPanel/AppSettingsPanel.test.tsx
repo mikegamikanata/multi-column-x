@@ -69,6 +69,7 @@ const baseGlobalSettings: GlobalSettings = {
   blurImageEnabled: false,
   blurImageAmount: "10px",
   hideAdEnabled: true,
+  hideGrokButtonEnabled: false,
   apiRateLimitMonitorEnabled: true,
   columnScale: "default",
   uiScale: "auto",
@@ -191,6 +192,59 @@ describe("AppSettingsPanel", () => {
     render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("AppSettingsPanel Grok ボタンの非表示スイッチ", () => {
+  it("アプリ設定の全体設定に「ポスト内の Grok ボタンを非表示にする」スイッチが既定でオフで表示される", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
+    expect(
+      screen.getByRole("checkbox", {
+        name: "ポスト内の Grok ボタンを非表示にする",
+      }),
+    ).not.toBeChecked();
+  });
+
+  it("全体設定で Grok ボタンの非表示が有効なときスイッチがオンで表示される", () => {
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        settings={{ ...baseGlobalSettings, hideGrokButtonEnabled: true }}
+      />,
+    );
+    openCategory("閲覧・フィルタ");
+    expect(
+      screen.getByRole("checkbox", {
+        name: "ポスト内の Grok ボタンを非表示にする",
+      }),
+    ).toBeChecked();
+  });
+
+  it("スイッチを切り替えて適用すると Grok ボタンの非表示設定が保存される", () => {
+    const onApply = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("閲覧・フィルタ");
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "ポスト内の Grok ボタンを非表示にする",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "適用" }));
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ hideGrokButtonEnabled: true }),
+    );
+  });
+});
+
+describe("AppSettingsPanel Grok ボタンの非表示スイッチ（日本語の説明）", () => {
+  it("日本語表示のとき閲覧・フィルタの説明に Grok ボタンが含まれる", () => {
+    mockStoreState.isMobile = true;
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(
+      screen.getByText("X公式設定・NGワード・リポスト非表示・広告・Grokボタン"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -1079,6 +1133,7 @@ describe("AppSettingsPanel 設定パッチの全項目反映", () => {
     blurImageEnabled: true,
     blurImageAmount: "20px",
     hideAdEnabled: false,
+    hideGrokButtonEnabled: true,
     apiRateLimitMonitorEnabled: false,
     useXAppForCompose: true,
     mobileSwipeAreaEnabled: false,
@@ -1120,6 +1175,7 @@ describe("AppSettingsPanel 設定パッチの全項目反映", () => {
       blurImageEnabled: true,
       blurImageAmount: "20px",
       hideAdEnabled: false,
+      hideGrokButtonEnabled: true,
       apiRateLimitMonitorEnabled: false,
       language: "auto",
       useXAppForCompose: true,
@@ -1736,11 +1792,12 @@ describe("AppSettingsPanel カテゴリ構成", () => {
     render(<AppSettingsPanel {...defaultProps} />);
     openCategory("閲覧・フィルタ");
     const headings = sectionHeadings();
-    expect(headings).toHaveLength(4);
+    expect(headings).toHaveLength(5);
     expect(headings[0]).toBe("X公式設定");
     expect(headings[1]).toContain("グローバルNGワード");
     expect(headings[2]).toContain("リポストを非表示にするユーザー");
     expect(headings[3]).toBe("広告");
+    expect(headings[4]).toBe("Grok");
     expect(headings.join()).not.toContain("API残量モニター");
   });
 
@@ -2538,6 +2595,25 @@ describe("AppSettingsPanel 英語表示", () => {
     await i18n.changeLanguage("en");
   });
 
+  it("表示言語が英語のとき Grok ボタンの非表示スイッチと閲覧・フィルタの説明が英語で表示される", () => {
+    mockStoreState.isMobile = true;
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(
+      screen.getByText(
+        "X settings, muted words, hidden reposts, ads and the Grok button",
+      ),
+    ).toBeInTheDocument();
+
+    openCategory("Browsing & filters");
+
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Grok" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Hide the Grok button on posts" }),
+    ).not.toBeChecked();
+  });
+
   it("表示言語が英語のとき各カテゴリに日本語の文言が表示されない", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
@@ -3179,6 +3255,26 @@ describe("AppSettingsPanel 未適用の変更があるときの確認メッセ�
       expect(onClose).not.toHaveBeenCalled();
     },
   );
+
+  it("Grok ボタンのスイッチを切り替えて閉じようとすると確認メッセージが表示され閲覧・フィルタに未適用の印が付く", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    openCategory("閲覧・フィルタ");
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "ポスト内の Grok ボタンを非表示にする",
+      }),
+    );
+    expect(categoryItem("閲覧・フィルタ")).toHaveAccessibleName(
+      /未適用の変更あり/,
+    );
+    expect(categoryItem("表示")).not.toHaveAccessibleName(/未適用の変更あり/);
+
+    fireEvent.click(ヘッダーの閉じる());
+
+    expect(確認メッセージ()).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
 
   it("アプリ設定の確認メッセージで破棄して閉じるを選ぶと変更を保存せずに閉じる", () => {
     const onClose = vi.fn();

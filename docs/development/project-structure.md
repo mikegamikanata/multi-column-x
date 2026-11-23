@@ -177,6 +177,7 @@ multi-column-x/
             │   ├── dom_observer.ts   # DOM 変化監視を共有する単一 MutationObserver ハブ
             │   ├── header_customizer.ts / headerCustomizerTypes.ts / useHeaderCustomizer.ts / HeaderCustomizer.tsx  # ヘッダー非表示
             │   ├── hide_ad.ts        # 広告非表示
+            │   ├── hide_grok_button.ts # Grok ボタン非表示（CSS の :has() で隠す）
             │   ├── i18n.ts           # inject の自前 UI 文言の ja/en 切替ハブ（window.__mcxI18n を公開）
             │   ├── image_popup.ts    # メディアリンクをポップアップで開く
             │   ├── keyboard_shortcut.ts # ショートカットキーを main へ転送

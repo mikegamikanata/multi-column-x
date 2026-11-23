@@ -147,6 +147,7 @@ impl Default for GlobalSettingsData {
             blur_image_enabled: false,
             blur_image_amount: "10px".to_string(),
             hide_ad_enabled: true,
+            hide_grok_button_enabled: false,
             api_rate_limit_monitor_enabled: true,
             column_scale: default_column_scale(),
             ui_scale: default_ui_scale(),
@@ -268,6 +269,8 @@ pub struct GlobalSettingsData {
     pub blur_image_amount: String,
     #[serde(rename = "hideAdEnabled")]
     pub hide_ad_enabled: bool,
+    #[serde(rename = "hideGrokButtonEnabled")]
+    pub hide_grok_button_enabled: bool,
     #[serde(rename = "apiRateLimitMonitorEnabled")]
     pub api_rate_limit_monitor_enabled: bool,
     #[serde(rename = "columnScale")]
@@ -763,6 +766,38 @@ mod tests {
     fn hideadenabledが無い旧全体設定はデフォルトでtrueになる() {
         let settings: GlobalSettingsData = serde_json::from_value(serde_json::json!({})).unwrap();
         assert!(settings.hide_ad_enabled);
+    }
+
+    /// ポスト内の Grok ボタンを非表示にする設定は、新規インストール時は OFF になる。
+    #[test]
+    fn hidegrokbuttonenabledの既定値はfalseである() {
+        let gs = GlobalSettingsData::default();
+        assert!(!gs.hide_grok_button_enabled);
+    }
+
+    /// hideGrokButtonEnabled が欠落した旧全体設定は OFF として読み込まれ、
+    /// ほかの設定（広告非表示・動画の自動再生停止）は既定値のまま変わらない。
+    #[test]
+    fn hidegrokbuttonenabledが無い旧全体設定はfalseになりほかの設定は変わらない() {
+        let settings: GlobalSettingsData = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(!settings.hide_grok_button_enabled);
+        assert!(settings.hide_ad_enabled);
+        assert!(settings.video_auto_play_stop_enabled);
+    }
+
+    /// ON にした Grok ボタン非表示設定は、保存（シリアライズ）と読み込みの往復で ON のまま保たれる。
+    #[test]
+    fn hidegrokbuttonenabledをtrueにすると保存と読み込みの往復で保たれる() {
+        let settings = GlobalSettingsData {
+            hide_grok_button_enabled: true,
+            ..GlobalSettingsData::default()
+        };
+
+        let saved = serde_json::to_value(&settings).unwrap();
+        assert_eq!(saved["hideGrokButtonEnabled"], serde_json::json!(true));
+
+        let loaded: GlobalSettingsData = serde_json::from_value(saved).unwrap();
+        assert!(loaded.hide_grok_button_enabled);
     }
 
     /// defaultAccountId 等これまで必須だったフィールドが欠落していても

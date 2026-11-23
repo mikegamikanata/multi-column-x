@@ -29,7 +29,7 @@
       },
       "filter": {
         "label": "Browsing & filters",
-        "desc": "X settings, muted words, hidden reposts and ads"
+        "desc": "X settings, muted words, hidden reposts, ads and the Grok button"
       },
       "media": {
         "label": "Media",
@@ -87,6 +87,10 @@
     "ad": {
       "title": "Ads",
       "hide": "Hide ads"
+    },
+    "grok": {
+      "title": "Grok",
+      "hide": "Hide the Grok button on posts"
     },
     "apiRateLimit": {
       "title": "API usage monitor",

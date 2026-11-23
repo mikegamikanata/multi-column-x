@@ -37,6 +37,7 @@ export function columnBuildSignature(
     // 全体設定
     globalVideoAutoPlayStopEnabled: global.videoAutoPlayStopEnabled,
     globalHideAdEnabled: global.hideAdEnabled,
+    globalHideGrokButtonEnabled: global.hideGrokButtonEnabled,
     globalApiRateLimitMonitorEnabled: global.apiRateLimitMonitorEnabled,
     globalImagePopupEnabled: global.imagePopupEnabled,
     globalVideoPopupEnabled: global.videoPopupEnabled,

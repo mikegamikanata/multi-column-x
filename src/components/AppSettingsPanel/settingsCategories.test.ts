@@ -31,6 +31,7 @@ const baseGlobalSettings: GlobalSettings = {
   blurImageEnabled: false,
   blurImageAmount: "10px",
   hideAdEnabled: true,
+  hideGrokButtonEnabled: false,
   apiRateLimitMonitorEnabled: true,
   columnScale: "default",
   uiScale: "auto",
@@ -141,6 +142,16 @@ describe("未適用の変更の判定", () => {
     expect(dirty.has("display")).toBe(true);
     expect(dirty.has("filter")).toBe(true);
     expect(dirty.size).toBe(2);
+  });
+
+  it("Grok ボタンの非表示を切り替えると閲覧・フィルタカテゴリに印が付く", () => {
+    const changed = {
+      ...initial,
+      hideGrokButtonEnabled: !initial.hideGrokButtonEnabled,
+    };
+    const dirty = dirtyCategories(initial, changed);
+    expect(dirty.has("filter")).toBe(true);
+    expect(dirty.size).toBe(1);
   });
 
   it("変更が無ければどのカテゴリにも印が付かない", () => {

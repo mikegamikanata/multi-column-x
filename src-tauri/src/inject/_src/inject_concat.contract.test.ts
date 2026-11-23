@@ -17,6 +17,7 @@ const CONCAT_TARGETS = [
   "small_image",
   "blur_image",
   "hide_ad",
+  "hide_grok_button",
   "ng_word",
   "custom_css",
   "image_popup",

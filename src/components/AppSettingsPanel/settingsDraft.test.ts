@@ -27,6 +27,7 @@ const baseGlobalSettings: GlobalSettings = {
   blurImageEnabled: false,
   blurImageAmount: "10px",
   hideAdEnabled: true,
+  hideGrokButtonEnabled: false,
   apiRateLimitMonitorEnabled: true,
   columnScale: "default",
   uiScale: "auto",
@@ -71,6 +72,7 @@ describe("toGlobalSettingsPatch", () => {
       blurImageEnabled: false,
       blurImageAmount: "10px",
       hideAdEnabled: true,
+      hideGrokButtonEnabled: false,
       apiRateLimitMonitorEnabled: true,
       language: "auto",
       useXAppForCompose: false,
@@ -116,6 +118,29 @@ describe("toGlobalSettingsPatch", () => {
       });
       expect(patch.hardwareVideoDecodeEnabled).toBe(value);
     }
+  });
+
+  it("hideGrokButtonEnabledが設定からドラフトを経てパッチへ往復する", () => {
+    for (const value of [true, false]) {
+      const draft = createSettingsDraft({
+        ...baseGlobalSettings,
+        hideGrokButtonEnabled: value,
+      });
+      expect(draft.hideGrokButtonEnabled).toBe(value);
+      const patch = toGlobalSettingsPatch(draft, {
+        ngWords: [],
+        repostHiddenUserIds: [],
+      });
+      expect(patch.hideGrokButtonEnabled).toBe(value);
+    }
+  });
+
+  it("hideGrokButtonEnabledが無い旧い全体設定ではドラフトがオフになる", () => {
+    const legacy = {
+      ...baseGlobalSettings,
+      hideGrokButtonEnabled: undefined,
+    } as unknown as GlobalSettings;
+    expect(createSettingsDraft(legacy).hideGrokButtonEnabled).toBe(false);
   });
 
   it("h264DownloadPromptDismissedはパッチに含まれない", () => {
