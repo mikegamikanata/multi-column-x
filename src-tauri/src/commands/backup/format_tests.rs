@@ -417,6 +417,23 @@ fn バックアップに言語設定が含まれる() {
 }
 
 #[test]
+fn grokボタンを非表示にする設定はバックアップに含まれ復元すると設定が戻る() {
+    let mut settings = sample_settings();
+    settings.global_settings.hide_grok_button_enabled = true;
+
+    let file = build_export(&settings, "1.0.0", "2026-01-01T00:00:00Z");
+    let out: Value = serde_json::to_value(&file).unwrap();
+    assert_eq!(out["globalSettings"]["hideGrokButtonEnabled"], json!(true));
+
+    let bytes = serde_json::to_vec(&file).unwrap();
+    let parsed = parse_backup(&bytes).expect("読み込める");
+    let restored = parsed
+        .global_settings
+        .apply_onto(&GlobalSettingsData::default());
+    assert!(restored.hide_grok_button_enabled);
+}
+
+#[test]
 fn エクスポートしたファイルはそのまま読み込める() {
     let file = build_export(&sample_settings(), "1.0.0", "2026-01-01T00:00:00Z");
     let bytes = serde_json::to_vec_pretty(&file).unwrap();

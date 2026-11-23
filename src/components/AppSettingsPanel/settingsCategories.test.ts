@@ -31,6 +31,7 @@ const baseGlobalSettings: GlobalSettings = {
   blurImageEnabled: false,
   blurImageAmount: "10px",
   hideAdEnabled: true,
+  hideGrokButtonEnabled: false,
   apiRateLimitMonitorEnabled: true,
   columnScale: "default",
   uiScale: "auto",

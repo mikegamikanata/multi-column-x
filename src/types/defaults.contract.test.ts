@@ -18,6 +18,11 @@ describe("TS/Rust デフォルト設定の契約", () => {
     expect(DEFAULT_GLOBAL_SETTINGS.imagePopupEnabled).toBe(true);
   });
 
+  it("ポスト内のGrokボタンを非表示にする設定の既定値はOFFである", () => {
+    expect(DEFAULT_GLOBAL_SETTINGS.hideGrokButtonEnabled).toBe(false);
+    expect(fixture.globalSettings.hideGrokButtonEnabled).toBe(false);
+  });
+
   it("既定ではアプリUIの表示サイズは端末に合わせるが選ばれている", () => {
     expect(DEFAULT_GLOBAL_SETTINGS.uiScale).toBe("auto");
     expect(fixture.globalSettings.uiScale).toBe("auto");

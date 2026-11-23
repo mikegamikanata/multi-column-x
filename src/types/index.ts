@@ -88,6 +88,7 @@ export interface GlobalSettings {
   blurImageEnabled: boolean;
   blurImageAmount: string;
   hideAdEnabled: boolean;
+  hideGrokButtonEnabled: boolean;
   apiRateLimitMonitorEnabled: boolean;
   columnScale: ColumnScale;
   /** アプリ自身のUIの表示サイズ（auto は端末の設定に追従） */
@@ -232,6 +233,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   blurImageEnabled: false,
   blurImageAmount: "10px",
   hideAdEnabled: true,
+  hideGrokButtonEnabled: false,
   apiRateLimitMonitorEnabled: true,
   columnScale: "default",
   uiScale: "auto",

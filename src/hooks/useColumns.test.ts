@@ -182,6 +182,7 @@ describe("useColumns mobile", () => {
         blurImageEnabled: false,
         blurImageAmount: "10px",
         hideAdEnabled: false,
+        hideGrokButtonEnabled: false,
         apiRateLimitMonitorEnabled: true,
         columnScale: "default",
         uiScale: "auto",
