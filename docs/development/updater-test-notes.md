@@ -117,7 +117,7 @@ Windows と Linux の成果物は同じバージョンなら 1 つの `release.j
   - CSP の `connect-src` に 8787 のオリジン 3 つを追加
 - **本番鍵を使わない**: 試験用の鍵は使い捨てで、本番の鍵（`.tauri-keys/`）は参照しない。成果物の署名は `TAURI_SIGNING_PRIVATE_KEY` で試験用の鍵を渡す。
 - **Android の APK URL 許可はコンパイル時に決める**: `install_apk_update` は自リポジトリの GitHub Releases の URL だけを許可する（`src-tauri/src/commands/update.rs`）。ローカル配信の `http://{localhost,127.0.0.1,10.0.2.2}:8787/download/` は cargo feature `updater-test`（既定は無効）のときだけ追加で許可する。実行時の切り替えにしないのは、本番バイナリに許可経路を残さないため。main ウィンドウ限定と sha256 検証はそのまま。
-- **リリース情報の取得先**: Android は JS から GitHub Releases API を fetch するため、`VITE_UPDATER_RELEASE_API_BASE` で取得先を差し替える（`src/lib/githubRelease.ts` の `releasesApiBase()`）。Android WebView（`http://tauri.localhost`）からのクロスオリジン fetch になるため、サーバーは全応答に `Access-Control-Allow-Origin: *` を付ける。
+- **リリース情報の取得先**: Android は JS から GitHub Releases API を fetch するため、`VITE_UPDATER_RELEASE_API_BASE` で取得先を差し替える（`src/lib/githubRelease.ts` の `releasesApiBase()`）。Android WebView（`http://tauri.localhost`）からのクロスオリジン fetch になるため、サーバーは全応答に `Access-Control-Allow-Origin: *` を付ける。偽 GitHub Releases API は `releases/latest`（1 件）と `releases?per_page=30`（一覧。試験版 1 件だけの配列で、`draft` / `prerelease` は `false`）を返す。更新後ダイアログ（前回から今回までのリリースノート）は一覧を使う。バージョン指定の `releases/tags/v<version>` は呼び元が無くなったため配信しない（404）。
 - **サーバーは LAN に公開しない**: `127.0.0.1` と `::1` だけで待ち受ける（`localhost` が IPv6 に解決される環境に対応するため）。`/download/` は成果物ディレクトリ直下のファイル名だけを受け付け、区切り文字・`..` を拒否する。
 - **契約テスト**: `scripts/updater-test/productionConfig.contract.test.ts` で次の 4 点を固定している。
   - 本番の pubkey / endpoints が変わっていない
