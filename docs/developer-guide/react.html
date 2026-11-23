@@ -583,12 +583,21 @@
           <h3 id="settings-panels">設定パネル</h3>
           <ul>
             <li>
-              <b>SettingsPanel</b>: カラム個別設定。適用で当該カラムを再構築。
+              <b>SettingsPanel</b>:
+              カラム個別設定。適用で当該カラムを再構築。タブ（基本 / 表示 /
+              フィルタ / カスタム CSS。外部サイトカラムはタブ無し）は
+              <code>columnSettingsTabs.ts</code> で定義する。
             </li>
             <li>
               <b>AppSettingsPanel</b>:
-              アプリ全体設定。タブ（レイアウト・プリセット・バックアップ・拡張機能）とセクション分割。入力中は下書き（<code>settingsDraft.ts</code>）を持ち、「適用」で
-              <code>handleApplyGlobalSettings</code> が保存と反映を行う。
+              アプリ全体設定。サイドナビのカテゴリ切り替え（Android
+              は一覧→詳細の 2
+              階層）で、カテゴリの定義・表示条件・下書きキー割当・未適用判定は
+              <code>settingsCategories.ts</code>
+              に集約。アクティブなカテゴリだけを描画する。入力中は下書き（<code>settingsDraft.ts</code>）を持ち、「適用」で
+              <code>handleApplyGlobalSettings</code> が保存と反映を行う。Android
+              の戻る操作は <code>useAndroidBackHandler</code>
+              で登録し、詳細→一覧に戻す。
             </li>
             <li>
               適用処理は <code>useSettingsApplyHandlers</code> に集約（フローは

@@ -655,21 +655,25 @@ Object.assign(window.MCX_DATA.catalogs, {
           "カラム個別設定パネル。適用時は当該カラムの WebView を再構築。",
         kind: "ダイアログ",
         detail:
-          "<p>props: <code>column / onApply / onClose / onReload / isMobile</code>。<code>SettingsSections.tsx</code>、<code>lineListInputs.ts</code>（NG ワード等の行入力）を内包。</p>",
+          "<p>props: <code>column / onApply / onClose / onReload / isMobile</code>。<code>SettingsSections.tsx</code>、<code>lineListInputs.ts</code>（NG ワード等の行入力）を内包。タブ（基本 / 表示 / フィルタ / カスタム CSS。外部サイトカラムはタブ無し）は <code>columnSettingsTabs.ts</code>、キー移動は <code>useTabListKeyboard</code>。</p>",
         files: [
           "src/components/SettingsPanel/SettingsPanel.tsx",
           "src/components/SettingsPanel/SettingsSections.tsx",
+          "src/components/SettingsPanel/columnSettingsTabs.ts",
         ],
       },
       {
         name: "AppSettingsPanel",
         summary:
-          "アプリ全体設定パネル（一般・カラムレイアウト・既定値・プリセット・バックアップ・拡張機能・情報）。",
+          "アプリ全体設定パネル（サイドナビのカテゴリ切り替え。表示・閲覧・フィルタ・メディア・カラム既定値・Android専用・カラム配置・プリセット・拡張機能・バックアップ・メンテナンス・このアプリについて）。",
         kind: "ダイアログ",
         detail:
-          "<p>props: <code>settings / columns / accounts / onApply / onApplyLayout / onApplyColumnDefaults …</code>。タブ単位のファイル（<code>ColumnLayoutTab / PresetsTab / BackupTab / ExtensionsTab</code>）と、セクション分割（<code>GeneralSettingsSections</code> など）。下書き管理は <code>settingsDraft.ts</code> / <code>columnLayoutDraft.ts</code>。</p>",
+          "<p>props: <code>settings / columns / accounts / onApply / onApplyLayout / onApplyColumnDefaults …</code>。カテゴリ定義は <code>settingsCategories.ts</code>（唯一の場所。<code>DRAFT_KEY_CATEGORY</code> が下書きキーの割当を型で強制し、<code>dirtyCategories</code> が値比較で未適用の印を出す）、ナビは <code>SettingsCategoryNav</code>（Android は <code>SettingsCategoryList</code>）。カテゴリ単位のファイル（<code>ColumnLayoutTab / PresetsTab / BackupTab / ExtensionsTab</code>）と、セクション分割（<code>GeneralSettingsSections</code> / <code>AppInfoSections</code> など）。下書き管理は <code>settingsDraft.ts</code> / <code>columnLayoutDraft.ts</code>。表示 / 閲覧・フィルタ / メディア / カラム既定値 / Android専用 は 1 つの下書きを共有し「適用」でまとめて保存。Android の戻る操作は <code>useAndroidBackHandler</code>。詳細は <code>settings-panel-navigation-notes.md</code>。</p>",
         files: [
           "src/components/AppSettingsPanel/AppSettingsPanel.tsx",
+          "src/components/AppSettingsPanel/settingsCategories.ts",
+          "src/components/AppSettingsPanel/SettingsCategoryNav.tsx",
+          "src/components/AppSettingsPanel/SettingsCategoryList.tsx",
           "src/components/AppSettingsPanel/BackupTab.tsx",
           "src/components/AppSettingsPanel/ExtensionsTab.tsx",
         ],
@@ -816,6 +820,29 @@ Object.assign(window.MCX_DATA.catalogs, {
         detail:
           "<p><code>setActiveColumn</code> は Cookie 切替 → hide 分 → show 分（アクティブを最後）の順に resize。世代番号で古い呼び出しを打ち切る。アクティブ ID は localStorage に保存しバックグラウンド復帰に備える。</p>",
         files: ["src/hooks/useMobileColumns.ts"],
+      },
+      {
+        name: "useAndroidBackHandler",
+        summary:
+          "Android の端末の戻る操作のハンドラを enabled の間だけ登録する。",
+        area: "UI",
+        detail:
+          "<p><code>lib/androidBackHandler.ts</code> の登録簿に登録（後から登録したものが優先）。ネイティブ（MainActivity）が <code>window.__mcxHandleBack()</code> で問い合わせ、true を返したものが処理した扱い。<code>App.tsx</code> がモバイル起動時に入口を公開する。</p>",
+        files: [
+          "src/hooks/useAndroidBackHandler.ts",
+          "src/lib/androidBackHandler.ts",
+        ],
+        docs: ["../development/settings-panel-navigation-notes.md"],
+      },
+      {
+        name: "useTabListKeyboard",
+        summary:
+          "タブ列・サイドナビの矢印 / Home / End キー移動（アプリ設定のサイドナビとカラム設定のタブで共用）。",
+        area: "UI",
+        files: [
+          "src/hooks/useTabListKeyboard.ts",
+          "src/lib/tabListKeyboard.ts",
+        ],
       },
       {
         name: "useColumnNavigation",

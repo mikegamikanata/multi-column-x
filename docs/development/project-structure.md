@@ -31,6 +31,8 @@ multi-column-x/
 │   │   ├── gridLayout.ts             # グリッド座標計算（純粋関数・calculateGridBounds）
 │   │   ├── gridLayout.contract.test.ts  # SCSS の寸法と gridLayout の rem 定数の一致を検証する契約テスト
 │   │   ├── uiDesign.contract.test.ts # 全 *.module.scss が UI デザイン原則（余白・文字・動き・状態・枠色・Android 当たり判定）を満たすことを検証する契約テスト
+│   │   ├── androidBackHandler.ts     # Android の戻る操作のハンドラ登録簿と `window.__mcxHandleBack` ブリッジ（詳細: settings-panel-navigation-notes.md）
+│   │   ├── tabListKeyboard.ts        # タブ列・サイドナビの矢印 / Home / End の移動先計算（純粋関数 nextTabIndex）
 │   │   ├── uiScale.ts                # アプリUI倍率の決定ロジック・rem→px 変換（詳細: ui-scale-notes.md）
 │   │   ├── log.ts                    # 文脈名付きエラーロガー（plugin-log 連携）
 │   │   ├── appError.ts               # Rust の AppError（種別コード＋詳細）の判定と翻訳（describeAppError）
@@ -61,6 +63,8 @@ multi-column-x/
 │   │   ├── useColumns.ts             # カラム操作の公開 API（mobile/desktop 実装へ委譲）
 │   │   ├── useMobileColumns.ts       # モバイル: アクティブカラム・スワイプ・起動時復元
 │   │   ├── useDesktopColumns.ts      # デスクトップ: グリッド再配置・リサイズ監視
+│   │   ├── useAndroidBackHandler.ts  # Android の戻る操作のハンドラ登録フック（enabled の間だけ登録）
+│   │   ├── useTabListKeyboard.ts     # タブ列・サイドナビの矢印 / Home / End キー移動（`lib/tabListKeyboard.ts` の純粋関数を使う）
 │   │   ├── useWebviewEvents.ts       # WebView 発のイベント listen（スクロール・新着数）
 │   │   ├── useAppBootstrap.ts        # 起動時の初期化（プラットフォーム検出→設定ロード→カラム復元→表示サイズ適用）
 │   │   ├── useAppLanguage.ts         # 表示言語を i18next と <html lang> へ反映
@@ -89,10 +93,12 @@ multi-column-x/
 │       ├── AccountNameDialog/        # アカウント名入力ダイアログ
 │       ├── StatusMark/               # 成功・警告・選択中を色だけで伝えないための記号（✓ / ⚠）
 │       ├── ApiRateLimitIndicator/    # API レート制限モニターのツールバー表示
-│       ├── SettingsPanel/            # カラム個別設定パネル（SettingsSections.tsx=セクション部品, lineListInputs.ts=行リスト入力の parse / 検証）
+│       ├── SettingsPanel/            # カラム個別設定パネル（SettingsSections.tsx=セクション部品, columnSettingsTabs.ts=タブ定義（基本 / 表示 / フィルタ / カスタム CSS。外部サイトカラムはタブ無し）, lineListInputs.ts=行リスト入力の parse / 検証）
 │       ├── AppSettingsPanel/         # アプリ全体設定
-│       │   ├── SettingsGroup.tsx     # 一般タブのグループ見出し（空なら非表示）
-│       │   ├── DisplaySettingsSection.tsx / ColumnDefaultsSections.tsx / GeneralSettingsSections.tsx / AppInfoSections.tsx  # 一般タブの各セクション
+│       │   ├── settingsCategories.ts # カテゴリ定義・分類・表示条件・下書きキー割当（DRAFT_KEY_CATEGORY）・未適用判定（純粋関数）
+│       │   ├── SettingsCategoryNav.tsx  # デスクトップ用サイドナビ（分類見出し＋カテゴリボタン、未適用 / エラーの印）
+│       │   ├── SettingsCategoryList.tsx # Android 用カテゴリ一覧（一覧→詳細の 2 階層の一覧側）
+│       │   ├── DisplaySettingsSection.tsx / ColumnDefaultsSections.tsx / GeneralSettingsSections.tsx / AppInfoSections.tsx  # 各カテゴリのセクション（AppInfoSections=X公式設定・メンテナンス・このアプリについて）
 │       │   ├── LinuxVideoPlaybackSection.tsx # 動画再生（Linux の H.264 有効化）セクション
 │       │   ├── ColumnLayoutTab.tsx / ColumnLayoutParts.tsx  # グリッドレイアウト設定タブ（Parts=並べ替え部品）
 │       │   ├── PresetsTab.tsx        # カラムプリセット管理タブ
@@ -197,7 +203,8 @@ Kotlin 層（Android）:
 
 ```
 src-tauri/gen/android/app/src/main/java/com/natsuyasai/multicolumnx/
-├── MainActivity.kt                  # カラム/ポップアップ WebView 管理・バックボタン処理
+├── MainActivity.kt                  # カラム/ポップアップ WebView 管理・バックボタン処理（ポップアップ→メイン画面へ問い合わせ→カラム履歴→バックグラウンド）
+├── MainPageBack.kt                  # メイン画面への「戻る操作」問い合わせ JS と結果判定（純粋関数）
 ├── AddAccount.kt                    # ログイン用 Activity（センチネルファイル書き込みで完了通知）
 ├── ApiRateLimitBridge.kt            # APIレート制限ヘッダの JS ブリッジ
 ├── ApkHashVerifier.kt               # APK 自己更新の SHA-256 検証
@@ -239,20 +246,26 @@ docs/
 - `npm run docs:build` はデッドリンクがあると失敗する（CI の `frontend` ジョブでも実行）。生成物 `docs/.vitepress/dist` / `cache` は git・prettier の対象外
 - デプロイは `.github/workflows/pages.yml`（`main` への push で `docs/**` 等が変わったとき、または手動実行）
 
-## 設定画面（AppSettingsPanel）の一般タブ構成
+## 設定画面（AppSettingsPanel）のカテゴリ構成
 
-一般タブは `SettingsGroup`（`h2` 見出し + 子要素）で次の 6 グループに分かれる。順序は上から下。
+上部タブと一般タブ内のグループは廃止し、サイドナビ（Android は一覧→詳細）のカテゴリ単位に統合している。カテゴリの定義・順序・表示条件の唯一の場所は `settingsCategories.ts`（設計判断は `settings-panel-navigation-notes.md`）。順序は上から下。
 
-| #   | グループ             | 中身                                                                          | 出し分け                                                                                                          |
-| --- | -------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 1   | 表示                 | アプリUIの表示サイズ・カラム内の表示サイズ・テーマ                            | 全環境                                                                                                            |
-| 2   | 新規カラムの既定値   | 自動更新・ヘッダー非表示等の既定値と一括適用                                  | 全環境                                                                                                            |
-| 3   | 閲覧・フィルタ       | NG ワード・リポスト非表示ユーザー・広告・API残量モニター                      | 全環境                                                                                                            |
-| 4   | メディア             | 動画設定 / ポップアップウィンドウ / 動画再生(Linux)                           | ポップアップ = desktop のみ、動画再生(Linux) = Linux デスクトップのみ（`isLinux && !isMobile`）、動画設定は全環境 |
-| 5   | Android専用          | ツイート（X アプリ起動）・スワイプ切替・複数カラム表示                        | mobile のみ                                                                                                       |
-| 6   | アプリ・メンテナンス | バージョン・更新確認・X 公式設定・全 WebView 再生成・データフォルダ削除再実行 | 全環境                                                                                                            |
+| 分類         | カテゴリ           | 中身                                                                          | 出し分け                                                                                                          |
+| ------------ | ------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 一般         | 表示               | 表示言語・アプリUIの表示サイズ・カラム内の表示サイズ・テーマ・API残量モニター | 全環境                                                                                                            |
+| 一般         | 閲覧・フィルタ     | X 公式設定・グローバル NG ワード・リポスト非表示ユーザー・広告                | 全環境                                                                                                            |
+| 一般         | メディア           | 動画設定 / ポップアップウィンドウ / 動画再生(Linux)                           | ポップアップ = desktop のみ、動画再生(Linux) = Linux デスクトップのみ（`isLinux && !isMobile`）、動画設定は全環境 |
+| 一般         | カラム既定値       | 既存の全カラムに適用＋自動更新・表示・画像・画像ブラー・カスタム CSS          | 全環境                                                                                                            |
+| 一般         | Android専用        | ツイート（X アプリ起動）・スワイプ切替・複数カラム表示                        | mobile のみ                                                                                                       |
+| カラム       | カラム配置         | グリッドレイアウト（ページ内の適用）                                          | 全環境                                                                                                            |
+| カラム       | プリセット         | レイアウトの保存と読み込み                                                    | desktop のみ                                                                                                      |
+| データ・拡張 | 拡張機能           | ブラウザ拡張機能の管理                                                        | Windows のみ（`isExtensionsSupported`）                                                                           |
+| データ・拡張 | バックアップ       | 書き出しと復元                                                                | 全環境                                                                                                            |
+| アプリ       | メンテナンス       | 全 WebView 再生成・データフォルダ削除再実行（保留があるときのみ）             | 全環境                                                                                                            |
+| アプリ       | このアプリについて | 現在のバージョン・更新確認                                                    | 全環境                                                                                                            |
 
-- 子要素が 0 件のグループは `SettingsGroup` が見出しごと描画しない（環境によって中身が空になっても見出しだけ残らない）。
+- ページ切替はアクティブなカテゴリだけを描画する。下書きは `AppSettingsPanel` の state にあるのでアンマウントしても値は保持される。
+- 表示 / 閲覧・フィルタ / メディア / カラム既定値 / Android専用 は 1 つの下書きを共有し、フッターは「キャンセル / 適用」。それ以外は「閉じる」のみ。
 - `isMobile` は `useAppStore`、`isLinux` は `App.tsx` が `platform()` から導出して props で渡す。
 - Windows / macOS 専用項目は現状無いため `isWindows` / `isMac` 判定は追加していない。追加するときは `App.tsx` の `isLinux` と同様に `platform()` で導出して props に渡す。
 - Storybook の `MobileGroups` 系 Story はストアの `isMobile` を一時的に true にしてモバイル構成を確認できる。

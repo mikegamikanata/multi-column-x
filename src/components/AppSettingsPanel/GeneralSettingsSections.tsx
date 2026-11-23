@@ -107,7 +107,7 @@ const AdSettingsSection: React.FC<SectionProps> = ({ draft, set }) => {
   );
 };
 
-const ApiRateLimitSettingsSection: React.FC<SectionProps> = ({
+export const ApiRateLimitSettingsSection: React.FC<SectionProps> = ({
   draft,
   set,
 }) => {
@@ -197,7 +197,7 @@ const RepostHiddenUsersSection: React.FC<
   );
 };
 
-/** フィルタ系設定セクション群（グローバルNGワード・リポストを非表示にするユーザー・広告・API残量モニター） */
+/** フィルタ系設定セクション群（グローバルNGワード・リポストを非表示にするユーザー・広告） */
 export const FilterSettingsSections: React.FC<FilterSettingsSectionsProps> = ({
   draft,
   set,
@@ -212,7 +212,6 @@ export const FilterSettingsSections: React.FC<FilterSettingsSectionsProps> = ({
       error={repostHiddenUserIdsError}
     />
     <AdSettingsSection draft={draft} set={set} />
-    <ApiRateLimitSettingsSection draft={draft} set={set} />
   </>
 );
 

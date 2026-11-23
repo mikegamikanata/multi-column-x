@@ -7,24 +7,70 @@
   "panel": {
     "title": "App settings",
     "close": "Close",
-    "tabs": {
-      "general": "General",
-      "layout": "Column layout",
-      "presets": "Presets",
-      "extensions": "Extensions",
-      "backup": "Backup"
-    },
-    "groups": {
-      "display": "Display",
-      "columnDefaults": "Defaults for new columns",
-      "filter": "Browsing & filters",
-      "media": "Media",
-      "android": "Android only",
-      "maintenance": "App & maintenance"
-    },
     "actions": {
       "cancel": "Cancel",
-      "apply": "Apply"
+      "apply": "Apply",
+      "close": "Close",
+      "back": "Back"
+    },
+    "nav": {
+      "label": "Settings categories",
+      "groups": {
+        "general": "General",
+        "columns": "Columns",
+        "dataExtensions": "Data & extensions",
+        "app": "App"
+      }
+    },
+    "categories": {
+      "display": {
+        "label": "Display",
+        "desc": "Language, theme, size and API usage monitor"
+      },
+      "filter": {
+        "label": "Browsing & filters",
+        "desc": "X settings, muted words, hidden reposts and ads"
+      },
+      "media": {
+        "label": "Media",
+        "desc": "Video and popup windows"
+      },
+      "columnDefaults": {
+        "label": "Column defaults",
+        "desc": "Initial settings for new columns"
+      },
+      "android": {
+        "label": "Android",
+        "desc": "Posting, swipe switching and multi-column view"
+      },
+      "layout": {
+        "label": "Column layout",
+        "desc": "Columns, order and height"
+      },
+      "presets": {
+        "label": "Presets",
+        "desc": "Save and load layouts"
+      },
+      "extensions": {
+        "label": "Extensions",
+        "desc": "Add and manage Chrome extensions"
+      },
+      "backup": {
+        "label": "Backup",
+        "desc": "Export and restore"
+      },
+      "maintenance": {
+        "label": "Maintenance",
+        "desc": "Recreate WebViews and delete data folders"
+      },
+      "about": {
+        "label": "About",
+        "desc": "Version and updates"
+      }
+    },
+    "status": {
+      "unapplied": "Unapplied changes",
+      "error": "Has input errors"
     }
   },
   "general": {
@@ -109,30 +155,36 @@
   },
   "columnDefaults": {
     "autoReload": {
-      "title": "Column defaults - Auto-reload",
+      "title": "Auto-reload",
       "enable": "Enable auto-reload",
       "interval": "Reload interval (seconds)",
       "countdown": "Show countdown"
     },
     "display": {
-      "title": "Column defaults - Display",
+      "title": "Display",
       "hideHeader": "Hide the header",
       "hideTweetInput": "Hide the post box",
       "showCustomMenu": "Show the custom menu button",
       "restoreScroll": "Restore the scroll position after viewing photos"
     },
     "image": {
-      "title": "Column defaults - Images",
+      "title": "Images",
       "smallImage": "Show images smaller",
-      "width": "Width (e.g. 50%, 200px)",
-      "blur": "Blur images",
-      "blurAmount": "Blur amount (e.g. 10px)"
+      "width": "Width (e.g. 50%, 200px)"
+    },
+    "imageBlur": {
+      "title": "Image blur",
+      "enable": "Blur images",
+      "amount": "Blur amount (e.g. 10px)"
+    },
+    "applyAll": {
+      "button": "Apply to all existing columns",
+      "hint": "Applies the auto-reload, display, image, image blur and custom CSS defaults you are editing to every column that is open now."
     },
     "customCss": {
-      "title": "Column defaults - Custom CSS",
+      "title": "Custom CSS",
       "placeholder": "/* Enter custom CSS */",
-      "hint": "Applies to columns you add from now on.",
-      "applyAll": "Apply to all existing columns"
+      "hint": "Applies to columns you add from now on."
     }
   },
   "layout": {
@@ -167,7 +219,7 @@
   },
   "info": {
     "officialSettings": {
-      "title": "Official settings",
+      "title": "X official settings",
       "hint": "Opens X's official settings in a popup window. From there you can apply settings to your other accounts.",
       "open": "Open official settings"
     },

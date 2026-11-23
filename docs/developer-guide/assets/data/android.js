@@ -439,7 +439,7 @@ Object.assign(window.MCX_DATA.catalogs, {
         caller: "Rust android_bridge.rs / AppBridge",
         kind: "Activity",
         detail:
-          "<p>カラム・ポップアップ・常駐コンポーズ WebView の生成/表示/破棄、スワイプバー、APK 更新、動画保存、バックアップ SAF、ファイル選択、戻るキー処理を持つ。約 1000 行と大きい。メソッドを変えたら <code>proguard-rules.pro</code> も更新。</p>",
+          "<p>カラム・ポップアップ・常駐コンポーズ WebView の生成/表示/破棄、スワイプバー、APK 更新、動画保存、バックアップ SAF、ファイル選択、戻るキー処理（ポップアップ → メイン画面へ <code>window.__mcxHandleBack()</code> を問い合わせ → カラム履歴 → バックグラウンド。判定は <code>MainPageBack.kt</code>）を持つ。約 1000 行と大きい。メソッドを変えたら <code>proguard-rules.pro</code> も更新。</p>",
         files: [ANDROID_DIR + "MainActivity.kt"],
       },
       {

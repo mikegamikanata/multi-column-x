@@ -1,5 +1,6 @@
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import { expectAccessibleControls } from "@/test-utils/a11y";
@@ -47,6 +48,17 @@ const defaultProps = {
   isMobile: false,
 };
 
+const openTab = (name: string) =>
+  fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+
+const renderOnTab = (tab: string) => (ui: ReactElement) => {
+  const result = render(ui);
+  openTab(tab);
+  return result;
+};
+const renderFilter = renderOnTab("フィルタ");
+const renderView = renderOnTab("表示");
+
 describe("SettingsPanel", () => {
   it("EscキーでonCloseが呼ばれる", () => {
     const onClose = vi.fn();
@@ -83,12 +95,12 @@ describe("SettingsPanel", () => {
 
 describe("SettingsPanel NGワード", () => {
   it("NGワードセクションが表示される", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     expect(screen.getByText("NGワード")).toBeInTheDocument();
   });
 
   it("NGワード入力エリアが表示される", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     expect(
       screen.getByPlaceholderText(
         "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
@@ -101,7 +113,7 @@ describe("SettingsPanel NGワード", () => {
       ...mockColumn,
       settings: { ...baseSettings, ngWords: ["スパム", "宣伝"] },
     };
-    render(<SettingsPanel {...defaultProps} column={col} />);
+    renderFilter(<SettingsPanel {...defaultProps} column={col} />);
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
     ) as HTMLTextAreaElement;
@@ -110,7 +122,7 @@ describe("SettingsPanel NGワード", () => {
 
   it("適用するとngWordsが配列として渡される", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderFilter(<SettingsPanel {...defaultProps} onApply={onApply} />);
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
     );
@@ -127,7 +139,7 @@ describe("SettingsPanel NGワード", () => {
 
   it("空行は無視してngWordsに含めない", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderFilter(<SettingsPanel {...defaultProps} onApply={onApply} />);
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
     );
@@ -143,7 +155,7 @@ describe("SettingsPanel NGワード", () => {
   });
 
   it("NGワードの書き方ヘルプポップオーバーが表示される", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     expect(
       screen.getByRole("button", { name: "NGワードの書き方" }),
     ).toBeInTheDocument();
@@ -151,7 +163,7 @@ describe("SettingsPanel NGワード", () => {
 
   it("不正な正規表現を入力して適用すると、エラーメッセージが表示されonApplyが呼ばれない", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderFilter(<SettingsPanel {...defaultProps} onApply={onApply} />);
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
     );
@@ -164,7 +176,7 @@ describe("SettingsPanel NGワード", () => {
 
   it("有効なNGワード（通常文字列・正規表現）を入力して適用すると、エラーは表示されずonApplyが呼ばれる", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderFilter(<SettingsPanel {...defaultProps} onApply={onApply} />);
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
     );
@@ -193,7 +205,7 @@ describe("SettingsPanel リポストを非表示にするユーザー", () => {
         repostHiddenUserIds: ["HAJIME_2001", "abc"],
       },
     };
-    render(<SettingsPanel {...defaultProps} column={col} />);
+    renderFilter(<SettingsPanel {...defaultProps} column={col} />);
     expect((getTextarea() as HTMLTextAreaElement).value).toBe(
       "HAJIME_2001\nabc",
     );
@@ -206,12 +218,12 @@ describe("SettingsPanel リポストを非表示にするユーザー", () => {
       ...mockColumn,
       settings: legacySettings as unknown as Column["settings"],
     };
-    render(<SettingsPanel {...defaultProps} column={col} />);
+    renderFilter(<SettingsPanel {...defaultProps} column={col} />);
     expect((getTextarea() as HTMLTextAreaElement).value).toBe("");
   });
 
   it("説明文が表示される", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     expect(
       screen.getByText(
         "1行に1ユーザーID（@以降）。指定ユーザーがリポストした投稿を非表示にします",
@@ -221,7 +233,7 @@ describe("SettingsPanel リポストを非表示にするユーザー", () => {
 
   it("入力は1行1IDで、空行・前後空白・先頭の@・重複は無視して正規化された一覧がonApplyに渡される", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderFilter(<SettingsPanel {...defaultProps} onApply={onApply} />);
     const textarea = getTextarea();
     await userEvent.clear(textarea);
     await userEvent.type(
@@ -239,7 +251,7 @@ describe("SettingsPanel リポストを非表示にするユーザー", () => {
 
   it("不正なID行があると保存できずエラーが表示される", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderFilter(<SettingsPanel {...defaultProps} onApply={onApply} />);
     const textarea = getTextarea();
     await userEvent.clear(textarea);
     await userEvent.type(textarea, "valid_id{Enter}bad-id!");
@@ -254,7 +266,7 @@ describe("SettingsPanel リポストを非表示にするユーザー", () => {
 
   it("不正なID行を修正して再度適用するとエラーが消えてonApplyが呼ばれる", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderFilter(<SettingsPanel {...defaultProps} onApply={onApply} />);
     const textarea = getTextarea();
     await userEvent.clear(textarea);
     await userEvent.type(textarea, "bad-id!");
@@ -287,12 +299,12 @@ describe("SettingsPanel ホワイトリスト", () => {
     "1行に1ワードで入力（/正規表現/flags 形式も指定可、ホワイトリスト）";
 
   it("ホワイトリストセクションが表示される", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     expect(screen.getByText("ホワイトリスト")).toBeInTheDocument();
   });
 
   it("チェックボックスが表示され初期状態はwhitelistEnabledの値を反映する(false)", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     expect(
       screen.getByRole("checkbox", { name: "ホワイトリストを有効にする" }),
     ).not.toBeChecked();
@@ -303,19 +315,19 @@ describe("SettingsPanel ホワイトリスト", () => {
       ...mockColumn,
       settings: { ...baseSettings, whitelistEnabled: true },
     };
-    render(<SettingsPanel {...defaultProps} column={col} />);
+    renderFilter(<SettingsPanel {...defaultProps} column={col} />);
     expect(
       screen.getByRole("checkbox", { name: "ホワイトリストを有効にする" }),
     ).toBeChecked();
   });
 
   it("チェックボックスがOFFのときワード入力欄がdisabledになっている", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     expect(screen.getByPlaceholderText(whitelistPlaceholder)).toBeDisabled();
   });
 
   it("チェックボックスをONにするとワード入力欄が編集可能になる", async () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     await userEvent.click(
       screen.getByRole("checkbox", { name: "ホワイトリストを有効にする" }),
     );
@@ -333,7 +345,7 @@ describe("SettingsPanel ホワイトリスト", () => {
         whitelistWords: ["推し", "限定"],
       },
     };
-    render(<SettingsPanel {...defaultProps} column={col} />);
+    renderFilter(<SettingsPanel {...defaultProps} column={col} />);
     const textarea = screen.getByPlaceholderText(
       whitelistPlaceholder,
     ) as HTMLTextAreaElement;
@@ -346,7 +358,9 @@ describe("SettingsPanel ホワイトリスト", () => {
       ...mockColumn,
       settings: { ...baseSettings, whitelistEnabled: true },
     };
-    render(<SettingsPanel {...defaultProps} column={col} onApply={onApply} />);
+    renderFilter(
+      <SettingsPanel {...defaultProps} column={col} onApply={onApply} />,
+    );
     const textarea = screen.getByPlaceholderText(whitelistPlaceholder);
     await userEvent.clear(textarea);
     await userEvent.type(textarea, "推し{Enter}{Enter}限定");
@@ -365,7 +379,9 @@ describe("SettingsPanel ホワイトリスト", () => {
       ...mockColumn,
       settings: { ...baseSettings, whitelistEnabled: true },
     };
-    render(<SettingsPanel {...defaultProps} column={col} onApply={onApply} />);
+    renderFilter(
+      <SettingsPanel {...defaultProps} column={col} onApply={onApply} />,
+    );
     const textarea = screen.getByPlaceholderText(whitelistPlaceholder);
     await userEvent.clear(textarea);
     await userEvent.type(textarea, "/[[/");
@@ -375,7 +391,7 @@ describe("SettingsPanel ホワイトリスト", () => {
   });
 
   it("ホワイトリストの書き方ヘルプポップオーバーが表示される", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     expect(
       screen.getByRole("button", { name: "ホワイトリストの書き方" }),
     ).toBeInTheDocument();
@@ -384,21 +400,21 @@ describe("SettingsPanel ホワイトリスト", () => {
 
 describe("SettingsPanel 表示設定", () => {
   it("ヘッダーを非表示にするチェックボックスが表示される", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderView(<SettingsPanel {...defaultProps} />);
     expect(
       screen.getByRole("checkbox", { name: "ヘッダーを非表示にする" }),
     ).toBeInTheDocument();
   });
 
   it("投稿欄を非表示にするチェックボックスが表示される", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderView(<SettingsPanel {...defaultProps} />);
     expect(
       screen.getByRole("checkbox", { name: "投稿欄を非表示にする" }),
     ).toBeInTheDocument();
   });
 
   it("hideHeaderEnabledがfalseの場合カスタムメニューボタンのチェックボックスは表示されない", () => {
-    render(<SettingsPanel {...defaultProps} />);
+    renderView(<SettingsPanel {...defaultProps} />);
     expect(
       screen.queryByRole("checkbox", {
         name: "カスタムメニューボタンを表示する",
@@ -411,7 +427,7 @@ describe("SettingsPanel 表示設定", () => {
       ...mockColumn,
       settings: { ...baseSettings, hideHeaderEnabled: true },
     };
-    render(<SettingsPanel {...defaultProps} column={col} />);
+    renderView(<SettingsPanel {...defaultProps} column={col} />);
     expect(
       screen.getByRole("checkbox", {
         name: "カスタムメニューボタンを表示する",
@@ -421,7 +437,7 @@ describe("SettingsPanel 表示設定", () => {
 
   it("ヘッダーを非表示にするチェックボックスを操作すると設定に反映される", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderView(<SettingsPanel {...defaultProps} onApply={onApply} />);
     await userEvent.click(
       screen.getByRole("checkbox", { name: "ヘッダーを非表示にする" }),
     );
@@ -439,7 +455,7 @@ describe("SettingsPanel 表示設定", () => {
 
   it("投稿欄を非表示にするチェックボックスを操作すると設定に反映される", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderView(<SettingsPanel {...defaultProps} onApply={onApply} />);
     await userEvent.click(
       screen.getByRole("checkbox", { name: "投稿欄を非表示にする" }),
     );
@@ -457,7 +473,7 @@ describe("SettingsPanel 表示設定", () => {
 
   it("ヘッダーのみ非表示にした場合、投稿欄は非表示にならないこと", async () => {
     const onApply = vi.fn();
-    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    renderView(<SettingsPanel {...defaultProps} onApply={onApply} />);
     await userEvent.click(
       screen.getByRole("checkbox", { name: "ヘッダーを非表示にする" }),
     );
@@ -520,17 +536,22 @@ describe("SettingsPanel pageTypeがexternalの場合", () => {
     expect(screen.getByText("カラム")).toBeInTheDocument();
   });
 
-  it("pageTypeがexternal以外の場合すべてのセクションが表示される", () => {
+  it("pageTypeがexternal以外の場合すべてのセクションがいずれかのタブに表示される", () => {
     render(<SettingsPanel {...defaultProps} column={mockColumn} />);
     expect(screen.getByText("カラム")).toBeInTheDocument();
     expect(screen.getByText("自動更新")).toBeInTheDocument();
-    expect(screen.getByText("表示")).toBeInTheDocument();
+    expect(screen.getByText("通知")).toBeInTheDocument();
+    openTab("表示");
+    expect(screen.getByText("表示", { selector: "h3" })).toBeInTheDocument();
     expect(screen.getByText("画像")).toBeInTheDocument();
     expect(screen.getByText("画像ブラー")).toBeInTheDocument();
-    expect(screen.getByText("通知")).toBeInTheDocument();
+    openTab("フィルタ");
     expect(screen.getByText("NGワード")).toBeInTheDocument();
     expect(screen.getByText("ホワイトリスト")).toBeInTheDocument();
-    expect(screen.getByText("カスタム CSS")).toBeInTheDocument();
+    openTab("カスタム CSS");
+    expect(
+      screen.getByText("カスタム CSS", { selector: "h3" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -706,7 +727,7 @@ describe("SettingsPanel 表示名", () => {
 
 describe("SettingsPanel 前回の境目へ戻るボタン設定", () => {
   it("ホームカラムの設定パネルに戻るボタンの設定項目が表示される", () => {
-    render(<SettingsPanel {...defaultProps} column={mockColumn} />);
+    renderView(<SettingsPanel {...defaultProps} column={mockColumn} />);
     expect(
       screen.getByRole("checkbox", {
         name: "更新後に前回の続きへ戻るボタンを表示する",
@@ -723,7 +744,7 @@ describe("SettingsPanel 前回の境目へ戻るボタン設定", () => {
     "%sカラムの設定パネルには戻るボタンの設定項目が表示されない",
     (_, pageType) => {
       const column: Column = { ...mockColumn, pageType };
-      render(<SettingsPanel {...defaultProps} column={column} />);
+      renderView(<SettingsPanel {...defaultProps} column={column} />);
       expect(
         screen.queryByRole("checkbox", {
           name: "更新後に前回の続きへ戻るボタンを表示する",
@@ -734,7 +755,7 @@ describe("SettingsPanel 前回の境目へ戻るボタン設定", () => {
 
   it("チェックして適用するとonApplyにreturnToLastReadEnabled: trueが渡る", async () => {
     const onApply = vi.fn();
-    render(
+    renderView(
       <SettingsPanel {...defaultProps} column={mockColumn} onApply={onApply} />,
     );
     await userEvent.click(
@@ -753,6 +774,16 @@ describe("SettingsPanel 前回の境目へ戻るボタン設定", () => {
 });
 
 describe("SettingsPanel onChangeキー対応の特性テスト", () => {
+  /** 項目ごとの所属タブ（基本のものだけ列挙し、残りは表示タブ） */
+  const tabOfLabel = (label: string) =>
+    [
+      "自動更新を有効にする",
+      "カウントダウンを表示する",
+      "更新間隔（秒）",
+    ].includes(label)
+      ? "基本"
+      : "表示";
+
   it.each<[string, keyof typeof baseSettings, Partial<typeof baseSettings>]>([
     ["自動更新を有効にする", "autoReloadEnabled", {}],
     ["カウントダウンを表示する", "showCountdown", { autoReloadEnabled: true }],
@@ -780,6 +811,7 @@ describe("SettingsPanel onChangeキー対応の特性テスト", () => {
       render(
         <SettingsPanel {...defaultProps} column={col} onApply={onApply} />,
       );
+      openTab(tabOfLabel(label));
       const checkbox = screen.getByRole("checkbox", {
         name: label,
       }) as HTMLInputElement;
@@ -836,6 +868,7 @@ describe("SettingsPanel onChangeキー対応の特性テスト", () => {
       render(
         <SettingsPanel {...defaultProps} column={col} onApply={onApply} />,
       );
+      openTab(tabOfLabel(label));
       const field = screen.getByLabelText(label);
       await userEvent.clear(field);
       await userEvent.type(field, inputValue);
@@ -852,6 +885,7 @@ describe("SettingsPanel onChangeキー対応の特性テスト", () => {
   it("カスタムCSS入力欄を編集するとcustomCSSがonApplyに渡される", async () => {
     const onApply = vi.fn();
     render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    openTab("カスタム CSS");
     const textarea = screen.getByPlaceholderText("/* カスタムCSSを入力 */");
     await userEvent.clear(textarea);
     await userEvent.type(textarea, ".foo {{ color: red; }");
@@ -873,7 +907,7 @@ describe("SettingsPanel 写真閲覧後のスクロール位置を復元する�
       ...mockColumn,
       settings: { ...baseSettings, ...overrides },
     };
-    render(
+    renderView(
       <SettingsPanel {...defaultProps} column={column} onApply={onApply} />,
     );
     return onApply;
@@ -979,6 +1013,11 @@ describe("SettingsPanel の表示言語", () => {
         onReload={vi.fn()}
       />,
     );
+    // 全タブを巡回して日本語が残っていないことを確認する
+    expectNoJapanese(container);
+    await user.click(screen.getByRole("tab", { name: "Display" }));
+    expectNoJapanese(container);
+    await user.click(screen.getByRole("tab", { name: "Filters" }));
     await user.click(
       screen.getByRole("button", { name: "How to write muted words" }),
     );
@@ -988,6 +1027,8 @@ describe("SettingsPanel の表示言語", () => {
     expectNoJapanese(container);
     expect(screen.getByText("Column settings")).toBeInTheDocument();
     expect(screen.getByText("Muted words")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Custom CSS" }));
+    expectNoJapanese(container);
     expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
 
     // 条件分岐で出る文言も確認する（モバイル・外部サイト）
@@ -1024,9 +1065,10 @@ describe("SettingsPanel の表示言語", () => {
     expect(screen.getByText("Column settings")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
     expect(screen.queryByText("カラム設定")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Filters" })).toBeInTheDocument();
     expect(
-      screen.getByRole("textbox", { name: "Users whose reposts are hidden" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("tab", { name: "フィルタ" }),
+    ).not.toBeInTheDocument();
   });
 
   it("表示言語が英語のとき入力検証のエラーが英語で表示され日本語を含まない", async () => {
@@ -1036,6 +1078,7 @@ describe("SettingsPanel の表示言語", () => {
     const { container } = render(
       <SettingsPanel {...defaultProps} onApply={onApply} />,
     );
+    await user.click(screen.getByRole("tab", { name: "Filters" }));
     const ngWords = screen.getByPlaceholderText(
       "One word per line (/regex/flags is also supported)",
     );
@@ -1076,7 +1119,10 @@ describe("SettingsPanel デザイン原則（アクセシビリティ）", () =>
     const { container } = render(
       <SettingsPanel {...defaultProps} onReload={vi.fn()} />,
     );
-    expectAccessibleControls(container);
+    for (const tab of ["基本", "表示", "フィルタ", "カスタム CSS"]) {
+      openTab(tab);
+      expectAccessibleControls(container);
+    }
   });
 
   it("自動更新・通知など条件付きの項目を表示してもすべてにアクセシブルネームがある", async () => {
@@ -1094,6 +1140,12 @@ describe("SettingsPanel デザイン原則（アクセシビリティ）", () =>
     const { container } = render(
       <SettingsPanel {...defaultProps} column={col} />,
     );
+    expectAccessibleControls(container);
+    for (const tab of ["表示", "フィルタ", "カスタム CSS"]) {
+      openTab(tab);
+      expectAccessibleControls(container);
+    }
+    openTab("フィルタ");
     await user.click(
       screen.getByRole("checkbox", { name: "ホワイトリストを有効にする" }),
     );
@@ -1102,14 +1154,18 @@ describe("SettingsPanel デザイン原則（アクセシビリティ）", () =>
 
   it("NGワード・ホワイトリスト・カスタムCSSの入力欄に名前が付く", () => {
     render(<SettingsPanel {...defaultProps} />);
+    openTab("フィルタ");
     for (const name of [
       "NGワード",
       "リポストを非表示にするユーザー",
       "ホワイトリスト",
-      "カスタム CSS",
     ]) {
       expect(screen.getByRole("textbox", { name })).toBeInTheDocument();
     }
+    openTab("カスタム CSS");
+    expect(
+      screen.getByRole("textbox", { name: "カスタム CSS" }),
+    ).toBeInTheDocument();
   });
 
   it("モバイルでもすべての入力欄とボタンにアクセシブルネームがある", () => {
@@ -1143,7 +1199,7 @@ describe("SettingsPanel デザイン原則（アクセシビリティ）", () =>
 
   it("ホワイトリストが無効の間は入力欄が無効で、有効にすると入力できる", async () => {
     const user = userEvent.setup();
-    render(<SettingsPanel {...defaultProps} />);
+    renderFilter(<SettingsPanel {...defaultProps} />);
     const textarea = screen.getByRole("textbox", { name: "ホワイトリスト" });
     expect(textarea).toBeDisabled();
 
@@ -1162,7 +1218,7 @@ describe("SettingsPanel デザイン原則（アクセシビリティ）", () =>
 
     it("不正なNGワードのエラーには警告の記号が付く", async () => {
       const user = userEvent.setup();
-      render(<SettingsPanel {...defaultProps} />);
+      renderFilter(<SettingsPanel {...defaultProps} />);
       await user.type(
         screen.getByRole("textbox", { name: "NGワード" }),
         "/[[/",
@@ -1173,7 +1229,7 @@ describe("SettingsPanel デザイン原則（アクセシビリティ）", () =>
 
     it("不正なリポスト非表示ユーザーのエラーには警告の記号が付く", async () => {
       const user = userEvent.setup();
-      render(<SettingsPanel {...defaultProps} />);
+      renderFilter(<SettingsPanel {...defaultProps} />);
       await user.type(
         screen.getByRole("textbox", { name: "リポストを非表示にするユーザー" }),
         "bad-id!",
@@ -1186,7 +1242,7 @@ describe("SettingsPanel デザイン原則（アクセシビリティ）", () =>
 
     it("不正なホワイトリストのエラーには警告の記号が付く", async () => {
       const user = userEvent.setup();
-      render(<SettingsPanel {...defaultProps} />);
+      renderFilter(<SettingsPanel {...defaultProps} />);
       await user.click(
         screen.getByRole("checkbox", { name: "ホワイトリストを有効にする" }),
       );
@@ -1197,5 +1253,393 @@ describe("SettingsPanel デザイン原則（アクセシビリティ）", () =>
       await user.click(screen.getByRole("button", { name: "適用" }));
       expectWarningMark(screen.getByText("正規表現が不正です: /[/"));
     });
+  });
+});
+describe("SettingsPanel タブ分割", () => {
+  const tabNames = () =>
+    screen.getAllByRole("tab").map((tab) => tab.textContent);
+  const headings = () =>
+    screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+  const externalColumn: Column = {
+    ...mockColumn,
+    pageType: "external",
+    customUrl: "https://example.com",
+  };
+
+  it("デスクトップでホームカラムの設定を開くと4つのタブが表示され基本タブが選ばれている", () => {
+    render(<SettingsPanel {...defaultProps} isMobile={false} />);
+    expect(tabNames()).toEqual(["基本", "表示", "フィルタ", "カスタム CSS"]);
+    expect(screen.getByRole("tab", { name: "基本" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(headings()).toEqual(["カラム", "自動更新", "通知"]);
+  });
+
+  it("表示タブに表示・画像・画像ブラーが表示される", () => {
+    render(<SettingsPanel {...defaultProps} />);
+    openTab("表示");
+    expect(headings()).toEqual(["表示", "画像", "画像ブラー"]);
+    expect(
+      screen.queryByRole("heading", { name: "自動更新" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "カラム" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "通知" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("フィルタタブにNGワード・リポスト非表示・ホワイトリストが表示される", () => {
+    render(<SettingsPanel {...defaultProps} />);
+    openTab("フィルタ");
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+    ).toEqual([
+      expect.stringMatching(/^NGワード/),
+      expect.stringMatching(/^リポストを非表示にするユーザー/),
+      expect.stringMatching(/^ホワイトリスト/),
+    ]);
+  });
+
+  it("カスタムCSSタブにカスタムCSSが表示される", () => {
+    render(<SettingsPanel {...defaultProps} />);
+    openTab("カスタム CSS");
+    expect(headings()).toEqual(["カスタム CSS"]);
+  });
+
+  it("ホームカラムでは表示タブに前回の続きへ戻るボタンの設定が表示される", () => {
+    render(<SettingsPanel {...defaultProps} />);
+    openTab("表示");
+    expect(
+      screen.getByRole("checkbox", {
+        name: "更新後に前回の続きへ戻るボタンを表示する",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("ホーム以外のXカラムでは前回の続きへ戻るボタンの設定が表示されない", () => {
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={{ ...mockColumn, pageType: "notifications" }}
+      />,
+    );
+    openTab("表示");
+    expect(
+      screen.queryByRole("checkbox", {
+        name: "更新後に前回の続きへ戻るボタンを表示する",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("モバイルのカラム設定では基本タブに幅と通知が表示されない", () => {
+    render(<SettingsPanel {...defaultProps} isMobile />);
+    expect(screen.getByRole("tab", { name: "基本" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("textbox", { name: "表示名" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "自動更新" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("幅（px）")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "通知" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("外部サイトカラムではタブを表示せず1ページで表示する", () => {
+    render(<SettingsPanel {...defaultProps} column={externalColumn} />);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(headings()).toEqual(["カラム", "カスタム CSS"]);
+    expect(
+      screen.queryByRole("heading", { name: "自動更新" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("リストカラムでは基本タブに自動更新が表示されない", () => {
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        isMobile
+        column={{ ...mockColumn, pageType: "list" }}
+      />,
+    );
+    expect(headings()).toEqual(["カラム"]);
+  });
+
+  it("カラム設定を開き直すと毎回基本タブから表示される", () => {
+    const first = render(<SettingsPanel {...defaultProps} />);
+    openTab("フィルタ");
+    expect(screen.getByRole("tab", { name: "フィルタ" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    first.unmount();
+
+    render(<SettingsPanel {...defaultProps} />);
+    expect(screen.getByRole("tab", { name: "基本" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "フィルタ" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+  });
+
+  it("タブを切り替えても編集中の値は保持され1回の適用でまとめて保存される", async () => {
+    const onApply = vi.fn();
+    const col = {
+      ...mockColumn,
+      settings: { ...baseSettings, autoReloadEnabled: true },
+    };
+    render(<SettingsPanel {...defaultProps} column={col} onApply={onApply} />);
+    const interval = screen.getByLabelText("更新間隔（秒）");
+    await userEvent.clear(interval);
+    await userEvent.type(interval, "120");
+    openTab("フィルタ");
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "NGワード" }),
+      "ネタバレ",
+    );
+    openTab("基本");
+    expect(screen.getByLabelText("更新間隔（秒）")).toHaveValue(120);
+    await userEvent.click(screen.getByRole("button", { name: "適用" }));
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(onApply).toHaveBeenCalledWith(
+      "col-1",
+      expect.objectContaining({
+        autoReloadInterval: 120,
+        ngWords: ["ネタバレ"],
+      }),
+      350,
+      undefined,
+    );
+  });
+
+  it("カラム設定のタブはキーボードの左右矢印で切り替えられる", async () => {
+    render(<SettingsPanel {...defaultProps} />);
+    const basic = screen.getByRole("tab", { name: "基本" });
+    basic.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    const view = screen.getByRole("tab", { name: "表示" });
+    expect(view).toHaveFocus();
+    expect(view).toHaveAttribute("aria-selected", "true");
+    expect(headings()).toEqual(["表示", "画像", "画像ブラー"]);
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(basic).toHaveFocus();
+    expect(basic).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("別タブのNGワードに入力エラーがあると適用時にフィルタタブへ切り替わる", async () => {
+    const onApply = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <SettingsPanel {...defaultProps} onApply={onApply} onClose={onClose} />,
+    );
+    openTab("フィルタ");
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "NGワード" }),
+      "/[[/",
+    );
+    openTab("基本");
+    expect(screen.getByRole("tab", { name: "基本" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "適用" }));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: /^フィルタ/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("正規表現が不正です: /[/")).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "フィルタ 入力エラーあり" }),
+    ).toBeInTheDocument();
+  });
+
+  it("入力エラーがないときはフィルタタブにエラーの印が付かない", () => {
+    render(<SettingsPanel {...defaultProps} />);
+    expect(screen.getByRole("tab", { name: "フィルタ" })).toBeInTheDocument();
+    expect(screen.queryByText("入力エラーあり")).not.toBeInTheDocument();
+  });
+
+  it("ホワイトリストの入力エラーでもフィルタタブへ切り替わる", async () => {
+    const onApply = vi.fn();
+    render(<SettingsPanel {...defaultProps} onApply={onApply} />);
+    openTab("フィルタ");
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: "ホワイトリストを有効にする" }),
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "ホワイトリスト" }),
+      "/[[/",
+    );
+    openTab("表示");
+    await userEvent.click(screen.getByRole("button", { name: "適用" }));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: /^フィルタ/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("正規表現が不正です: /[/")).toBeInTheDocument();
+  });
+});
+
+describe("SettingsPanel 未適用の変更があるときの確認メッセージ", () => {
+  const autoReloadColumn: Column = {
+    ...mockColumn,
+    settings: { ...baseSettings, autoReloadEnabled: true },
+  };
+  const 確認メッセージ = () =>
+    screen.queryByRole("dialog", { name: "未適用の変更があります" });
+  const ヘッダーの閉じる = () => screen.getByText("✕");
+  const 自動更新間隔を変更する = (value: string) =>
+    fireEvent.change(screen.getByRole("spinbutton", { name: /更新間隔/ }), {
+      target: { value },
+    });
+
+  it.each<[string, () => void, () => void]>([
+    [
+      "「基本」タブで自動更新間隔を変更した状態でヘッダーの ✕",
+      () => 自動更新間隔を変更する("120"),
+      () => fireEvent.click(ヘッダーの閉じる()),
+    ],
+    [
+      "「基本」タブで表示名を変更した状態で Esc キー",
+      () =>
+        fireEvent.change(screen.getByRole("textbox", { name: "表示名" }), {
+          target: { value: "仕事用" },
+        }),
+      () => fireEvent.keyDown(document, { key: "Escape" }),
+    ],
+    [
+      "「フィルタ」タブでNGワードを入力した状態でヘッダーの ✕",
+      () => {
+        openTab("フィルタ");
+        fireEvent.change(
+          screen.getByPlaceholderText(
+            "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
+          ),
+          { target: { value: "スパム" } },
+        );
+      },
+      () => fireEvent.click(ヘッダーの閉じる()),
+    ],
+  ])(
+    "カラム設定で未適用の変更があるときに閉じようとすると確認メッセージが表示される（%s）",
+    (_name, change, close) => {
+      const onClose = vi.fn();
+      render(
+        <SettingsPanel
+          {...defaultProps}
+          column={autoReloadColumn}
+          onClose={onClose}
+        />,
+      );
+      change();
+
+      close();
+
+      expect(確認メッセージ()).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+    },
+  );
+
+  it("カラム設定の確認メッセージで破棄して閉じるを選ぶと変更を保存せずに閉じる", () => {
+    const onClose = vi.fn();
+    const onApply = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+        onApply={onApply}
+      />,
+    );
+    自動更新間隔を変更する("120");
+    fireEvent.click(ヘッダーの閉じる());
+
+    fireEvent.click(screen.getByRole("button", { name: "破棄して閉じる" }));
+
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("カラム設定の確認メッセージで戻るを選ぶと編集中の値を保ったまま設定に戻る", () => {
+    const onClose = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+      />,
+    );
+    自動更新間隔を変更する("120");
+    fireEvent.click(ヘッダーの閉じる());
+
+    fireEvent.click(screen.getByRole("button", { name: "戻る" }));
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("spinbutton", { name: /更新間隔/ })).toHaveValue(
+      120,
+    );
+  });
+
+  it("カラム設定の確認メッセージの表示中に Esc キーを押すと確認メッセージだけが閉じる", () => {
+    const onClose = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+      />,
+    );
+    自動更新間隔を変更する("120");
+    fireEvent.click(ヘッダーの閉じる());
+    expect(確認メッセージ()).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("カラム設定で未適用の変更がないときは確認なしで閉じる", () => {
+    const onClose = vi.fn();
+    render(<SettingsPanel {...defaultProps} onClose={onClose} />);
+
+    fireEvent.click(ヘッダーの閉じる());
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("カラム設定でキャンセルを押したときは確認なしで変更を破棄して閉じる", () => {
+    const onClose = vi.fn();
+    const onApply = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+        onApply={onApply}
+      />,
+    );
+    自動更新間隔を変更する("120");
+
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

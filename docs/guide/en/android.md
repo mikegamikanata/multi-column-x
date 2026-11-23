@@ -39,28 +39,28 @@ _Long-press a tab to open a menu where you can choose Reload, Settings, or Delet
 
 ## Android-only settings
 
-Under App settings → "General", an **"Android only"** group is shown on Android only (post button behavior, swipe switching, and multi-column display on wide screens). The "Popup windows" items for desktop are not shown.
+In App settings, an **"Android"** category is shown on Android only (post button behavior, swipe switching, and multi-column display on wide screens). The "Popup windows" items for desktop are not shown.
 
-![Android app settings (Android only group)](../images/android-app-settings-android.png)
+![Android app settings (Android category)](../images/android-app-settings-android.png)
 
-_Configure swipe switching and multi-column display in the "Android only" group._
+_Configure swipe switching and multi-column display in the "Android" category._
 
-On the "Backup" tab you can export and restore your settings ([Backup and restore](./settings#backup-and-restore-advanced)). On Android, you choose where to save and load files with the device's file picker.
+In the "Backup" category you can export and restore your settings ([Backup and restore](./settings#backup-and-restore-advanced)). On Android, you choose where to save and load files with the device's file picker.
 
 ## Swipe to switch columns
 
 Swipe left or right on the swipe area near the tab bar to switch to the adjacent column.
-You can adjust whether it is enabled, the height of the area, and its opacity under App settings → "General" → **"Mobile: swipe to switch"**.
+You can adjust whether it is enabled, the height of the area, and its opacity under App settings → "Android" → **"Mobile: swipe to switch"**.
 
-You can change the column order on the "Column layout" tab in the app settings.
+You can change the column order in the "Column layout" category in the app settings.
 
-![The Android Column layout tab](../images/android-column-layout-tab.png)
+![The Android Column layout category](../images/android-column-layout-tab.png)
 
-_On the Android "Column layout" tab, use ▲ / ▼ under "Display order" to reorder columns._
+_In the Android "Column layout" category, use ▲ / ▼ under "Display order" to reorder columns._
 
 ## Showing multiple columns at once (tablets and landscape)
 
-Enable **"Show multiple columns on wide screens (tablet / landscape)"** in App settings → "General" → the **"Android only"** group to show several columns side by side on wide screens (landscape, tablets, etc.). This works on supported devices only.
+Enable **"Show multiple columns on wide screens (tablet / landscape)"** in App settings → the **"Android"** category to show several columns side by side on wide screens (landscape, tablets, etc.). This works on supported devices only.
 Once enabled, you can choose the **number of columns** to show (2 to 6; the default is 2).
 
 - When the screen width is under about 600dp, one column is shown regardless of the setting.

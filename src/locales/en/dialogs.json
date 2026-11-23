@@ -61,6 +61,12 @@
       "showHelp": "Show this help"
     }
   },
+  "unsavedChanges": {
+    "title": "You have unapplied changes",
+    "message": "Some changes have not been applied. Discard them and close?",
+    "discard": "Discard and close",
+    "back": "Back"
+  },
   "whatsNew": {
     "title": "The app has been updated",
     "version": "What's new in version {{version}}",

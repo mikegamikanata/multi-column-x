@@ -412,7 +412,12 @@
                 など該当セクション、ドラフトの扱いは
                 <code class="path"
                   >src/components/AppSettingsPanel/settingsDraft.ts</code
-                >。カラム個別は
+                >。下書きに項目を足したら
+                <code class="path"
+                  >src/components/AppSettingsPanel/settingsCategories.ts</code
+                >
+                の <code>DRAFT_KEY_CATEGORY</code>
+                にカテゴリの割当も必要（型で強制）。カラム個別は
                 <code class="path">src/components/SettingsPanel/</code
                 >。画面文言は 4 章に従い辞書化する。
               </div>

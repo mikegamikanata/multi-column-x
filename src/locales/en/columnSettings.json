@@ -66,5 +66,13 @@
     "reload": "Reload",
     "cancel": "Cancel",
     "apply": "Apply"
+  },
+  "tabs": {
+    "label": "Column settings sections",
+    "basic": "Basic",
+    "view": "Display",
+    "filter": "Filters",
+    "css": "Custom CSS",
+    "hasError": "Has input errors"
   }
 }
