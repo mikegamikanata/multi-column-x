@@ -75,13 +75,14 @@ Object.assign(window.MCX_DATA.details, {
     layer: "react",
     summary:
       "Tauri invoke を包む薄いラッパー層。コマンド名は constants/ipc.ts の IPC_COMMANDS を使う。",
-    body: "<p><code>columnWebview.ts</code>（作成・リサイズ・削除・eval）、<code>externalColumn.ts</code>、<code>columnReload.ts</code>、<code>backup.ts</code>、<code>updater.ts</code>、<code>extensions.ts</code>。UI から Rust を呼ぶ入口を一箇所に集め、呼び出し前後の共通処理（保存待ち、構築署名の記録など）をここに置く。</p>",
+    body: "<p><code>columnWebview.ts</code>（作成・リサイズ・削除・eval）、<code>externalColumn.ts</code>、<code>columnReload.ts</code>、<code>backup.ts</code>、<code>updater.ts</code>、<code>releasePage.ts</code>、<code>extensions.ts</code>。UI から Rust を呼ぶ入口を一箇所に集め、呼び出し前後の共通処理（保存待ち、構築署名の記録など）をここに置く。</p>",
     files: [
       "src/services/columnWebview.ts",
       "src/services/externalColumn.ts",
       "src/services/columnReload.ts",
       "src/services/backup.ts",
       "src/services/updater.ts",
+      "src/services/releasePage.ts",
       "src/services/extensions.ts",
     ],
     docs: ["../development/tauri-commands.md"],
@@ -730,11 +731,12 @@ Object.assign(window.MCX_DATA.catalogs, {
         summary: "更新後初回起動時のリリースノート表示。",
         kind: "ダイアログ",
         detail:
-          "<p>props: <code>version / notes / onClose</code>。<code>useWhatsNew</code> が表示要否を判定。</p>",
+          "<p>props: <code>entries / hasMore / onOpenReleasePage / onClose</code>。前回起動版より新しく今回版以下のリリースノートを新しい順に最大 3 件、版ごとに <code>&lt;section&gt;</code>＋<code>h3</code>（本文内見出しは <code>h4</code>）で表示し、<code>hasMore</code> のときは件数なしの注記を出す。リリースページへのリンク（<code>&lt;a href&gt;</code>＋<code>preventDefault</code>）は常に表示し、<code>onOpenReleasePage</code> で既定ブラウザを開く。<code>useWhatsNew</code> が表示要否と選別結果を判定。</p>",
         files: [
           "src/components/WhatsNewDialog/WhatsNewDialog.tsx",
           "src/hooks/useWhatsNew.ts",
         ],
+        docs: ["../development/release-theme-reauth-notes.md"],
       },
       {
         name: "H264SetupDialog",
@@ -953,9 +955,13 @@ Object.assign(window.MCX_DATA.catalogs, {
       },
       {
         name: "useWhatsNew",
-        summary: "更新後初回起動の What's New 表示判定。",
+        summary:
+          "更新後初回起動の What's New 表示判定。前回から今回までのリリースノート（最大 3 件）を選別して返す。",
         area: "更新",
+        detail:
+          "<p><code>{ selection, dismiss }</code> を返す。<code>selection</code> は <code>entries</code>（新しい順）と <code>hasMore</code>。取得は <code>fetchWhatsNewSelection</code>（GitHub Releases 一覧 API を 1 回呼ぶ）。</p>",
         files: ["src/hooks/useWhatsNew.ts"],
+        docs: ["../development/release-theme-reauth-notes.md"],
       },
       {
         name: "useH264Setup",
@@ -1035,6 +1041,16 @@ Object.assign(window.MCX_DATA.catalogs, {
           "自動更新の抽象。desktop はプラグイン、mobile は APK 自己更新。",
         cmds: "install_apk_update（mobile）／ tauri-plugin-updater（desktop）",
         files: ["src/services/updater.ts", "src/lib/githubRelease.ts"],
+      },
+      {
+        name: "releasePage.ts",
+        summary:
+          "リリース一覧ページを既定ブラウザで開く（更新後ダイアログのリンク）。",
+        cmds: "（plugin-opener の openUrl。アプリ独自コマンドなし）",
+        detail:
+          "<p>URL は固定（<code>RELEASES_PAGE_URL</code>）で引数を取らない。<code>default.json</code> の <code>opener:allow-open-url</code> は追加の許可にすぎず、開く先を限定する担保はこの固定 URL。</p>",
+        files: ["src/services/releasePage.ts", "src/lib/githubRelease.ts"],
+        docs: ["../development/release-theme-reauth-notes.md"],
       },
       {
         name: "extensions.ts",
@@ -1139,7 +1155,7 @@ Object.assign(window.MCX_DATA.catalogs, {
       {
         name: "githubRelease.ts / updatePrompt.ts / version.ts",
         summary:
-          "リリース情報の解析（APK ハッシュ）、更新ダイアログ表示判定、バージョン比較。",
+          "リリース情報の解析（APK ハッシュ、更新後ダイアログのリリースノート選別）、更新ダイアログ表示判定、バージョン比較。",
         files: [
           "src/lib/githubRelease.ts",
           "src/lib/updatePrompt.ts",

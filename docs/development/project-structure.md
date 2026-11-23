@@ -46,7 +46,7 @@ multi-column-x/
 │   │   ├── reauthIdentity.ts         # 既存アカウント再認証時の同一アカウント判定
 │   │   ├── apiRateLimit.ts           # API レート制限バケットの severity 判定
 │   │   ├── rafThrottle.ts            # requestAnimationFrame 単位のスロットル
-│   │   ├── githubRelease.ts          # GitHub Releases API 応答の解析（APK 自己更新のハッシュ取得等）
+│   │   ├── githubRelease.ts          # GitHub Releases API 応答の解析（APK 自己更新のハッシュ取得、更新後ダイアログのリリースノート選別等）
 │   │   ├── updatePrompt.ts / version.ts  # 更新案内の要否・バージョン比較
 │   │   ├── autoReloadTarget.ts       # 自動更新対象カラムの判定
 │   │   ├── columnOrder.ts            # TopBar のカラム並び順計算
@@ -58,6 +58,7 @@ multi-column-x/
 │   │   ├── externalColumn.ts         # 外部 URL カラムのデータディレクトリ操作
 │   │   ├── backup.ts                 # バックアップの書き出し・読み込み・復元の IPC 呼び出し
 │   │   ├── extensions.ts             # ブラウザ拡張機能（Windows のみ）の管理コマンドの IPC 呼び出し
+│   │   ├── releasePage.ts            # リリース一覧ページを既定ブラウザで開く（固定 URL。opener プラグイン）
 │   │   └── updater.ts                # 自動アップデート（デスクトップ/Android）の IPC 呼び出し
 │   ├── hooks/
 │   │   ├── useColumns.ts             # カラム操作の公開 API（mobile/desktop 実装へ委譲）
@@ -78,7 +79,7 @@ multi-column-x/
 │   │   ├── useAccounts.ts            # アカウント追加・削除
 │   │   ├── useAutoReload.ts          # 自動更新カウントダウン
 │   │   ├── useAppUpdater.ts          # 自動アップデートの確認・進捗表示
-│   │   ├── useWhatsNew.ts            # 更新後の What's New 表示
+│   │   ├── useWhatsNew.ts            # 更新後に前回から今回までのリリースノート（最大3件）を表示
 │   │   ├── useTheme.ts               # テーマ（ダーク/ライト/システム）切替
 │   │   ├── useUiScale.ts             # アプリUI倍率を <html> の font-size へ反映（端末倍率の測定含む）
 │   │   ├── useDialogState.ts         # ダイアログ開閉状態管理
@@ -116,7 +117,7 @@ multi-column-x/
 │       ├── HelpPopover/              # ヘルプ用ポップオーバー
 │       ├── ShortcutHelpDialog/       # キーボードショートカット一覧ダイアログ
 │       ├── UpdateDialog/             # アプリ更新確認・進捗ダイアログ
-│       └── WhatsNewDialog/           # 更新後の What's New ダイアログ
+│       └── WhatsNewDialog/           # 更新後の What's New ダイアログ（複数バージョン・リリースページへのリンク）
 └── src-tauri/                        # Rust バックエンド
     ├── tauri.conf.json
     ├── Cargo.toml

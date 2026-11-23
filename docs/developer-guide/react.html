@@ -676,6 +676,20 @@
               >updater-test-notes.md</a
             >。
           </p>
+          <p>
+            更新後の初回起動では <code>useWhatsNew</code> が GitHub Releases
+            の一覧 API を 1
+            回だけ呼び、前回起動版より新しく今回版以下のリリースノートを新しい順に最大
+            3 件選びます（<code>lib/githubRelease.ts</code> の
+            <code>selectWhatsNewEntries</code>）。<code>WhatsNewDialog</code>
+            は常にリリースページへのリンクを表示し、開く処理は
+            <code>services/releasePage.ts</code> の
+            <code>openReleasePage()</code>（固定 URL・opener
+            プラグイン）です。設計判断は
+            <a href="../development/release-theme-reauth-notes.md"
+              >release-theme-reauth-notes.md</a
+            >。
+          </p>
 
           <h3 id="backup">バックアップ / リストア</h3>
           <p>
