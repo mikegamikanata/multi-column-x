@@ -1,12 +1,15 @@
 import React, { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useRestoreFocus } from "@/hooks/useRestoreFocus";
+import type { WhatsNewEntry } from "@/lib/githubRelease";
+import { RELEASES_PAGE_URL } from "@/lib/githubRelease";
 import styles from "./WhatsNewDialog.module.scss";
 
 interface Props {
-  version?: string;
-  notes: string;
+  entries: WhatsNewEntry[];
+  hasMore: boolean;
+  onOpenReleasePage: () => void;
   onClose: () => void;
 }
 
@@ -43,7 +46,7 @@ function renderNotes(notes: string): React.ReactNode {
   return segments.map((seg, i) => {
     switch (seg.type) {
       case "heading":
-        return <h3 key={i}>{seg.text}</h3>;
+        return <h4 key={i}>{seg.text}</h4>;
       case "list":
         return (
           <ul key={i}>
@@ -59,8 +62,9 @@ function renderNotes(notes: string): React.ReactNode {
 }
 
 export const WhatsNewDialog: React.FC<Props> = ({
-  version,
-  notes,
+  entries,
+  hasMore,
+  onOpenReleasePage,
   onClose,
 }) => {
   const { t } = useTranslation();
@@ -78,12 +82,34 @@ export const WhatsNewDialog: React.FC<Props> = ({
         <h2 id={titleId} className={styles.title}>
           {t("dialogs:whatsNew.title")}
         </h2>
-        {version && (
-          <p className={styles.version}>
-            {t("dialogs:whatsNew.version", { version })}
-          </p>
+        <div className={styles.notes}>
+          {entries.map((entry) => (
+            <section key={entry.version}>
+              <h3>
+                {t("dialogs:whatsNew.versionHeading", {
+                  version: entry.version,
+                })}
+              </h3>
+              {renderNotes(entry.notes)}
+            </section>
+          ))}
+        </div>
+        {hasMore && (
+          <p className={styles.moreNote}>{t("dialogs:whatsNew.moreNote")}</p>
         )}
-        {notes && <div className={styles.notes}>{renderNotes(notes)}</div>}
+        <p className={styles.releasesLinkRow}>
+          <a
+            className={styles.releasesLink}
+            href={RELEASES_PAGE_URL}
+            onClick={(e) => {
+              // WebView 内での遷移を防ぎ、既定ブラウザで開く
+              e.preventDefault();
+              onOpenReleasePage();
+            }}
+          >
+            {t("dialogs:whatsNew.releasesLink")}
+          </a>
+        </p>
         <div className={styles.actions}>
           <button type="button" className={styles.closeBtn} onClick={onClose}>
             {t("dialogs:whatsNew.close")}

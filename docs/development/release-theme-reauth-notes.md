@@ -1,6 +1,6 @@
 # リリース・テーマ切替・再認証 開発ノート
 
-スコープ外とした判断、リリース／自動更新の CI 構成、テーマ切替、更新進捗表示、再認証（Cookie 上書き）に関する実装時の設計判断・落とし穴を記録する。`architecture-overview.md` の「アップデート方式のセキュリティ」節は前提とし、ここでは重複しない補足知見のみを扱う。Android 固有の Cookie 関連知見は `android-notes.md` を参照。
+スコープ外とした判断、リリース／自動更新の CI 構成、テーマ切替、更新進捗表示、更新後ダイアログ（WhatsNew）、再認証（Cookie 上書き）に関する実装時の設計判断・落とし穴を記録する。`architecture-overview.md` の「アップデート方式のセキュリティ」節は前提とし、ここでは重複しない補足知見のみを扱う。Android 固有の Cookie 関連知見は `android-notes.md` を参照。
 
 ## 意図的にスコープ外とした判断
 
@@ -32,6 +32,19 @@
 - Android（mobile）側は Kotlin から JS へのバイト単位進捗通知チャネルが無く、大改修になるため対象外と判断している。ダウンロード開始を1回通知するだけの簡易対応に留まっている。
 - desktop 側は Tauri updater のイベントを進捗情報に変換し、再起動直前に専用の状態を追加通知する設計。
 - リリースを作らずに更新を試験する手順・設計（UI モック / ローカル配信）は [updater-test-notes.md](updater-test-notes.md) を参照。
+
+## 更新後ダイアログ（WhatsNew）の複数バージョン表示
+
+更新後の初回起動で、前回起動バージョンより新しく今回バージョン以下のリリースノートを、新しい順に最大 3 件表示する（`src/lib/githubRelease.ts` の `fetchWhatsNewSelection` / `selectWhatsNewEntries`、`src/hooks/useWhatsNew.ts`、`src/components/WhatsNewDialog/`）。
+
+- **一覧 API を 1 回だけ呼ぶ**: `GET {releasesApiBase()}?per_page=30` を 1 回呼び、範囲の絞り込み・降順ソート・先頭 3 件の切り出しはクライアントで行う。バージョンごとに `releases/tags/v…` を叩く方式は、飛ばしたバージョン数だけリクエストが増え、未認証の rate limit（60 回/時）を圧迫するため採らない。`per_page=30` は 3 件上限に対して、draft / prerelease / 本文空で除外される分を見込んだ余裕を持たせた値（API の既定値と同じ）。複数ページを辿る処理は持たない。
+- **3 件上限と、省略の注記に件数を入れない理由**: 縦に長くなりすぎるのを避けるため上限は 3 件（`WHATS_NEW_MAX_ENTRIES`）。適格件数が 3 を超える（`hasMore`）ときは「それ以前の更新はリリースページで確認できる」旨を件数なしで注記する。一覧は 1 ページ分しか取得しないため、範囲全体の正確な件数は分からない（30 件を超えて遡る場合は注記の件数が嘘になる）。
+- **除外条件**: `draft` / `prerelease` は一般ユーザーへ公開された更新ではないため除外する。本文が空または空白のみのリリースは表示しても意味が無いので飛ばし、**上限の 3 件にも数えない**（空のリリースが続いても表示枠を食わない）。
+- **リリースページへのリンクを開く手段**: 既存の opener プラグイン（`@tauri-apps/plugin-opener` の `openUrl`）を使い、新規 Rust コマンドは作らない。コマンドを増やすと `build.rs` の `AppManifest`・capability・`generate_handler!` の同期が必要になる割に、やることが「URL を既定ブラウザで開く」だけのため。呼び出しは `src/services/releasePage.ts` の `openReleasePage()` に集約し、固定 URL（`RELEASES_PAGE_URL`）・引数なしにしている。
+- **ACL だけでは「リリースページ以外は開けない」を強制できない**: `src-tauri/capabilities/default.json` に `opener:allow-open-url`（許可 URL は `https://github.com/natsuyasai/multi-column-x/releases` の 1 件）を足しているが、`main` ウィンドウは `column-webview.json`（`windows` に `"main"` を含み、`local` 既定 true）経由で既に `opener:default` / `opener:allow-default-urls`（http / https / mailto / tel の汎用 open）を持つ。権限は加算されるため、`default.json` のスコープ付き許可は追加の付与にすぎず、ACL としては任意の http(s) URL を開ける状態のままである。「開く先はリリースページだけ」は `openReleasePage` が URL を受け取らない（コード側）ことで担保している。`acl_contract.rs` の契約テストが検査するのは `default.json` 単体（opener の許可がリリース一覧 URL だけであること）で、ウィンドウ全体の実効権限ではない。実機（`tauri dev`）での opener 呼び出しの動作確認は未確認。
+- **見出し階層**: ダイアログ `h2`（タイトル）→ 版ごとの `h3` → リリース本文内の `##` / `###` は `h4` に落とす。複数版を並べると本文内見出しが版見出しと同じ階層に並び、どこからどこまでが 1 つの版か分からなくなるため。版ごとに `<section>` で包む。
+- **リンクの配置と実装**: リンクは `.notes`（スクロール領域）の外、閉じるボタンの上に置く。本文が長くスクロールしても、省略注記とリンクには常に到達できる。要素は `<a href={RELEASES_PAGE_URL}>` ＋ `onClick` で `preventDefault()` してから `onOpenReleasePage()` を呼ぶ。`href` を持たせるのは、リンクとしてのアクセシブルネーム・フォーカス・URL の確認（コピー）を保つため。`preventDefault` は、WebView 内でリリースページへ遷移してアプリの画面が置き換わるのを防ぐため。
+- 試験用サーバー（`scripts/updater-test`）が一覧エンドポイントを配信する点は [updater-test-notes.md](updater-test-notes.md) を参照。
 
 ## 再認証（既存アカウントの Cookie 上書き）
 

@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchLatestRelease,
-  fetchReleaseNotes,
+  fetchWhatsNewSelection,
   parseDigestSha256,
   parseLatestRelease,
+  selectWhatsNewEntries,
 } from "./githubRelease";
 
 const VALID_SHA256 = "0123456789abcdef".repeat(4);
@@ -86,76 +87,6 @@ describe("parseLatestRelease", () => {
   });
 });
 
-describe("fetchReleaseNotes", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("正常: bodyを返し、リクエストURLにv{version}が含まれる", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ body: "## What's New\n- バグ修正" }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
-
-    const result = await fetchReleaseNotes("1.2.0");
-
-    expect(result).toBe("## What's New\n- バグ修正");
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
-    expect(calledUrl).toContain("tags/v1.2.0");
-  });
-
-  it("versionがv始まりでもURLがvv二重にならない", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ body: "notes" }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
-
-    await fetchReleaseNotes("v1.2.0");
-
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
-    expect(calledUrl).not.toContain("vv");
-    expect(calledUrl).toContain("tags/v1.2.0");
-  });
-
-  it("res.okがfalseのときnullを返す", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
-
-    const result = await fetchReleaseNotes("1.2.0");
-
-    expect(result).toBeNull();
-  });
-
-  it("bodyが空文字のときnullを返す", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ body: "" }),
-      }),
-    );
-
-    const result = await fetchReleaseNotes("1.2.0");
-
-    expect(result).toBeNull();
-  });
-
-  it("bodyが未定義のときnullを返す", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({}),
-      }),
-    );
-
-    const result = await fetchReleaseNotes("1.2.0");
-
-    expect(result).toBeNull();
-  });
-});
-
 describe("parseDigestSha256", () => {
   it("sha256プレフィックス付き64桁hexを小文字で返す", () => {
     expect(parseDigestSha256(`sha256:${VALID_SHA256}`)).toBe(VALID_SHA256);
@@ -207,7 +138,7 @@ describe("リリース情報の取得先", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
     await fetchLatestRelease();
-    await fetchReleaseNotes("1.2.0");
+    await fetchWhatsNewSelection("0.0.0", "1.2.0");
     return mockFetch.mock.calls.map((c) => c[0] as string);
   }
 
@@ -215,7 +146,7 @@ describe("リリース情報の取得先", () => {
     vi.stubEnv("VITE_UPDATER_RELEASE_API_BASE", "http://localhost:8787");
     expect(await fetchedUrls()).toEqual([
       "http://localhost:8787/repos/natsuyasai/multi-column-x/releases/latest",
-      "http://localhost:8787/repos/natsuyasai/multi-column-x/releases/tags/v1.2.0",
+      "http://localhost:8787/repos/natsuyasai/multi-column-x/releases?per_page=30",
     ]);
   });
 
@@ -223,7 +154,252 @@ describe("リリース情報の取得先", () => {
     vi.stubEnv("VITE_UPDATER_RELEASE_API_BASE", "");
     expect(await fetchedUrls()).toEqual([
       "https://api.github.com/repos/natsuyasai/multi-column-x/releases/latest",
-      "https://api.github.com/repos/natsuyasai/multi-column-x/releases/tags/v1.2.0",
+      "https://api.github.com/repos/natsuyasai/multi-column-x/releases?per_page=30",
     ]);
+  });
+});
+
+interface TestRelease {
+  tag_name: string;
+  body?: string | null;
+  draft?: boolean;
+  prerelease?: boolean;
+}
+
+function release(
+  version: string,
+  body: string | null | undefined = `${version}の更新内容`,
+  flags: { draft?: boolean; prerelease?: boolean } = {},
+): TestRelease {
+  return { tag_name: `v${version}`, body, ...flags };
+}
+
+describe("selectWhatsNewEntries", () => {
+  it("前回から今回までの間に複数のバージョンがあるとき新しい順に並べて表示する", () => {
+    const json = [
+      release("0.8.1", "本文0.8.1"),
+      release("0.9.1", "本文0.9.1"),
+      release("0.9.0", "本文0.9.0"),
+    ];
+
+    expect(selectWhatsNewEntries(json, "0.8.0", "0.9.1")).toEqual({
+      entries: [
+        { version: "0.9.1", notes: "本文0.9.1" },
+        { version: "0.9.0", notes: "本文0.9.0" },
+        { version: "0.8.1", notes: "本文0.8.1" },
+      ],
+      hasMore: false,
+    });
+  });
+
+  it("前回のバージョン以前のリリースは表示しない", () => {
+    const json = [release("0.9.1"), release("0.9.0")];
+
+    const result = selectWhatsNewEntries(json, "0.9.0", "0.9.1");
+
+    expect(result.entries.map((e) => e.version)).toEqual(["0.9.1"]);
+  });
+
+  it("今回のバージョンより新しいリリースは表示しない", () => {
+    const json = [release("0.9.1"), release("0.9.0")];
+
+    const result = selectWhatsNewEntries(json, "0.8.0", "0.9.0");
+
+    expect(result.entries.map((e) => e.version)).toEqual(["0.9.0"]);
+  });
+
+  it("下書きとプレリリースは表示しない", () => {
+    const json = [
+      release("0.9.1"),
+      release("0.9.0", "本文", { draft: true }),
+      release("0.8.1", "本文", { prerelease: true }),
+    ];
+
+    const result = selectWhatsNewEntries(json, "0.8.0", "0.9.1");
+
+    expect(result.entries.map((e) => e.version)).toEqual(["0.9.1"]);
+  });
+
+  it("範囲内のバージョンが4件以上あるとき最新から3件だけ表示し省略の注記を出す", () => {
+    const json = ["0.6.0", "0.8.0", "0.8.1", "0.9.0", "0.9.1"].map((v) =>
+      release(v),
+    );
+
+    const result = selectWhatsNewEntries(json, "0.5.0", "0.9.1");
+
+    expect(result.entries.map((e) => e.version)).toEqual([
+      "0.9.1",
+      "0.9.0",
+      "0.8.1",
+    ]);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it.each([3, 2, 1])(
+    "範囲内のバージョンが3件以下(%i件)のとき省略の注記は表示しない",
+    (count) => {
+      const json = ["0.9.1", "0.9.0", "0.8.1"]
+        .slice(0, count)
+        .map((v) => release(v));
+
+      const result = selectWhatsNewEntries(json, "0.8.0", "0.9.1");
+
+      expect(result.entries).toHaveLength(count);
+      expect(result.hasMore).toBe(false);
+    },
+  );
+
+  it.each([
+    ["空文字", release("0.9.0", "")],
+    ["空白のみ", release("0.9.0", " \n\t ")],
+    ["null", release("0.9.0", null)],
+    ["undefined", { tag_name: "v0.9.0" }],
+  ])(
+    "一部のバージョンの本文が空(%s)のときはそのバージョンを飛ばして残りを表示する",
+    (_label, emptyBodyRelease) => {
+      const json = [release("0.9.1"), emptyBodyRelease, release("0.8.1")];
+
+      const result = selectWhatsNewEntries(json, "0.8.0", "0.9.1");
+
+      expect(result.entries.map((e) => e.version)).toEqual(["0.9.1", "0.8.1"]);
+    },
+  );
+
+  it("本文が空のバージョンは上限の3件に数えない", () => {
+    const json = [
+      release("0.9.1", ""),
+      release("0.9.0"),
+      release("0.8.3"),
+      release("0.8.2"),
+      release("0.8.1"),
+    ];
+
+    const result = selectWhatsNewEntries(json, "0.8.0", "0.9.1");
+
+    expect(result.entries.map((e) => e.version)).toEqual([
+      "0.9.0",
+      "0.8.3",
+      "0.8.2",
+    ]);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("本文のあるバージョンが上限ちょうどのとき本文が空のバージョンがあっても省略の注記は出ない", () => {
+    const json = [
+      release("0.9.1", " "),
+      release("0.9.0"),
+      release("0.8.3"),
+      release("0.8.2"),
+    ];
+
+    const result = selectWhatsNewEntries(json, "0.8.0", "0.9.1");
+
+    expect(result.entries).toHaveLength(3);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("範囲内に本文のあるリリースが1件も無いときentriesが空でhasMoreはfalseになる", () => {
+    const json = [release("0.9.1", ""), release("0.9.0", null)];
+
+    expect(selectWhatsNewEntries(json, "0.8.0", "0.9.1")).toEqual({
+      entries: [],
+      hasMore: false,
+    });
+  });
+
+  it("tag_nameのvの有無や大文字小文字に関わらずversionはv無しで返る", () => {
+    const json = [
+      { tag_name: "v0.9.1", body: "a" },
+      { tag_name: "V0.9.0", body: "b" },
+      { tag_name: "0.8.1", body: "c" },
+    ];
+
+    const result = selectWhatsNewEntries(json, "0.8.0", "0.9.1");
+
+    expect(result.entries.map((e) => e.version)).toEqual([
+      "0.9.1",
+      "0.9.0",
+      "0.8.1",
+    ]);
+  });
+
+  it("本文は前後の空白を含む原文のまま返す", () => {
+    const body = "\n## 修正\n- 項目\n";
+
+    const result = selectWhatsNewEntries(
+      [release("0.9.1", body)],
+      "0.9.0",
+      "0.9.1",
+    );
+
+    expect(result.entries[0].notes).toBe(body);
+  });
+
+  it("配列でない応答は空の結果になる", () => {
+    for (const json of [null, undefined, {}, "x", 1, { tag_name: "v0.9.1" }]) {
+      expect(selectWhatsNewEntries(json, "0.8.0", "0.9.1")).toEqual({
+        entries: [],
+        hasMore: false,
+      });
+    }
+  });
+
+  it("要素がnullや不正な型でも落ちずに無視する", () => {
+    const json = [
+      null,
+      undefined,
+      1,
+      "v0.9.0",
+      [],
+      {},
+      { tag_name: 1, body: "x" },
+      { tag_name: "", body: "x" },
+      { tag_name: "v0.9.0", body: 5 },
+      { tag_name: "v0.9.0", body: "x", draft: "true" },
+      release("0.9.1"),
+    ];
+
+    const result = selectWhatsNewEntries(json, "0.8.0", "0.9.1");
+
+    expect(result.entries.map((e) => e.version)).toEqual(["0.9.1", "0.9.0"]);
+  });
+});
+
+describe("fetchWhatsNewSelection", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("一覧APIを1回だけ呼び、前回から今回までのリリースノートを選別して返す", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [release("0.9.0", "本文0.9.0"), release("0.8.0")],
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await fetchWhatsNewSelection("0.8.0", "0.9.1");
+
+    expect(result).toEqual({
+      entries: [{ version: "0.9.0", notes: "本文0.9.0" }],
+      hasMore: false,
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    expect(calledUrl).toMatch(/\/releases\?per_page=30$/);
+    expect(calledUrl).not.toContain("tags/");
+  });
+
+  it("リリースの一覧を取得できないとき(res.okがfalse)nullを返す", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+
+    expect(await fetchWhatsNewSelection("0.8.0", "0.9.1")).toBeNull();
+  });
+
+  it("fetchが失敗したときは例外を呼び元へ伝える", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
+
+    await expect(fetchWhatsNewSelection("0.8.0", "0.9.1")).rejects.toThrow(
+      "network",
+    );
   });
 });

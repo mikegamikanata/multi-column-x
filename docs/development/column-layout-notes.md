@@ -14,7 +14,7 @@
 ## グリッドレイアウト・カラム WebView の座標計算
 
 - カラムは `gridRow` / `gridCol` でマトリクス配置する。座標計算は `src/lib/gridLayout.ts` の `calculateGridBounds`（純粋関数）が担当し、各カラムの絶対座標を Rust の `create_column_webview` / `resize_column_webview` に渡す。WebView への IPC 呼び出しは `src/services/columnWebview.ts` に集約されている。
-- Tauri v2 の子 WebView は OS ネイティブウィンドウのため、CSS の `z-index` は機能しない。ダイアログ表示中は `hideColumnWebviews()` で全 WebView を画面外に退避し、閉じると `recalculateAllBounds()` で復元する。この挙動は `src/App.tsx` の `dialogOpen` effect（`anyDialogOpen` の変化のみで発火し、他の依存では再実行しない設計）で制御している。新しいダイアログ・ポップアップ系 UI を追加する際は、この `anyDialogOpen` の条件（`dialogOpen || updater.available || whatsNew.notes || h264Setup.isDialogOpen || pendingAccountName || pendingRemoval || pendingColumnRemoval || accountNotice || settingsLoadNotice || apiRateLimitPopoverOpen` など。定義は `App.tsx` の `anyDialogOpen`）に追加する必要がある。
+- Tauri v2 の子 WebView は OS ネイティブウィンドウのため、CSS の `z-index` は機能しない。ダイアログ表示中は `hideColumnWebviews()` で全 WebView を画面外に退避し、閉じると `recalculateAllBounds()` で復元する。この挙動は `src/App.tsx` の `dialogOpen` effect（`anyDialogOpen` の変化のみで発火し、他の依存では再実行しない設計）で制御している。新しいダイアログ・ポップアップ系 UI を追加する際は、この `anyDialogOpen` の条件（`dialogOpen || updater.available || whatsNew.selection || h264Setup.isDialogOpen || pendingAccountName || pendingRemoval || pendingColumnRemoval || accountNotice || settingsLoadNotice || apiRateLimitPopoverOpen` など。定義は `App.tsx` の `anyDialogOpen`）に追加する必要がある。
 
 ## モバイルのカラム切り替え（スワイプバー）
 

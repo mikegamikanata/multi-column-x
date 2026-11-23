@@ -176,9 +176,7 @@ async function main() {
   console.log("URLs:");
   console.log(`  http://localhost:${PORT}/latest.json`);
   console.log(`  http://localhost:${PORT}${REPO_PATH}/latest`);
-  console.log(
-    `  http://localhost:${PORT}${REPO_PATH}/tags/v${release.version}`,
-  );
+  console.log(`  http://localhost:${PORT}${REPO_PATH}?per_page=30`);
   console.log(`  http://localhost:${PORT}/download/<file>`);
 }
 
