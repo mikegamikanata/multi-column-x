@@ -4,19 +4,19 @@
 
 Click the **Settings** (gear icon) button on the toolbar (`Ctrl+,`) to open the app-wide settings. Choose a category in the navigation on the left to switch to that category's page (it always opens on "Display").
 
-| Group             | Category           | Contents                                                                     | Availability                    |
-| ----------------- | ------------------ | ---------------------------------------------------------------------------- | ------------------------------- |
-| General           | Display            | Language, theme and display size, API usage monitor                          | All                             |
-| General           | Browsing & filters | X official settings, global muted words, users whose reposts are hidden, ads | All                             |
-| General           | Media              | Video, popup windows, video playback (Linux)                                 | All (items vary by environment) |
-| General           | Column defaults    | Initial settings for new columns, and applying them to existing columns      | All                             |
-| General           | Android            | Posting, swipe switching, multi-column view                                  | Android only                    |
-| Columns           | Column layout      | Column placement and order ([grid layout](./columns#grid-layout-advanced))   | All                             |
-| Columns           | Presets            | Save and load layouts                                                        | Desktop only                    |
-| Data & extensions | Extensions         | Add and manage Chrome / Edge extensions                                      | Windows only                    |
-| Data & extensions | Backup             | Export and restore your settings and column setup                            | All                             |
-| App               | Maintenance        | Recreate WebViews, delete data folders                                       | All                             |
-| App               | About              | Current version and update check                                             | All                             |
+| Group             | Category           | Contents                                                                                  | Availability                    |
+| ----------------- | ------------------ | ----------------------------------------------------------------------------------------- | ------------------------------- |
+| General           | Display            | Language, theme and display size, API usage monitor                                       | All                             |
+| General           | Browsing & filters | X official settings, global muted words, users whose reposts are hidden, ads, Grok button | All                             |
+| General           | Media              | Video, popup windows, video playback (Linux)                                              | All (items vary by environment) |
+| General           | Column defaults    | Initial settings for new columns, and applying them to existing columns                   | All                             |
+| General           | Android            | Posting, swipe switching, multi-column view                                               | Android only                    |
+| Columns           | Column layout      | Column placement and order ([grid layout](./columns#grid-layout-advanced))                | All                             |
+| Columns           | Presets            | Save and load layouts                                                                     | Desktop only                    |
+| Data & extensions | Extensions         | Add and manage Chrome / Edge extensions                                                   | Windows only                    |
+| Data & extensions | Backup             | Export and restore your settings and column setup                                         | All                             |
+| App               | Maintenance        | Recreate WebViews, delete data folders                                                    | All                             |
+| App               | About              | Current version and update check                                                          | All                             |
 
 Differences between environments are also summarized in [Supported Environments and Features](./environments).
 
@@ -50,6 +50,7 @@ On Android, a list of categories (grouped, with a short description for each) is
 - **Global muted words** — Muted words applied to all columns (used together with each column's own muted words). You can also write them in the `/regex/` format.
 - **Users whose reposts are hidden** — Hides posts reposted by the specified users (one user ID per line) in all columns (used together with each column's own setting).
 - **Ads** — Whether to hide ads.
+- **Grok** — Whether to hide the Grok button on each post. Grok-related UI outside of posts, such as the Grok entry in the left sidebar, is not affected.
 
 ### Media
 
