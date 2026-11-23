@@ -1,5 +1,4 @@
 import React, { useCallback, useId, useRef, useState } from "react";
-import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import styles from "./HelpPopover.module.scss";
 
@@ -27,11 +26,23 @@ export const HelpPopover: React.FC<HelpPopoverProps> = ({
     triggerRef.current?.focus();
   }, [isOpen]);
 
-  useEscapeKey(closeByEscape);
   useOutsideClick(containerRef, close, isOpen);
 
   return (
-    <div className={styles.container} ref={containerRef}>
+    // Esc は document ではなくここで受ける。ModalDialog 内では Esc が document まで伝わらないうえ、
+    // preventDefault により「ポップオーバーだけ閉じてダイアログは閉じない」を ModalDialog に伝えるため。
+    // キーボード操作はトリガー / ポップオーバー内の子要素が担うので、コンテナ自体は操作対象ではない。
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 子要素で起きた Esc を受ける委譲ハンドラで、コンテナ自体は操作対象ではない
+    <div
+      className={styles.container}
+      ref={containerRef}
+      onKeyDown={(e) => {
+        if (isOpen && e.key === "Escape") {
+          e.preventDefault();
+          closeByEscape();
+        }
+      }}
+    >
       <button
         ref={triggerRef}
         type="button"

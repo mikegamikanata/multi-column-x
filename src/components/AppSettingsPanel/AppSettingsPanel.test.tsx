@@ -190,8 +190,40 @@ describe("AppSettingsPanel", () => {
   it("EscキーでonCloseが呼ばれる", () => {
     const onClose = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onClose).toHaveBeenCalled();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもonCloseが呼ばれ、ダイアログは自動で閉じられない", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    const dialog = screen.getByRole("dialog", { name: "アプリ設定" });
+
+    const notPrevented = fireEvent(
+      dialog,
+      new Event("cancel", { cancelable: true }),
+    );
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(notPrevented).toBe(false);
+    expect(dialog).toHaveAttribute("open");
+  });
+});
+
+describe("AppSettingsPanel 開いたときの初期フォーカス", () => {
+  it("デスクトップでは選択中のカテゴリ項目にフォーカスが当たる", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(categoryItem("表示")).toHaveFocus();
+    expect(categoryItem("表示")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("Androidのカテゴリ一覧では先頭のカテゴリ項目にフォーカスが当たる", () => {
+    mockStoreState.isMobile = true;
+    render(<AppSettingsPanel {...defaultProps} />);
+    const first = screen.getAllByRole("button", {
+      name: /言語・テーマ・表示サイズ/,
+    })[0];
+    expect(first).toHaveFocus();
   });
 });
 
@@ -349,6 +381,29 @@ describe("AppSettingsPanel グローバルNGワード", () => {
     expect(
       screen.getByRole("button", { name: "NGワードの書き方" }),
     ).toBeInTheDocument();
+  });
+
+  it("ヘルプのポップオーバーを開いているときにEscを押すとポップオーバーだけが閉じ、アプリ設定は開いたままになる", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    openCategory("閲覧・フィルタ");
+    const trigger = screen.getByRole("button", { name: "NGワードの書き方" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(
+      screen.getByRole("dialog", { name: "NGワードの書き方" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("dialog", { name: "NGワードの書き方" }),
+    ).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "アプリ設定" })).toHaveAttribute(
+      "open",
+    );
   });
 
   it("不正な正規表現を入力して適用すると、エラーメッセージが表示されonApplyもonCloseも呼ばれない", async () => {
@@ -3223,7 +3278,9 @@ describe("AppSettingsPanel 未適用の変更があるときの確認メッセ�
     [
       "Esc キー",
       () => {
-        fireEvent.keyDown(document, { key: "Escape" });
+        fireEvent.keyDown(document.activeElement as Element, {
+          key: "Escape",
+        });
       },
     ],
     [
@@ -3327,6 +3384,37 @@ describe("AppSettingsPanel 未適用の変更があるときの確認メッセ�
     expect(確認メッセージ()).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("確認メッセージの表示中は、アプリ設定本体が受けたEscキーでは何も起きない", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    changeThemeToLight();
+    fireEvent.click(ヘッダーの閉じる());
+    expect(確認メッセージ()).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "アプリ設定" }), {
+      key: "Escape",
+    });
+
+    expect(確認メッセージ()).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("確認メッセージがネイティブの閉じる要求(cancel)を受けても確認メッセージだけが閉じる", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    changeThemeToLight();
+    fireEvent.click(ヘッダーの閉じる());
+
+    fireEvent(
+      確認メッセージ() as Element,
+      new Event("cancel", { cancelable: true }),
+    );
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toHaveAttribute("open");
   });
 
   it("アプリ設定で未適用の変更がないときは確認なしで閉じる", () => {

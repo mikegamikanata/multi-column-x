@@ -1,5 +1,6 @@
 import React, { useCallback, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import {
   currentPlatformName,
   isExtensionsSupported,
@@ -22,8 +23,6 @@ import {
 } from "@/services/extensions";
 import { useAndroidBackHandler } from "../../hooks/useAndroidBackHandler";
 import { useBackupFlow } from "../../hooks/useBackupFlow";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
 import { useUnsavedChangesGuard } from "../../hooks/useUnsavedChangesGuard";
 import { useAppStore } from "../../store/useAppStore";
 import type {
@@ -140,7 +139,6 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
   const { t } = useTranslation();
   const isMobile = useAppStore((s) => s.isMobile);
   const { savePreset, deletePreset } = useAppStore();
-  useRestoreFocus();
   const titleId = useId();
   const navId = useId();
   const extensionsSupported = isExtensionsSupported(
@@ -172,7 +170,6 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
   const guard = useUnsavedChangesGuard(dirty.size > 0, onClose);
   // 確認メッセージ自身が Esc を処理するため、表示中はパネル側の Esc を無効にする
   const noop = useCallback(() => {}, []);
-  useEscapeKey(guard.confirmOpen ? noop : guard.requestClose);
   const [ngWordsError, setNgWordsError] = useState<string | null>(null);
   const [repostHiddenUserIdsError, setRepostHiddenUserIdsError] = useState<
     string | null
@@ -432,13 +429,12 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
     : t("settings:panel.title");
 
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.panel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      onEscape={guard.confirmOpen ? noop : guard.requestClose}
+    >
+      <div className={styles.panel}>
         <div className={styles.header}>
           <div className={styles.headerMain}>
             {mobileDetailDef && (
@@ -539,6 +535,6 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
           onBack={guard.cancelConfirm}
         />
       )}
-    </div>
+    </ModalDialog>
   );
 };
