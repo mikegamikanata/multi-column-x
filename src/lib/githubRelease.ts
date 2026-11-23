@@ -1,3 +1,5 @@
+import { isNewerVersion } from "./version";
+
 export interface LatestRelease {
   version: string;
   notes?: string;
@@ -62,6 +64,78 @@ export async function fetchReleaseNotes(
   if (!res.ok) return null;
   const json = (await res.json()) as { body?: string };
   return json.body || null;
+}
+
+export interface WhatsNewEntry {
+  version: string;
+  notes: string;
+}
+
+export interface WhatsNewSelection {
+  entries: WhatsNewEntry[];
+  hasMore: boolean;
+}
+
+/** 表示する最大件数 */
+export const WHATS_NEW_MAX_ENTRIES = 3;
+
+/** 適格なリリース（公開済み・tag_name あり・本文あり）を WhatsNewEntry に変換する。不適格なら null。 */
+function toWhatsNewEntry(raw: unknown): WhatsNewEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as {
+    tag_name?: unknown;
+    body?: unknown;
+    draft?: unknown;
+    prerelease?: unknown;
+  };
+  if (r.draft === true || r.prerelease === true) return null;
+  if (typeof r.tag_name !== "string" || r.tag_name === "") return null;
+  if (typeof r.body !== "string" || r.body.trim() === "") return null;
+  return { version: r.tag_name.replace(/^v/i, ""), notes: r.body };
+}
+
+/** バージョン降順の比較関数（数値ドット比較）。 */
+function compareVersionDesc(a: WhatsNewEntry, b: WhatsNewEntry): number {
+  if (isNewerVersion(a.version, b.version)) return -1;
+  if (isNewerVersion(b.version, a.version)) return 1;
+  return 0;
+}
+
+/** 一覧 API の応答から、(lastSeen, current] のリリースノートを新しい順に最大3件選ぶ。 */
+export function selectWhatsNewEntries(
+  json: unknown,
+  lastSeen: string,
+  current: string,
+): WhatsNewSelection {
+  if (!Array.isArray(json)) return { entries: [], hasMore: false };
+  const eligible = json
+    .map(toWhatsNewEntry)
+    .filter((e): e is WhatsNewEntry => e !== null)
+    .filter(
+      (e) =>
+        isNewerVersion(e.version, lastSeen) &&
+        !isNewerVersion(e.version, current),
+    )
+    .sort(compareVersionDesc);
+  return {
+    entries: eligible.slice(0, WHATS_NEW_MAX_ENTRIES),
+    hasMore: eligible.length > WHATS_NEW_MAX_ENTRIES,
+  };
+}
+
+/**
+ * 一覧 API を 1 回呼んで (lastSeen, current] のリリースノートを選別する。
+ * res.ok でなければ null。fetch の例外は呼び元へ伝える。
+ */
+export async function fetchWhatsNewSelection(
+  lastSeen: string,
+  current: string,
+): Promise<WhatsNewSelection | null> {
+  const res = await fetch(`${releasesApiBase()}?per_page=30`, {
+    headers: { Accept: "application/vnd.github+json" },
+  });
+  if (!res.ok) return null;
+  return selectWhatsNewEntries(await res.json(), lastSeen, current);
 }
 
 /** GitHub Releases API から最新リリース情報を取得する。 */
