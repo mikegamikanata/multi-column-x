@@ -435,7 +435,11 @@
                 </li>
                 <li>
                   <code>recalculateAllBounds</code> が全カラムの bounds
-                  を再計算し <code>resize_column_webview</code> を並列で呼ぶ。
+                  を再計算し
+                  <code>resize_column_webview</code> を並列で呼ぶ。再配置自体は
+                  <code>serializeLatest</code>
+                  で直列化し、実行中の要求は完了後に最新状態で 1
+                  回だけ実行する。
                 </li>
                 <li>
                   リサイズは 100ms デバウンス、スクロールは
@@ -569,7 +573,7 @@
           <p>
             アカウント削除時の保存先削除失敗は
             <code>pendingDataDirectoryDeletions</code>
-            に積み、後で再試行します。再認証の同一性照合は
+            に積み、次回起動時（カラム復元後）に自動で再実行します（外部サイトカラム削除で消せなかった分も同様）。再認証の同一性照合は
             <code>lib/reauthIdentity.ts</code>。詳細は
             <a href="../development/release-theme-reauth-notes.md"
               >release-theme-reauth-notes.md</a
@@ -579,12 +583,21 @@
           <h3 id="settings-panels">設定パネル</h3>
           <ul>
             <li>
-              <b>SettingsPanel</b>: カラム個別設定。適用で当該カラムを再構築。
+              <b>SettingsPanel</b>:
+              カラム個別設定。適用で当該カラムを再構築。タブ（基本 / 表示 /
+              フィルタ / カスタム CSS。外部サイトカラムはタブ無し）は
+              <code>columnSettingsTabs.ts</code> で定義する。
             </li>
             <li>
               <b>AppSettingsPanel</b>:
-              アプリ全体設定。タブ（レイアウト・プリセット・バックアップ・拡張機能）とセクション分割。入力中は下書き（<code>settingsDraft.ts</code>）を持ち、「適用」で
-              <code>handleApplyGlobalSettings</code> が保存と反映を行う。
+              アプリ全体設定。サイドナビのカテゴリ切り替え（Android
+              は一覧→詳細の 2
+              階層）で、カテゴリの定義・表示条件・下書きキー割当・未適用判定は
+              <code>settingsCategories.ts</code>
+              に集約。アクティブなカテゴリだけを描画する。入力中は下書き（<code>settingsDraft.ts</code>）を持ち、「適用」で
+              <code>handleApplyGlobalSettings</code> が保存と反映を行う。Android
+              の戻る操作は <code>useAndroidBackHandler</code>
+              で登録し、詳細→一覧に戻す。
             </li>
             <li>
               適用処理は <code>useSettingsApplyHandlers</code> に集約（フローは
@@ -646,6 +659,22 @@
             自己更新）の実装を切り替えます。起動時チェックはカラム復元完了（<code>columnsRestored</code>）までゲートし、更新ダイアログがネイティブ
             WebView の裏に隠れるのを防ぎます。「後で」のバージョンは
             localStorage に記録して再通知を抑制します。
+          </p>
+          <p>
+            更新処理を変えたときの試験用に、ビルド時の環境変数
+            <code>VITE_UPDATER_MOCK</code>（<code>available</code> /
+            <code>none</code> / <code>check-error</code> /
+            <code>install-error</code> / <code>slow-progress</code>）で
+            <code>createUpdater</code> が偽の Updater
+            （<code>services/mockUpdater.ts</code>）を返します。画面遷移だけを確かめる用途で、未設定ビルドではモック分岐ごとバンドルから除去されます。Android
+            のリリース情報の取得先は
+            <code>VITE_UPDATER_RELEASE_API_BASE</code>（<code
+              >lib/githubRelease.ts</code
+            >
+            の <code>releasesApiBase()</code>）で差し替えられます。手順は
+            <a href="../development/updater-test-notes.md"
+              >updater-test-notes.md</a
+            >。
           </p>
 
           <h3 id="backup">バックアップ / リストア</h3>
@@ -748,6 +777,23 @@
                     >npm run lint:fix</code
                   >
                   で自動整列。
+                </td>
+              </tr>
+              <tr>
+                <td>UI のスタイル</td>
+                <td>
+                  余白・角丸・文字サイズは
+                  <code>src/styles/_tokens.scss</code>、フォーカスリングと
+                  Android の 44px は <code>_mixins.scss</code> を
+                  <code>@use</code>（相対パス）。ダイアログは
+                  <code>role="dialog"</code
+                  >・Esc・<code>useRestoreFocus</code>。契約テスト
+                  <code>uiDesign.contract.test.ts</code> が全
+                  <code>*.module.scss</code> を検査する。詳細は
+                  <code>.claude/skills/ui-design-principles</code> と
+                  <a href="../development/ui-design-principles-notes.md"
+                    >ui-design-principles-notes.md</a
+                  >。
                 </td>
               </tr>
               <tr>

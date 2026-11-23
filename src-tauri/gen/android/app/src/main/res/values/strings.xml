@@ -6,4 +6,6 @@
     <string name="video_download_progress_file">File %1$d/%2$d</string>
     <string name="video_download_channel_name">Video downloads</string>
     <string name="video_download_channel_description">Shows the progress of video downloads</string>
+    <string name="video_download_failed_title">Video download failed</string>
+    <string name="video_download_failed_text">Please try again.</string>
 </resources>

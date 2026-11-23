@@ -26,7 +26,12 @@ class StringResourcesTest {
   private val default by lazy { load("values") }
   private val ja by lazy { load("values-ja") }
 
-  private fun specifiers(text: String): List<String> = formatSpecifier.findAll(text).map { it.value }.sorted().toList()
+  private fun specifiers(text: String): List<String> =
+    formatSpecifier
+      .findAll(text)
+      .map { it.value }
+      .sorted()
+      .toList()
 
   @Test
   fun `既定と日本語のキー集合が一致する_ただしアプリ名とタイトルは既定のみ`() {
@@ -57,6 +62,8 @@ class StringResourcesTest {
         "video_download_progress_file" to "ファイル %1\$d/%2\$d",
         "video_download_channel_name" to "動画ダウンロード",
         "video_download_channel_description" to "動画ダウンロードの進捗を表示します",
+        "video_download_failed_title" to "動画のダウンロードに失敗しました",
+        "video_download_failed_text" to "もう一度お試しください。",
       )
     assertEquals(expected, ja.filterKeys { it in expected.keys })
     assertEquals(expected.keys, ja.keys)
@@ -64,13 +71,16 @@ class StringResourcesTest {
 
   @Test
   fun `通知サービスのコメント以外に日本語の直書きがない`() {
-    val file = File("src/main/java/com/natsuyasai/multicolumnx/VideoDownloadForegroundService.kt")
-    assertTrue("${file.path} が見つかりません", file.exists())
-    val offending =
-      file.readLines().filter { line ->
-        val code = line.substringBefore("//")
-        japanese.containsMatchIn(code) && !line.trim().startsWith("*") && !line.trim().startsWith("/*")
-      }
-    assertTrue("日本語の直書き: $offending", offending.isEmpty())
+    val names = listOf("VideoDownloadForegroundService.kt", "VideoDownloadNotifications.kt")
+    for (name in names) {
+      val file = File("src/main/java/com/natsuyasai/multicolumnx/$name")
+      assertTrue("${file.path} が見つかりません", file.exists())
+      val offending =
+        file.readLines().filter { line ->
+          val code = line.substringBefore("//")
+          japanese.containsMatchIn(code) && !line.trim().startsWith("*") && !line.trim().startsWith("/*")
+        }
+      assertTrue("日本語の直書き($name): $offending", offending.isEmpty())
+    }
   }
 }

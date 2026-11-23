@@ -129,10 +129,25 @@ Object.assign(window.MCX_DATA.details, {
   "react.styles": {
     title: "styles/ と index.css",
     layer: "react",
-    summary: "配色トークン（index.css）と SCSS の共有ミキシン（styles/）。",
-    body: "<p><code>index.css</code> に配色トークン（<code>--mcx-*</code>）。パネル型ダイアログの Android 全画面化は <code>styles/_dialog-fullscreen.scss</code> のミキシンを使う。寸法は <code>rem</code> で書く。</p>",
-    files: ["src/index.css", "src/styles/_dialog-fullscreen.scss"],
-    docs: ["../development/ui-scale-notes.md"],
+    summary:
+      "配色トークン（index.css）と、SCSS の共有トークン・ミキシン（styles/）。",
+    body:
+      "<p><code>index.css</code> に配色トークン（<code>--mcx-*</code>）とグローバル既定（<code>:focus-visible</code>・<code>:disabled</code>・<code>prefers-reduced-motion</code>）。寸法は <code>rem</code> で書く。</p>" +
+      "<ul><li><b>_tokens.scss</b>: 余白・角丸・文字サイズ・動きの時間・タップ領域の SCSS 変数。Storybook は <code>index.css</code> を読まないため CSS 変数ではなく SCSS 変数。</li>" +
+      "<li><b>_mixins.scss</b>: <code>focus-ring</code> / <code>transition-base</code> / <code>android-tap-target</code> / <code>android-button-gap</code>。</li>" +
+      "<li><b>_dialog-fullscreen.scss</b>: パネル型ダイアログの Android 全画面化。</li></ul>" +
+      "<p>各 <code>*.module.scss</code> は契約テスト <code>uiDesign.contract.test.ts</code> が検査する（余白は 0.25rem の倍数・最小文字 0.75rem・状態の定義・Android の 44px など。除外リストは無い）。</p>",
+    files: [
+      "src/index.css",
+      "src/styles/_tokens.scss",
+      "src/styles/_mixins.scss",
+      "src/styles/_dialog-fullscreen.scss",
+      "src/lib/uiDesign.contract.test.ts",
+    ],
+    docs: [
+      "../development/ui-design-principles-notes.md",
+      "../development/ui-scale-notes.md",
+    ],
   },
   "react.types": {
     title: "types/index.ts",
@@ -445,7 +460,7 @@ Object.assign(window.MCX_DATA.flows, {
         label: "invoke('resize_column_webview')",
         kind: "invoke",
         detail:
-          "<p>Linux は WebviewWindow の再配置になり負荷が高いため、スクロール起因の呼び出しは <code>rafThrottle</code> で 1 フレーム 1 回に間引く。</p>",
+          "<p>Linux は WebviewWindow の再配置になり負荷が高いため、スクロール起因の呼び出しは <code>rafThrottle</code> で 1 フレーム 1 回に間引く。さらに再配置は <code>serializeLatest</code> で直列化し、前回の完了前に次を投げない（古い位置指定の追い越し防止）。</p>",
       },
     ],
   },
@@ -640,21 +655,25 @@ Object.assign(window.MCX_DATA.catalogs, {
           "カラム個別設定パネル。適用時は当該カラムの WebView を再構築。",
         kind: "ダイアログ",
         detail:
-          "<p>props: <code>column / onApply / onClose / onReload / isMobile</code>。<code>SettingsSections.tsx</code>、<code>lineListInputs.ts</code>（NG ワード等の行入力）を内包。</p>",
+          "<p>props: <code>column / onApply / onClose / onReload / isMobile</code>。<code>SettingsSections.tsx</code>、<code>lineListInputs.ts</code>（NG ワード等の行入力）を内包。タブ（基本 / 表示 / フィルタ / カスタム CSS。外部サイトカラムはタブ無し）は <code>columnSettingsTabs.ts</code>、キー移動は <code>useTabListKeyboard</code>。</p>",
         files: [
           "src/components/SettingsPanel/SettingsPanel.tsx",
           "src/components/SettingsPanel/SettingsSections.tsx",
+          "src/components/SettingsPanel/columnSettingsTabs.ts",
         ],
       },
       {
         name: "AppSettingsPanel",
         summary:
-          "アプリ全体設定パネル（一般・カラムレイアウト・既定値・プリセット・バックアップ・拡張機能・情報）。",
+          "アプリ全体設定パネル（サイドナビのカテゴリ切り替え。表示・閲覧・フィルタ・メディア・カラム既定値・Android専用・カラム配置・プリセット・拡張機能・バックアップ・メンテナンス・このアプリについて）。",
         kind: "ダイアログ",
         detail:
-          "<p>props: <code>settings / columns / accounts / onApply / onApplyLayout / onApplyColumnDefaults …</code>。タブ単位のファイル（<code>ColumnLayoutTab / PresetsTab / BackupTab / ExtensionsTab</code>）と、セクション分割（<code>GeneralSettingsSections</code> など）。下書き管理は <code>settingsDraft.ts</code> / <code>columnLayoutDraft.ts</code>。</p>",
+          "<p>props: <code>settings / columns / accounts / onApply / onApplyLayout / onApplyColumnDefaults …</code>。カテゴリ定義は <code>settingsCategories.ts</code>（唯一の場所。<code>DRAFT_KEY_CATEGORY</code> が下書きキーの割当を型で強制し、<code>dirtyCategories</code> が値比較で未適用の印を出す）、ナビは <code>SettingsCategoryNav</code>（Android は <code>SettingsCategoryList</code>）。カテゴリ単位のファイル（<code>ColumnLayoutTab / PresetsTab / BackupTab / ExtensionsTab</code>）と、セクション分割（<code>GeneralSettingsSections</code> / <code>AppInfoSections</code> など）。下書き管理は <code>settingsDraft.ts</code> / <code>columnLayoutDraft.ts</code>。表示 / 閲覧・フィルタ / メディア / カラム既定値 / Android専用 は 1 つの下書きを共有し「適用」でまとめて保存。Android の戻る操作は <code>useAndroidBackHandler</code>。詳細は <code>settings-panel-navigation-notes.md</code>。</p>",
         files: [
           "src/components/AppSettingsPanel/AppSettingsPanel.tsx",
+          "src/components/AppSettingsPanel/settingsCategories.ts",
+          "src/components/AppSettingsPanel/SettingsCategoryNav.tsx",
+          "src/components/AppSettingsPanel/SettingsCategoryList.tsx",
           "src/components/AppSettingsPanel/BackupTab.tsx",
           "src/components/AppSettingsPanel/ExtensionsTab.tsx",
         ],
@@ -736,6 +755,15 @@ Object.assign(window.MCX_DATA.catalogs, {
         files: ["src/components/NoAccountsPrompt/NoAccountsPrompt.tsx"],
       },
       {
+        name: "StatusMark",
+        summary: "成功・警告・選択中を色だけで伝えないための記号（✓ / ⚠）。",
+        kind: "部品",
+        detail:
+          '<p>props: <code>kind: "success" | "warning" | "selected"</code>。<code>aria-hidden</code> で、読み上げは隣の本文に任せる。</p>',
+        files: ["src/components/StatusMark/StatusMark.tsx"],
+        docs: ["../development/ui-design-principles-notes.md"],
+      },
+      {
         name: "HelpPopover",
         summary: "設定項目横の「？」ヘルプ用ポップオーバー。",
         kind: "部品",
@@ -792,6 +820,29 @@ Object.assign(window.MCX_DATA.catalogs, {
         detail:
           "<p><code>setActiveColumn</code> は Cookie 切替 → hide 分 → show 分（アクティブを最後）の順に resize。世代番号で古い呼び出しを打ち切る。アクティブ ID は localStorage に保存しバックグラウンド復帰に備える。</p>",
         files: ["src/hooks/useMobileColumns.ts"],
+      },
+      {
+        name: "useAndroidBackHandler",
+        summary:
+          "Android の端末の戻る操作のハンドラを enabled の間だけ登録する。",
+        area: "UI",
+        detail:
+          "<p><code>lib/androidBackHandler.ts</code> の登録簿に登録（後から登録したものが優先）。ネイティブ（MainActivity）が <code>window.__mcxHandleBack()</code> で問い合わせ、true を返したものが処理した扱い。<code>App.tsx</code> がモバイル起動時に入口を公開する。</p>",
+        files: [
+          "src/hooks/useAndroidBackHandler.ts",
+          "src/lib/androidBackHandler.ts",
+        ],
+        docs: ["../development/settings-panel-navigation-notes.md"],
+      },
+      {
+        name: "useTabListKeyboard",
+        summary:
+          "タブ列・サイドナビの矢印 / Home / End キー移動（アプリ設定のサイドナビとカラム設定のタブで共用）。",
+        area: "UI",
+        files: [
+          "src/hooks/useTabListKeyboard.ts",
+          "src/lib/tabListKeyboard.ts",
+        ],
       },
       {
         name: "useColumnNavigation",
@@ -896,8 +947,9 @@ Object.assign(window.MCX_DATA.catalogs, {
           "自動更新（起動時チェック・手動チェック・インストール・進捗）。",
         area: "更新",
         detail:
-          "<p>見送り済みバージョンは localStorage で抑制。updater は <code>createUpdater(isMobile)</code> で desktop／mobile 実装を切替。</p>",
+          "<p>見送り済みバージョンは localStorage で抑制。updater は <code>createUpdater(isMobile)</code> で desktop／mobile 実装を切替。ビルド時の <code>VITE_UPDATER_MOCK</code> で偽 Updater（<code>mockUpdater.ts</code>）に差し替わる（試験用。未設定なら本物）。</p>",
         files: ["src/hooks/useAppUpdater.ts", "src/services/updater.ts"],
+        docs: ["../development/updater-test-notes.md"],
       },
       {
         name: "useWhatsNew",
@@ -924,6 +976,14 @@ Object.assign(window.MCX_DATA.catalogs, {
         summary: "Esc キーで閉じる・外側クリックで閉じる共通フック。",
         area: "UI",
         files: ["src/hooks/useEscapeKey.ts", "src/hooks/useOutsideClick.ts"],
+      },
+      {
+        name: "useRestoreFocus",
+        summary:
+          "ダイアログを閉じたとき、開く前にフォーカスしていた要素へ戻す。",
+        area: "UI",
+        files: ["src/hooks/useRestoreFocus.ts"],
+        docs: ["../development/ui-design-principles-notes.md"],
       },
     ],
   },
@@ -1064,6 +1124,12 @@ Object.assign(window.MCX_DATA.catalogs, {
         name: "rafThrottle.ts",
         summary: "rAF で呼び出しを 1 フレーム 1 回に間引く。",
         files: ["src/lib/rafThrottle.ts"],
+      },
+      {
+        name: "serializeLatest.ts",
+        summary:
+          "非同期処理を同時 1 件に直列化し、実行中の要求は完了後に 1 回だけ実行する。",
+        files: ["src/lib/serializeLatest.ts"],
       },
       {
         name: "log.ts",

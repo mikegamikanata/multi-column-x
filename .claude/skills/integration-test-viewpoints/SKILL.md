@@ -34,9 +34,10 @@ argument-hint: "対象のプラン名や対象範囲（省略時は現在のブ�
    - 画面遷移・ダイアログ表示/非表示（`hideColumnWebviews` / `recalculateAllBounds` が絡む変更は特に）
    - **desktop/mobile 両対応の機能は両プラットフォームの確認観点を含める**（`#[cfg(desktop)]` / `#[cfg(mobile)]` の分岐がある場合は必須）
    - Android の `MainActivity` メソッド変更を伴う場合は、リリースビルドでの動作確認（ProGuard keep ルール）を観点に含める
-   - Linux 固有のクリッピング仕様（`linux_column_layout`）に触れる変更は、Linux環境での確認観点を明記する
+   - Linux 固有のクリッピング仕様（`linux_column_layout`）に触れる変更は、Linux環境での確認観点を明記する（Linux は `autonomous-manual-test` の Linux 手順で自律実施できる項目がある。実施方法の目安は同スキルの「Linux」節）
 4. 単体テスト・Storybook play function・プロパティテストで自動検証済みの内容は「自動テスト済み」と注記し、手動確認の優先度を下げる
 5. 下記フォーマットで出力する
+6. 洗い出した観点のうち、**次回以降のリリースでも回帰確認が必要なもの**を `docs/release/pre-release-checklist.md` に項目として追加する（同じ PR でコミットする）。書き方は既存行に合わせ、No. は各プレフィックスの最大番号の次を使う（再採番しない）。チェックリストには**結果・実施日・実施回数を書かない**（結果はリリース時に `pre-release-test` がリリース PR に記載する）。追加が不要と判断した場合は、その旨を報告に書く
 
 ## 出力先
 
@@ -69,8 +70,9 @@ argument-hint: "対象のプラン名や対象範囲（省略時は現在のブ�
 - 承認済みGherkinの `@manual` シナリオがすべて手動テスト項目として出力されている（`@manual` が0件の場合は「手動確認対象なし」と明記して出力する）
 - 変更内容に基づく確認観点の一覧が出力されている
 - 自動テスト済みの項目には注記がある
+- 次回以降のリリースでも確認が必要な観点が `docs/release/pre-release-checklist.md` に追加されている（不要ならその判断を報告済み）
 
-出力後は `superpowers:finishing-a-development-branch` でマージ/PRの判断に進む。
+出力後は `autonomous-manual-test` で、エージェントが自律実施できる項目（安全ルールの範囲内）を実施して結果を記録し、その後 `superpowers:finishing-a-development-branch` でマージ/PRの判断に進む。
 
 ## 禁止事項
 

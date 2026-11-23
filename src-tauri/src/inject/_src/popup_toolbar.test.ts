@@ -44,6 +44,7 @@ const tauriListenMock = vi.fn(
     _handler: (
       payload: TauriEventPayload<VideoDownloadProgressPayload>,
     ) => void,
+    _options?: { target?: string },
   ) => Promise.resolve<() => void>(() => undefined),
 );
 
@@ -334,6 +335,122 @@ describe("inject/popup_toolbar の動画ダウンロードボタン", () => {
     clickDownloadButton();
 
     expect(tauriInvokeMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("inject/popup_toolbar のAndroidでの動画ダウンロード", () => {
+  beforeEach(() => {
+    tauriInvokeMock.mockClear();
+    postMessageMock.mockClear();
+    window.__TAURI__ = { core: { invoke: tauriInvokeMock } };
+    window.__mcxAccounts = accounts;
+    window.__mcxCurrentAccountId = "acc1";
+    window.__mcxTargetHref = "";
+    window.__mcxEscCloseEnabled = false;
+    window.__mcxPopupBridge = { postMessage: postMessageMock };
+    document
+      .querySelectorAll('[data-testid="videoComponent"]')
+      .forEach((el) => el.remove());
+  });
+
+  afterEach(() => {
+    delete window.__mcxPopupBridge;
+  });
+
+  function placePlayedVideo(): void {
+    const videoComponent = document.createElement("div");
+    videoComponent.dataset.testid = "videoComponent";
+    document.body.appendChild(videoComponent);
+    attachFiber(videoComponent, PLAYER_PROPS);
+  }
+
+  it("Androidのポップアップで再生済みの動画のダウンロードボタンを押すと保存が始まる", async () => {
+    placePlayedVideo();
+    window.__TAURI__ = undefined;
+    await importToolbar();
+
+    clickDownloadButton();
+
+    expect(postMessageMock).toHaveBeenCalledTimes(1);
+    const message = JSON.parse(postMessageMock.mock.calls[0][0] as string);
+    expect(message.type).toBe("downloadVideo");
+    expect(JSON.parse(message.payload)).toEqual({
+      variants: [
+        {
+          contentType: "application/x-mpegURL",
+          url: "https://video.twimg.com/amplify_video/1/pl/xxx.m3u8",
+        },
+        {
+          contentType: "video/mp4",
+          bitrate: 632000,
+          url: "https://video.twimg.com/amplify_video/1/vid/avc1/320x568/xxx.mp4",
+        },
+      ],
+      suggestedFileName: "2083360318248378472",
+    });
+    expect(tauriInvokeMock).not.toHaveBeenCalled();
+  });
+
+  it("Androidのポップアップではデスクトップ用の保存処理が残っていても呼ばれない", async () => {
+    placePlayedVideo();
+    await importToolbar();
+
+    clickDownloadButton();
+
+    expect(postMessageMock).toHaveBeenCalledTimes(1);
+    expect(tauriInvokeMock).not.toHaveBeenCalled();
+  });
+
+  it("Androidのポップアップでダウンロード要求を送るとボタンはすぐ押せる状態に戻る", async () => {
+    placePlayedVideo();
+    window.__TAURI__ = undefined;
+    await importToolbar();
+
+    clickDownloadButton();
+
+    const button = document.querySelector<HTMLButtonElement>(
+      "#tv-popup-download-button",
+    );
+    expect(button?.disabled).toBe(false);
+  });
+
+  it("Androidのポップアップで動画が未再生のときにボタンを押すと再生を促すメッセージが出る", async () => {
+    window.__TAURI__ = undefined;
+    await importToolbar();
+
+    clickDownloadButton();
+
+    const status = document.querySelector<HTMLSpanElement>(
+      "#tv-popup-download-status",
+    );
+    expect(status?.textContent).toBe(
+      "動画を再生してからダウンロードしてください",
+    );
+    expect(postMessageMock).not.toHaveBeenCalled();
+    expect(tauriInvokeMock).not.toHaveBeenCalled();
+  });
+
+  it("保存処理へ要求を送る手段が無いポップアップではダウンロードボタンを表示しない", async () => {
+    placePlayedVideo();
+    window.__TAURI__ = undefined;
+    delete window.__mcxPopupBridge;
+    await importToolbar();
+
+    const button = document.querySelector<HTMLButtonElement>(
+      "#tv-popup-download-button",
+    );
+    expect(button?.style.display).toBe("none");
+  });
+
+  it("Androidのブリッジだけがあるポップアップでは動画があればダウンロードボタンを表示する", async () => {
+    placePlayedVideo();
+    window.__TAURI__ = undefined;
+    await importToolbar();
+
+    const button = document.querySelector<HTMLButtonElement>(
+      "#tv-popup-download-button",
+    );
+    expect(button?.style.display).toBe("");
   });
 });
 
@@ -869,10 +986,46 @@ describe("inject/popup_toolbar の動画ダウンロード進捗イベント受�
     window.__mcxTargetHref = "";
     window.__mcxEscCloseEnabled = false;
     delete window.__mcxPopupBridge;
+    delete window.__TAURI_INTERNALS__;
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    delete window.__TAURI_INTERNALS__;
+  });
+
+  it("自WebViewのラベルが取れるときはそのラベル宛てに限定してlistenする", async () => {
+    window.__TAURI_INTERNALS__ = {
+      metadata: { currentWebview: { label: "popup-1" } },
+    } as typeof window.__TAURI_INTERNALS__;
+
+    await importToolbar();
+
+    const call = tauriListenMock.mock.calls.find(
+      (c) => c[0] === "video-download-progress",
+    );
+    expect(call?.[2]).toEqual({ target: "popup-1" });
+  });
+
+  it("自WebViewのラベルが取れないときは従来どおりtarget指定なしでlistenし進捗表示が更新される", async () => {
+    await importToolbar();
+
+    const call = tauriListenMock.mock.calls.find(
+      (c) => c[0] === "video-download-progress",
+    );
+    expect(call?.[2]).toBeUndefined();
+
+    getListenHandler()({
+      event: "video-download-progress",
+      payload: {
+        fileIndex: 1,
+        fileCount: 1,
+        current: 50,
+        total: 100,
+        phase: "downloading",
+      },
+    });
+    expect(getStatus().textContent).toBe("ダウンロード中 50%");
   });
 
   it("進捗イベントを受信するとdownloadStatusのテキストが更新される", async () => {

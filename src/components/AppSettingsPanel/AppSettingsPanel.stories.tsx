@@ -5,6 +5,12 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { AppSettingsPanel } from "@/components/AppSettingsPanel/AppSettingsPanel";
 import i18n from "@/i18n";
 import { useAppStore } from "@/store/useAppStore";
+import { installThemeTokens } from "@/test-utils/storyTheme";
+import {
+  expectAdjacentGap,
+  expectTapTargets,
+  setPlatform,
+} from "@/test-utils/tapTargets";
 import type { Account, Column, GlobalSettings } from "@/types";
 
 const columnSettings = {
@@ -49,6 +55,7 @@ const globalSettings: GlobalSettings = {
   blurImageEnabled: false,
   blurImageAmount: "10px",
   hideAdEnabled: true,
+  hideGrokButtonEnabled: false,
   apiRateLimitMonitorEnabled: true,
   columnScale: "default",
   uiScale: "auto",
@@ -149,6 +156,22 @@ function AndroidRoot({
   return <>{children}</>;
 }
 
+type Canvas = ReturnType<typeof within>;
+
+/** デスクトップはサイドナビ、モバイルはカテゴリ一覧から、前方一致でカテゴリを開く */
+async function openCategory(canvas: Canvas, label: string) {
+  const nav = canvas.queryByRole("navigation");
+  const scope = nav ? within(nav) : canvas;
+  await userEvent.click(
+    scope.getByRole("button", { name: new RegExp(`^${label}`) }),
+  );
+}
+
+/** モバイルの詳細画面からカテゴリ一覧へ戻る */
+async function backToList(canvas: Canvas) {
+  await userEvent.click(canvas.getByRole("button", { name: "戻る" }));
+}
+
 function queryPanel(canvasElement: HTMLElement): HTMLElement {
   const panel = canvasElement.querySelector<HTMLElement>('[class*="panel"]');
   if (!panel) throw new Error("panel 要素が見つかりません");
@@ -174,6 +197,13 @@ const meta: Meta<typeof AppSettingsPanel> = {
   title: "Components/AppSettingsPanel",
   component: AppSettingsPanel,
   parameters: { layout: "fullscreen" },
+  // Storybook は index.css を読まないため、--mcx-* のテーマ変数を Story 側で有効にする
+  decorators: [
+    (Story) => {
+      installThemeTokens();
+      return <Story />;
+    },
+  ],
   args: {
     settings: globalSettings,
     columns,
@@ -205,11 +235,11 @@ export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("アプリ設定")).toBeInTheDocument();
-    // カラム配置タブに切り替えると表示順序セクションが表示される
-    await userEvent.click(canvas.getByRole("button", { name: "カラム配置" }));
+    // カラム配置カテゴリに切り替えると表示順序セクションが表示される
+    await openCategory(canvas, "カラム配置");
     await expect(canvas.getByText("表示順序")).toBeInTheDocument();
-    // プリセットタブに切り替えると保存セクションが表示される
-    await userEvent.click(canvas.getByRole("button", { name: "プリセット" }));
+    // プリセットカテゴリに切り替えると保存セクションが表示される
+    await openCategory(canvas, "プリセット");
     await expect(
       canvas.getByPlaceholderText("プリセット名を入力"),
     ).toBeInTheDocument();
@@ -220,12 +250,20 @@ export const InvalidRepostHiddenUserId: Story = {
   name: "不正なユーザーIDを入力して適用するとエラーが表示される",
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "閲覧・フィルタ");
     const textarea = canvas.getByRole("textbox", {
       name: "リポストを非表示にするユーザー",
     });
     await userEvent.clear(textarea);
     await userEvent.type(textarea, "valid_id{Enter}bad-id!");
+    // 別カテゴリで適用しても、エラーのある「閲覧・フィルタ」へ切り替わる
+    await openCategory(canvas, "メディア");
     await userEvent.click(canvas.getByRole("button", { name: "適用" }));
+    await expect(
+      within(canvas.getByRole("navigation")).getByRole("button", {
+        name: /^閲覧・フィルタ/,
+      }),
+    ).toHaveAttribute("aria-current", "page");
     await expect(
       canvas.getByText(
         "`bad-id!` はXのユーザーIDとして正しくありません（英数字とアンダースコアの1〜15文字）",
@@ -243,6 +281,7 @@ export const WithRepostHiddenUserIds: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "閲覧・フィルタ");
     const textarea = canvas.getByRole("textbox", {
       name: "リポストを非表示にするユーザー",
     }) as HTMLTextAreaElement;
@@ -263,6 +302,7 @@ export const PendingDataDirectoryDeletion: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "メンテナンス");
     await expect(canvas.getByText(/1件/)).toBeInTheDocument();
     const retryButton = canvas.getByRole("button", {
       name: "データフォルダの削除を再実行",
@@ -344,6 +384,31 @@ export const ScaleThemeOverrideEnabled: Story = {
   },
 };
 
+export const UnsavedChangesConfirm: Story = {
+  name: "未適用の変更があるときに ✕ で確認メッセージが出て戻れる",
+  args: { onClose: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("checkbox", { name: "テーマを変更する" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "ライト" }));
+    await userEvent.click(canvas.getByText("✕"));
+    const dialog = await canvas.findByRole("dialog", {
+      name: "未適用の変更があります",
+    });
+    await expect(args.onClose).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "戻る" }));
+    await expect(
+      canvas.queryByRole("dialog", { name: "未適用の変更があります" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "ライト" }).className,
+    ).toMatch(/scaleBtnActive/);
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
 export const EnglishLanguage: Story = {
   name: "表示言語: 英語表示で言語選択肢が各言語の表記で並ぶ",
   decorators: [
@@ -413,6 +478,7 @@ export const UiScaleMobile: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "表示");
     await expect(
       canvas.getByRole("group", { name: "アプリUIの表示サイズ" }),
     ).toBeInTheDocument();
@@ -424,6 +490,7 @@ const linuxH264Base = {
   h264Available: false,
   downloadState: "idle" as const,
   downloadError: null,
+  relaunchError: null,
   onEnable: fn(),
   onRelaunch: fn(),
 };
@@ -437,6 +504,7 @@ export const LinuxAppImageH264NotInstalled: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "メディア");
     await userEvent.click(
       canvas.getByRole("button", { name: "H.264 を有効化" }),
     );
@@ -463,6 +531,7 @@ export const LinuxAppImageH264Installed: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "メディア");
     await expect(canvas.getByText("H.264: 有効化済み")).toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", { name: "H.264 を有効化" }),
@@ -479,6 +548,7 @@ export const LinuxDeb: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "メディア");
     await expect(canvas.queryByText(/H\.264/)).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("checkbox", {
@@ -497,6 +567,7 @@ export const LinuxH264Downloading: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "メディア");
     await expect(canvas.getByText("ダウンロード中…")).toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: "H.264 を有効化" }),
@@ -518,6 +589,37 @@ export const LinuxH264Success: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "メディア");
+    await userEvent.click(canvas.getByRole("button", { name: "今すぐ再起動" }));
+    await expect(args.h264Setup?.onRelaunch).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const LinuxH264RelaunchFailed: Story = {
+  name: "Linux AppImage・H.264再起動失敗（エラー表示）",
+  args: {
+    isLinux: true,
+    startupHardwareVideoDecodeEnabled: true,
+    h264Setup: {
+      ...linuxH264Base,
+      h264Available: true,
+      downloadState: "success",
+      relaunchError: {
+        code: "relaunch.appImageMissing",
+        detail: "/opt/app.AppImage",
+      },
+      onRelaunch: fn(),
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await openCategory(canvas, "メディア");
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "AppImage が見つからない",
+    );
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "/opt/app.AppImage",
+    );
     await userEvent.click(canvas.getByRole("button", { name: "今すぐ再起動" }));
     await expect(args.h264Setup?.onRelaunch).toHaveBeenCalledTimes(1);
   },
@@ -537,6 +639,7 @@ export const LinuxH264Error: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openCategory(canvas, "メディア");
     await expect(
       canvas.getByText("ネットワークに接続できません"),
     ).toBeInTheDocument();
@@ -578,7 +681,7 @@ export const LinuxAppImageLightTheme: Story = {
 };
 
 export const MobileGroups: Story = {
-  name: "モバイル（Android専用グループ表示・ポップアップ項目なし）",
+  name: "モバイル（カテゴリ一覧にAndroid専用・メディアにポップアップ項目なし）",
   decorators: [
     (Story) => (
       <MobileRoot>
@@ -591,10 +694,14 @@ export const MobileGroups: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Android専用" }),
+      canvas.getByRole("button", { name: /^Android専用/ }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("heading", { name: "メディア" }),
+      canvas.queryByRole("button", { name: /^プリセット/ }),
+    ).not.toBeInTheDocument();
+    await openCategory(canvas, "メディア");
+    await expect(
+      canvas.getByRole("heading", { level: 2, name: "メディア" }),
     ).toBeInTheDocument();
     await expect(
       canvas.queryByRole("checkbox", { name: /ポップアップ/ }),
@@ -616,7 +723,7 @@ export const MobileGroupsLightTheme: Story = {
 };
 
 export const AndroidFullscreenWithMobileGroups: Story = {
-  name: "Android実機相当（全画面・Android専用グループ表示）",
+  name: "Android実機相当（全画面・カテゴリ一覧にAndroid専用表示）",
   decorators: [
     (Story) => (
       <MobileRoot>
@@ -631,7 +738,7 @@ export const AndroidFullscreenWithMobileGroups: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Android専用" }),
+      canvas.getByRole("button", { name: /^Android専用/ }),
     ).toBeInTheDocument();
   },
 };
@@ -714,14 +821,16 @@ function findScroller(panel: HTMLElement): HTMLElement {
 }
 
 export const AndroidHeaderFixedBodyScrolls: Story = {
-  name: "Android全画面ではヘッダーが固定され本文だけがスクロールする",
+  name: "Android全画面ではヘッダーが固定されカテゴリ一覧の本文だけがスクロールする",
   decorators: [
     (Story) => (
-      <ThemeRoot theme="dark">
-        <AndroidRoot fontSize="20px">
-          <Story />
-        </AndroidRoot>
-      </ThemeRoot>
+      <MobileRoot>
+        <ThemeRoot theme="dark">
+          <AndroidRoot fontSize="20px">
+            <Story />
+          </AndroidRoot>
+        </ThemeRoot>
+      </MobileRoot>
     ),
   ],
   play: async ({ canvasElement }) => {
@@ -729,8 +838,8 @@ export const AndroidHeaderFixedBodyScrolls: Story = {
     try {
       const canvas = within(canvasElement);
       const panel = queryPanel(canvasElement);
-      const header = canvas.getByText("アプリ設定")
-        .parentElement as HTMLElement;
+      const header = canvas.getByRole("heading", { level: 2 }).parentElement
+        ?.parentElement as HTMLElement;
       const scroller = findScroller(panel);
       const headerTopBefore = header.getBoundingClientRect().top;
 
@@ -754,14 +863,16 @@ export const AndroidHeaderFixedBodyScrolls: Story = {
 };
 
 export const AndroidLargeScaleNoOverflow: Story = {
-  name: "Android・大きな表示サイズでも設定のタブとボタン行が画面外へはみ出さない",
+  name: "Android・大きな表示サイズでもカテゴリ一覧・詳細・ボタン行が画面外へはみ出さない",
   decorators: [
     (Story) => (
-      <ThemeRoot theme="dark">
-        <AndroidRoot fontSize="20px">
-          <Story />
-        </AndroidRoot>
-      </ThemeRoot>
+      <MobileRoot>
+        <ThemeRoot theme="dark">
+          <AndroidRoot fontSize="20px">
+            <Story />
+          </AndroidRoot>
+        </ThemeRoot>
+      </MobileRoot>
     ),
   ],
   play: async ({ canvasElement }) => {
@@ -771,7 +882,16 @@ export const AndroidLargeScaleNoOverflow: Story = {
       const root = document.documentElement;
       await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
 
-      // フッターボタンが画面内に収まっている
+      // 一覧の最後のカテゴリまで到達でき、画面幅に収まる
+      const last = canvas.getByRole("button", { name: /^このアプリについて/ });
+      last.scrollIntoView({ block: "end" });
+      const lastRect = last.getBoundingClientRect();
+      await expect(lastRect.left).toBeGreaterThanOrEqual(0);
+      await expect(lastRect.right).toBeLessThanOrEqual(window.innerWidth + 1);
+
+      // 詳細画面でもフッターボタンが画面内に収まる
+      await openCategory(canvas, "表示");
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
       for (const name of ["キャンセル", "適用"]) {
         const rect = canvas
           .getByRole("button", { name })
@@ -780,23 +900,299 @@ export const AndroidLargeScaleNoOverflow: Story = {
         await expect(rect.right).toBeLessThanOrEqual(window.innerWidth);
         await expect(rect.bottom).toBeLessThanOrEqual(window.innerHeight);
       }
-
-      // 最後のタブまでスクロールして到達でき、選択できる
-      const tabs = canvasElement.querySelector<HTMLElement>('[class*="tabs"]');
-      if (!tabs) throw new Error("tabs 要素が見つかりません");
-      // 溢れるタブ列はユーザーが横スクロールできる
-      await expect(tabs.scrollWidth).toBeGreaterThan(tabs.clientWidth);
-      await expect(getComputedStyle(tabs).overflowX).toBe("auto");
-      const lastTab = tabs.lastElementChild as HTMLElement;
-      lastTab.scrollIntoView({ inline: "end" });
-      const tabRect = lastTab.getBoundingClientRect();
-      await expect(tabRect.left).toBeGreaterThanOrEqual(0);
-      await expect(tabRect.right).toBeLessThanOrEqual(window.innerWidth + 1);
-      await userEvent.click(lastTab);
-      await expect(lastTab.className).toMatch(/tabActive/);
-      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      const back = canvas.getByRole("button", { name: "戻る" });
+      await expect(back.getBoundingClientRect().left).toBeGreaterThanOrEqual(0);
     } finally {
       await restoreViewport();
     }
+  },
+};
+
+export const AndroidTapTargets: Story = {
+  name: "Android・カテゴリ一覧と各詳細の操作要素がすべて44px以上で隣り合うボタンに間隔がある",
+  args: {
+    updateManualResult: "error",
+    pendingDataDirectoryDeletionCount: 1,
+  },
+  decorators: [
+    (Story) => (
+      <MobileRoot>
+        <Story />
+      </MobileRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const restorePlatform = setPlatform("android");
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      const canvas = within(canvasElement);
+      await expectTapTargets(canvasElement, 44);
+      await expectAdjacentGap(canvasElement, 8);
+      for (const name of [
+        "表示",
+        "閲覧・フィルタ",
+        "メディア",
+        "カラム既定値",
+        "Android専用",
+        "メンテナンス",
+        "このアプリについて",
+      ]) {
+        await openCategory(canvas, name);
+        await expectTapTargets(canvasElement, 44);
+        await expectAdjacentGap(canvasElement, 8);
+        await backToList(canvas);
+      }
+    } finally {
+      await restoreViewport();
+      restorePlatform();
+    }
+  },
+};
+
+// 更新確認ボタンの押下で結果（最新）が出る状態を再現するラッパー
+function UpdateCheckHarness(
+  props: React.ComponentProps<typeof AppSettingsPanel>,
+) {
+  const [result, setResult] = useState<"idle" | "none" | "error">("idle");
+  return (
+    <AppSettingsPanel
+      {...props}
+      updateManualResult={result}
+      onCheckUpdate={() => setResult("none")}
+    />
+  );
+}
+
+export const UpdateCheckResultScrollsIntoView: Story = {
+  name: "更新確認の結果が下端でも見える位置まで自動スクロールされる",
+  render: (args) => <UpdateCheckHarness {...args} />,
+  decorators: [
+    (Story) => (
+      <MobileRoot>
+        <Story />
+      </MobileRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const restorePlatform = setPlatform("android");
+    const restoreViewport = await narrowViewport(360, 360);
+    try {
+      const panel = queryPanel(canvasElement);
+      await openCategory(canvas, "このアプリについて");
+      await userEvent.click(canvas.getByRole("button", { name: "更新を確認" }));
+      const result = await canvas.findByRole("status");
+      const area = panel.querySelector<HTMLElement>('[class*="content"]');
+      if (!area) throw new Error("本文の要素が見つかりません");
+      // スクロールの反映を待つ
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(null)),
+      );
+      const resultRect = result.getBoundingClientRect();
+      const areaRect = area.getBoundingClientRect();
+      await expect(resultRect.top).toBeGreaterThanOrEqual(areaRect.top);
+      await expect(resultRect.bottom).toBeLessThanOrEqual(areaRect.bottom);
+    } finally {
+      await restoreViewport();
+      restorePlatform();
+    }
+  },
+};
+
+export const KeyboardFocusShowsRing: Story = {
+  name: "キーボードでフォーカスしたボタンにはフォーカスリングが出る",
+  play: async ({ canvasElement }) => {
+    await userEvent.tab();
+    const focused = document.activeElement as HTMLElement;
+    await expect(focused).toBe(
+      within(canvasElement).getByRole("button", { name: "閉じる" }),
+    );
+    await expect(getComputedStyle(focused).outlineStyle).not.toBe("none");
+  },
+};
+
+export const KeyboardFocusRingOnCheckboxRow: Story = {
+  name: "キーボードでチェックボックスにフォーカスすると行全体にフォーカスリングが出る",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await openCategory(canvas, "メディア");
+    const checkbox = canvas.getByRole("checkbox", {
+      name: "Escキーで閉じる",
+    });
+    // キーボードの Tab 送りで到達させる（プログラムからの focus() では focus-visible にならないことがある）
+    for (let i = 0; i < 40 && document.activeElement !== checkbox; i++) {
+      await userEvent.tab();
+    }
+    await expect(document.activeElement).toBe(checkbox);
+    const label = checkbox.closest("label") as HTMLElement;
+    await expect(getComputedStyle(label).outlineStyle).not.toBe("none");
+  },
+};
+
+export const AndroidOtherTabsTapTargets: Story = {
+  name: "Android・カラム配置とバックアップのカテゴリを開いても操作要素が44px以上で間隔があり横にはみ出さない",
+  decorators: [
+    (Story) => (
+      <MobileRoot>
+        <Story />
+      </MobileRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const restorePlatform = setPlatform("android");
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      const root = document.documentElement;
+      for (const name of ["カラム配置", "バックアップ"]) {
+        await openCategory(canvas, name);
+        await expect(
+          canvas.getByRole("heading", { level: 2, name }),
+        ).toBeInTheDocument();
+        await expectTapTargets(canvasElement, 44);
+        await expectAdjacentGap(canvasElement, 8);
+        await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+        await backToList(canvas);
+      }
+    } finally {
+      await restoreViewport();
+      restorePlatform();
+    }
+  },
+};
+
+export const DisplayCategoryInitial: Story = {
+  name: "開くと表示カテゴリが選ばれ、表示言語・テーマと表示サイズ・API残量モニターが並ぶ",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const nav = within(canvas.getByRole("navigation"));
+    await expect(nav.getByRole("button", { name: /^表示/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(
+      canvas.getByRole("group", { name: "表示言語" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { level: 3, name: "テーマと表示サイズ" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { level: 3, name: "API残量モニター" }),
+    ).toBeInTheDocument();
+  },
+};
+
+export const NavigateCategories: Story = {
+  name: "サイドナビでカテゴリを切り替えるとそのページだけが表示され、矢印キーでも移動できる",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const nav = within(canvas.getByRole("navigation"));
+    await openCategory(canvas, "メディア");
+    await expect(
+      nav.getByRole("button", { name: /^メディア/ }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      canvas.getByRole("checkbox", { name: "動画の自動再生を停止する" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("checkbox", { name: "テーマを変更する" }),
+    ).not.toBeInTheDocument();
+
+    await openCategory(canvas, "表示");
+    nav.getByRole("button", { name: /^表示/ }).focus();
+    await userEvent.keyboard("{ArrowDown}");
+    await expect(
+      nav.getByRole("button", { name: /^閲覧・フィルタ/ }),
+    ).toHaveFocus();
+    await expect(
+      canvas.getByRole("heading", { level: 3, name: "X公式設定" }),
+    ).toBeInTheDocument();
+  },
+};
+
+export const ApplyAcrossCategories: Story = {
+  name: "複数カテゴリで編集した値は未適用の印が付き、1回の適用でまとめて保存される",
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const nav = within(canvas.getByRole("navigation"));
+    await userEvent.click(
+      canvas.getByRole("checkbox", { name: "テーマを変更する" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "ライト" }));
+    await expect(
+      nav.getByRole("button", { name: /^表示/ }),
+    ).toHaveAccessibleName(/未適用の変更あり/);
+    await openCategory(canvas, "メディア");
+    await userEvent.click(
+      canvas.getByRole("checkbox", { name: "動画の自動再生を停止する" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "適用" }));
+    await expect(args.onApply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        theme: "light",
+        videoAutoPlayStopEnabled: false,
+      }),
+    );
+    await expect(args.onClose).toHaveBeenCalled();
+  },
+};
+
+export const InvalidNgWordsSwitchesToFilter: Story = {
+  name: "別カテゴリでNGワードの入力エラーがあると適用時に閲覧・フィルタへ切り替わり印が付く",
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const nav = within(canvas.getByRole("navigation"));
+    await openCategory(canvas, "閲覧・フィルタ");
+    const textarea = canvas.getByRole("textbox", {
+      name: "グローバルNGワード",
+    });
+    await userEvent.clear(textarea);
+    await userEvent.type(textarea, "/(/");
+    await openCategory(canvas, "表示");
+    await userEvent.click(canvas.getByRole("button", { name: "適用" }));
+    await expect(args.onApply).not.toHaveBeenCalled();
+    await expect(
+      nav.getByRole("button", { name: /^閲覧・フィルタ/ }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      nav.getByRole("button", { name: /^閲覧・フィルタ/ }),
+    ).toHaveAccessibleName(/入力エラーあり/);
+    await expect(canvas.getByText(/正規表現が不正です/)).toBeInTheDocument();
+  },
+};
+
+export const MobileListToDetail: Story = {
+  name: "Android: カテゴリ一覧から詳細へ進み、戻るボタンで一覧に戻る",
+  decorators: [
+    (Story) => (
+      <MobileRoot>
+        <ThemeRoot theme="dark">
+          <AndroidRoot>
+            <Story />
+          </AndroidRoot>
+        </ThemeRoot>
+      </MobileRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryAllByRole("checkbox")).toHaveLength(0);
+    await expect(
+      canvas.getByRole("button", {
+        name: /^メディア.*動画・ポップアップウィンドウ/,
+      }),
+    ).toBeInTheDocument();
+    await openCategory(canvas, "表示");
+    await userEvent.click(
+      canvas.getByRole("checkbox", { name: "テーマを変更する" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "ライト" }));
+    await backToList(canvas);
+    await expect(
+      canvas.getByRole("button", { name: /^表示/ }),
+    ).toHaveAccessibleName(/未適用の変更あり/);
+    await expect(
+      canvas.getByRole("button", { name: "適用" }),
+    ).toBeInTheDocument();
   },
 };

@@ -26,7 +26,7 @@ See [Installation](./install) and [Updating the App](./update) for details.
 | Swipe to switch columns            |   －    |  －   |    ○    | Not needed on desktop, because multiple columns are shown side by side                                                                                                             |
 | Keyboard shortcuts                 |    ○    |   ○   |   －    | Not needed on Android, where operation is mainly through the screen                                                                                                                |
 | Showing multiple columns at once   |    ○    |   ○   |    ○    | Desktop always shows multiple columns side by side. On Android, wide screens (landscape, tablets, etc.) can show 2 to 6 columns depending on the settings (supported devices only) |
-| Reordering columns                 |    ○    |   ○   |    ○    | On desktop, drag on the toolbar; on Android, use ▲ / ▼ on the "Column layout" tab                                                                                                  |
+| Reordering columns                 |    ○    |   ○   |    ○    | On desktop, drag on the toolbar; on Android, use ▲ / ▼ in the "Column layout" category                                                                                             |
 | Collapsing / expanding the toolbar |    ○    |   ○   |   －    | Android has no toolbar (you can open and close the tab bar menu)                                                                                                                   |
 
 ## Accounts and columns
@@ -43,14 +43,14 @@ See [Installation](./install) and [Updating the App](./update) for details.
 
 ## Popups and posting
 
-| Feature                            | Windows | Linux | Android | Notes                                                                                                   |
-| ---------------------------------- | :-----: | :---: | :-----: | ------------------------------------------------------------------------------------------------------- |
-| Popup display of images and videos |    ○    |   ○   |    ○    |                                                                                                         |
-| Popup display of any URL           |    ○    |   ○   |    ○    |                                                                                                         |
-| Compose post window                |    ○    |   ○   |    ○    |                                                                                                         |
-| "Launch the X app to post"         |   －    |  －   |    ○    | Desktop uses the in-app compose screen. On Android, set it with "Posting (Android)" in the app settings |
-| Downloading videos                 |    ○    |   ○   |    ○    | On desktop, from the popup toolbar; on Android, from the long-press menu on a video                     |
-| Closing popups with the Esc key    |    ○    |   ○   |   －    | Popups in separate windows exist only on desktop (the "Popup windows" setting is also desktop only)     |
+| Feature                            | Windows | Linux | Android | Notes                                                                                                                    |
+| ---------------------------------- | :-----: | :---: | :-----: | ------------------------------------------------------------------------------------------------------------------------ |
+| Popup display of images and videos |    ○    |   ○   |    ○    |                                                                                                                          |
+| Popup display of any URL           |    ○    |   ○   |    ○    |                                                                                                                          |
+| Compose post window                |    ○    |   ○   |    ○    |                                                                                                                          |
+| "Launch the X app to post"         |   －    |  －   |    ○    | Desktop uses the in-app compose screen. On Android, set it with "Posting (Android)" in the app settings                  |
+| Downloading videos                 |    ○    |   ○   |    ○    | On desktop, from the right-click menu on a column and the popup toolbar; on Android, from the long-press menu on a video |
+| Closing popups with the Esc key    |    ○    |   ○   |   －    | Popups in separate windows exist only on desktop (the "Popup windows" setting is also desktop only)                      |
 
 ## Settings and data
 

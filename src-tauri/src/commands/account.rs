@@ -528,13 +528,13 @@ fn is_safe_account_dir(path: &Path, accounts_root: &Path) -> bool {
 /// データフォルダ削除のリトライ回数・間隔。
 /// Windows の WebView2 はカラム WebView を閉じた直後もブラウザプロセスがフォルダを
 /// 解放するまで短時間ロックを保持することがあるため、即失敗にせず数回リトライする。
-const DELETE_RETRY_MAX_ATTEMPTS: u32 = 5;
-const DELETE_RETRY_INTERVAL: std::time::Duration = std::time::Duration::from_millis(200);
+pub(crate) const DELETE_RETRY_MAX_ATTEMPTS: u32 = 5;
+pub(crate) const DELETE_RETRY_INTERVAL: std::time::Duration = std::time::Duration::from_millis(200);
 
 /// 与えられた非同期操作を最大 `attempts` 回試行する。
 /// 1回目で成功すれば即 Ok を返す。全て失敗した場合は最後のエラーを返す。
 /// 試行の間は `interval` だけ待機する（最後の試行後は待機しない）。
-async fn retry_with_delay<F, Fut, T, E>(
+pub(crate) async fn retry_with_delay<F, Fut, T, E>(
     attempts: u32,
     interval: std::time::Duration,
     mut op: F,
@@ -558,6 +558,13 @@ where
     Err(last_err.expect("at least one attempt is made because of attempts.max(1)"))
 }
 
+/// `delete_account_data` が削除してよいパスか。
+/// accounts 配下、または external_columns 直下の `column-<安全なID>` のみ許可する。
+fn is_safe_deletable_data_dir(path: &Path, app_data: &Path) -> bool {
+    is_safe_account_dir(path, &app_data.join("accounts"))
+        || crate::commands::webview::is_external_column_data_dir(path, app_data)
+}
+
 #[tauri::command]
 pub async fn delete_account_data(
     caller: tauri::Webview,
@@ -565,13 +572,9 @@ pub async fn delete_account_data(
     data_directory: String,
 ) -> Result<(), String> {
     crate::commands::require_main_caller(&caller)?;
-    let accounts_root = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("accounts");
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let path = PathBuf::from(&data_directory);
-    if !is_safe_account_dir(&path, &accounts_root) {
+    if !is_safe_deletable_data_dir(&path, &app_data) {
         return Err("invalid account data directory".to_string());
     }
     retry_with_delay(DELETE_RETRY_MAX_ATTEMPTS, DELETE_RETRY_INTERVAL, || async {
@@ -753,6 +756,53 @@ mod tests {
     fn accountsルート自体は拒否する() {
         let root = Path::new("/data/app/accounts");
         assert!(!is_safe_account_dir(root, root));
+    }
+
+    #[test]
+    fn externalカラムのデータフォルダは削除可能パスとして許可する() {
+        let app_data = Path::new("/data/app");
+        let dir = app_data.join("external_columns").join("column-abc123");
+        assert!(is_safe_deletable_data_dir(&dir, app_data));
+    }
+
+    #[test]
+    fn accounts配下のデータフォルダも削除可能パスとして許可する() {
+        let app_data = Path::new("/data/app");
+        let dir = app_data.join("accounts").join("account-abc");
+        assert!(is_safe_deletable_data_dir(&dir, app_data));
+    }
+
+    #[test]
+    fn 削除可能パスの検証は許可範囲外を拒否する() {
+        let app_data = Path::new("/data/app");
+        let ext = app_data.join("external_columns");
+        let rejected = [
+            ext.clone(),
+            ext.join("column-a").join("sub"),
+            ext.join("foo"),
+            ext.join("column-.."),
+            ext.join("column-a..b"),
+            ext.join("column-"),
+            app_data.join("other").join("column-a"),
+            app_data.join("accounts"),
+            app_data.to_path_buf(),
+            Path::new("/etc").to_path_buf(),
+            PathBuf::from(""),
+        ];
+        for path in rejected {
+            assert!(
+                !is_safe_deletable_data_dir(&path, app_data),
+                "path={path:?}"
+            );
+        }
+        let traversal = ext
+            .join("..")
+            .join("accounts")
+            .join("x")
+            .join("..")
+            .join("..")
+            .join("etc");
+        assert!(!is_safe_deletable_data_dir(&traversal, app_data));
     }
 
     #[tokio::test]

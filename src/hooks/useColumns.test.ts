@@ -38,7 +38,7 @@ vi.mock("../services/externalColumn", () => ({
     async (column: Column, accounts: Account[]) =>
       accounts.find((a) => a.id === column.accountId)?.dataDirectory,
   ),
-  deleteExternalColumnData: vi.fn(async () => undefined),
+  deleteExternalColumnData: vi.fn(async () => null),
 }));
 
 // calculateGridBounds のテストは src/lib/gridLayout.test.ts へ移動した
@@ -182,6 +182,7 @@ describe("useColumns mobile", () => {
         blurImageEnabled: false,
         blurImageAmount: "10px",
         hideAdEnabled: false,
+        hideGrokButtonEnabled: false,
         apiRateLimitMonitorEnabled: true,
         columnScale: "default",
         uiScale: "auto",
@@ -375,6 +376,62 @@ describe("useColumns mobile", () => {
       (c) => c[0] === "resize_column_webview",
     );
     expect(resizeCalls).toHaveLength(0);
+  });
+
+  it("表示窓を維持したままアクティブな右側カラムを選んだ後に左側の表示カラムを作り直しても表示窓は動かない", async () => {
+    useAppStore.setState({ profileApiSupported: true });
+    const { result } = renderHook(() => useColumns());
+    await act(async () => {
+      await result.current.setActiveColumn("col-1");
+    });
+    // col-2 を選んでも表示窓は col-1,col-2 のまま
+    await act(async () => {
+      await result.current.selectColumn("col-2");
+    });
+    vi.clearAllMocks();
+    mockInvoke.mockResolvedValue(undefined);
+
+    await act(async () => {
+      await result.current.recreateColumnWebview("col-1");
+    });
+
+    const resizeCalls = mockInvoke.mock.calls.filter(
+      (c) => c[0] === "resize_column_webview",
+    );
+    const boundsOf = (id: string) =>
+      (
+        resizeCalls.find((c) => (c[1] as any).bounds.columnId === id)?.[1] as {
+          bounds: { x: number };
+        }
+      )?.bounds;
+    expect(boundsOf("col-1")?.x).toBeGreaterThanOrEqual(0);
+    expect(boundsOf("col-3")?.x ?? -1).toBeLessThan(0);
+  });
+
+  it("表示窓の左側の非アクティブカラムを削除すると表示窓の再配置で新しい隣が表示される", async () => {
+    useAppStore.setState({ profileApiSupported: true });
+    const { result } = renderHook(() => useColumns());
+    await act(async () => {
+      await result.current.setActiveColumn("col-1");
+    });
+    // 表示窓 col-1,col-2 のままアクティブを col-2 にする
+    await act(async () => {
+      await result.current.selectColumn("col-2");
+    });
+    vi.clearAllMocks();
+    mockInvoke.mockResolvedValue(undefined);
+
+    await act(async () => {
+      await result.current.handleRemoveColumn("col-1");
+    });
+
+    expect(result.current.activeColumnId).toBe("col-2");
+    const col3Call = mockInvoke.mock.calls.find(
+      (c) =>
+        c[0] === "resize_column_webview" &&
+        (c[1] as any).bounds.columnId === "col-3",
+    );
+    expect((col3Call?.[1] as any)?.bounds.x).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -1306,7 +1363,7 @@ describe("useColumns handleRemoveColumn external", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockInvoke.mockResolvedValue(undefined);
-    mockDeleteExternalColumnData.mockResolvedValue(undefined);
+    mockDeleteExternalColumnData.mockResolvedValue(null);
     useAppStore.setState({
       accounts: [],
       columns: [
@@ -1354,6 +1411,43 @@ describe("useColumns handleRemoveColumn external", () => {
     });
 
     expect(mockDeleteExternalColumnData).not.toHaveBeenCalled();
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "delete_account_data",
+      expect.anything(),
+    );
+    expect(
+      useAppStore.getState().globalSettings.pendingDataDirectoryDeletions,
+    ).toEqual([]);
+  });
+
+  it("削除関数がnullを返したとき削除保留に登録しない", async () => {
+    mockDeleteExternalColumnData.mockResolvedValue(null);
+    const { result } = renderHook(() => useColumns());
+
+    await act(async () => {
+      await result.current.handleRemoveColumn("col-external");
+    });
+
+    expect(
+      useAppStore.getState().globalSettings.pendingDataDirectoryDeletions,
+    ).toEqual([]);
+  });
+
+  it("削除関数がパスを返したとき削除保留に登録しカラム自体は削除される", async () => {
+    const undeleted = "/app/external_columns/column-col-external";
+    mockDeleteExternalColumnData.mockResolvedValue(undeleted);
+    const { result } = renderHook(() => useColumns());
+
+    await act(async () => {
+      await result.current.handleRemoveColumn("col-external");
+    });
+
+    expect(
+      useAppStore.getState().globalSettings.pendingDataDirectoryDeletions,
+    ).toContain(undeleted);
+    expect(
+      useAppStore.getState().columns.some((c) => c.id === "col-external"),
+    ).toBe(false);
   });
 });
 

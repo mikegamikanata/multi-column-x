@@ -104,7 +104,7 @@ function renderDesktopColumns(opts?: {
       : makeContainerRef(opts?.containerHeight ?? 900);
   const scrollbarRef = makeScrollbarRef(0);
   const dialogOpenRef = { current: opts?.dialogOpen ?? false };
-  return renderHook(() =>
+  const rendered = renderHook(() =>
     useDesktopColumns({
       containerRef,
       scrollbarRef,
@@ -114,6 +114,57 @@ function renderDesktopColumns(opts?: {
         opts?.setActiveColumn ?? vi.fn().mockResolvedValue(undefined),
     }),
   );
+  return { ...rendered, scrollbarRef };
+}
+
+/** resize_column_webview の invoke を手動で resolve / reject できるようにする。 */
+interface ResizeDeferred {
+  columnId: string;
+  x: number;
+  /** 発行された時点で未解決だった（他の）invoke の数。重なって発行されたかを見る。 */
+  pendingAtIssue: number;
+  resolve: () => void;
+  reject: (e: unknown) => void;
+}
+
+function controlResizeInvokes() {
+  const pending: ResizeDeferred[] = [];
+  const all: ResizeDeferred[] = [];
+  mockInvoke.mockImplementation((cmd, args) => {
+    if (cmd !== IPC_COMMANDS.RESIZE_COLUMN_WEBVIEW) return Promise.resolve();
+    const { columnId, x } = (
+      args as { bounds: { columnId: string; x: number } }
+    ).bounds;
+    return new Promise<void>((resolve, reject) => {
+      const d: ResizeDeferred = {
+        columnId,
+        x,
+        pendingAtIssue: pending.length,
+        resolve: () => {
+          pending.splice(pending.indexOf(d), 1);
+          resolve();
+        },
+        reject: (e) => {
+          pending.splice(pending.indexOf(d), 1);
+          reject(e);
+        },
+      };
+      pending.push(d);
+      all.push(d);
+    });
+  });
+  return { pending, all };
+}
+
+function setScrollLeft(ref: { current: HTMLDivElement | null }, v: number) {
+  (ref.current as HTMLDivElement).scrollLeft = v;
+}
+
+async function flush() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 }
 
 describe("useDesktopColumns", () => {
@@ -417,6 +468,208 @@ describe("useDesktopColumns（Linux: メインウィンドウ移動監視）", (
     });
 
     expect(unlistenFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useDesktopColumns（再配置の直列化）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAppStore.setState({
+      accounts: [account1],
+      columns: [
+        makeColumn({ id: "col-1", gridCol: 1 }),
+        makeColumn({ id: "col-2", gridCol: 2 }),
+      ],
+      globalSettings: { ...DEFAULT_GLOBAL_SETTINGS },
+      isLoaded: true,
+      isMobile: false,
+      topBarExpanded: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("再配置の実行中に次の要求が来たときは完了後に最新の状態で1回だけ再配置する", async () => {
+    const ctl = controlResizeInvokes();
+    const { result, scrollbarRef } = renderDesktopColumns();
+
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    expect(ctl.all).toHaveLength(2);
+
+    setScrollLeft(scrollbarRef, 10);
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    setScrollLeft(scrollbarRef, 20);
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    setScrollLeft(scrollbarRef, 30);
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    // 実行中は次の再配置が始まらない
+    expect(ctl.all).toHaveLength(2);
+
+    await act(async () => {
+      ctl.pending.slice().forEach((d) => d.resolve());
+    });
+    await flush();
+
+    // 完了後にもう 1 回だけ（カラム数分）、最後の scrollLeft で計算される
+    expect(ctl.all).toHaveLength(4);
+    expect(ctl.all[2].columnId).toBe("col-1");
+    expect(ctl.all[2].x).toBe(-30);
+    await act(async () => {
+      ctl.pending.slice().forEach((d) => d.resolve());
+    });
+    await flush();
+    expect(ctl.all).toHaveLength(4);
+  });
+
+  it("再配置が同時に複数走ることはない", async () => {
+    const ctl = controlResizeInvokes();
+    const { result } = renderDesktopColumns();
+
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        void result.current.recalculateAllBounds();
+      });
+      expect(ctl.pending.length).toBeLessThanOrEqual(2);
+    }
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        ctl.pending.slice().forEach((d) => d.resolve());
+      });
+      await flush();
+      expect(ctl.pending.length).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("横スクロールを止めたときの最終配置は最後のスクロール位置に対応する", async () => {
+    vi.useFakeTimers();
+    const ctl = controlResizeInvokes();
+    const { result, scrollbarRef } = renderDesktopColumns();
+
+    // invoke を解決しないまま、スクロールを往復させて止める
+    for (const left of [100, 300, 50, 400]) {
+      setScrollLeft(scrollbarRef, left);
+      act(() => {
+        result.current.handleScrollbarScroll();
+      });
+      act(() => {
+        vi.advanceTimersToNextFrame();
+      });
+    }
+    // 保留中の再配置も含め、未解決がなくなるまで解決し続ける
+    for (let i = 0; i < 6; i++) {
+      await act(async () => {
+        ctl.pending.slice().forEach((d) => d.resolve());
+      });
+      await flush();
+    }
+    expect(ctl.pending).toHaveLength(0);
+
+    // 各カラムで最後に発行された配置は、止まった時点（scrollLeft=400）に対応する
+    const lastX = (id: string) =>
+      ctl.all.filter((d) => d.columnId === id).pop()?.x;
+    expect(lastX("col-1")).toBe(-400);
+    expect(lastX("col-2")).toBe(350 - 400);
+    // 最後の再配置（カラム数分）は、未解決の invoke が残っていない状態で発行された
+    const lastBatch = ctl.all.slice(-2);
+    expect(lastBatch.map((d) => d.columnId)).toEqual(["col-1", "col-2"]);
+    expect(lastBatch[0].pendingAtIssue).toBe(0);
+  });
+
+  it("再配置の完了を待つ操作は自分の要求以降の状態が反映されるまで待たされる", async () => {
+    const ctl = controlResizeInvokes();
+    const { result } = renderDesktopColumns();
+
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    expect(ctl.all).toHaveLength(2);
+
+    act(() => {
+      useAppStore.setState({
+        columns: [
+          makeColumn({ id: "col-1", gridCol: 1 }),
+          makeColumn({ id: "col-2", gridCol: 2 }),
+          makeColumn({ id: "col-3", gridCol: 3 }),
+        ],
+      });
+    });
+    let settled = false;
+    act(() => {
+      void result.current.recalculateAllBounds().then(() => {
+        settled = true;
+      });
+    });
+
+    // 1 回目（追加前の状態）が終わっただけでは待ちは終わらない
+    await act(async () => {
+      ctl.pending.slice().forEach((d) => d.resolve());
+    });
+    await flush();
+    expect(settled).toBe(false);
+    expect(ctl.all).toHaveLength(5);
+    expect(ctl.all.slice(2).map((d) => d.columnId)).toContain("col-3");
+
+    // 追加後の状態で計算した再配置が完了したときに決着する
+    await act(async () => {
+      ctl.pending.slice().forEach((d) => d.resolve());
+    });
+    await flush();
+    expect(settled).toBe(true);
+  });
+
+  it("1つの再配置が失敗しても後続の再配置は行われる", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const ctl = controlResizeInvokes();
+    const { result, scrollbarRef } = renderDesktopColumns();
+
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    setScrollLeft(scrollbarRef, 70);
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    expect(ctl.all).toHaveLength(2);
+
+    await act(async () => {
+      ctl.pending.slice().forEach((d) => d.reject(new Error("失敗")));
+    });
+    await flush();
+
+    expect(ctl.all).toHaveLength(4);
+    expect(ctl.all[2].x).toBe(-70);
+  });
+
+  it("画面を閉じた後は保留中の再配置を行わない", async () => {
+    const ctl = controlResizeInvokes();
+    const { result, unmount } = renderDesktopColumns();
+
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    act(() => {
+      void result.current.recalculateAllBounds();
+    });
+    expect(ctl.all).toHaveLength(2);
+
+    unmount();
+    await act(async () => {
+      ctl.pending.slice().forEach((d) => d.resolve());
+    });
+    await flush();
+
+    expect(ctl.all).toHaveLength(2);
   });
 });
 

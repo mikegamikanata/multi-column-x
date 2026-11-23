@@ -118,7 +118,23 @@ fn resolve_mobile_swipe_area_offset(
 fn build_column_init_script(app: &AppHandle, column: &ColumnData, is_mobile: bool) -> String {
     let global_settings = load_global_settings(app);
     let script_settings = column_script_settings_from(&global_settings);
-    build_init_script(&InitScriptParams {
+    let language = crate::commands::ui_language::current_ui_lang(app).as_code();
+    build_init_script(&column_init_script_params(
+        column,
+        is_mobile,
+        &script_settings,
+        language,
+    ))
+}
+
+/// カラム個別設定と全体設定（`ColumnScriptSettings`）から init script のパラメータを組み立てる純粋関数。
+fn column_init_script_params<'a>(
+    column: &'a ColumnData,
+    is_mobile: bool,
+    script_settings: &'a crate::commands::settings_store::ColumnScriptSettings,
+    language: &'a str,
+) -> InitScriptParams<'a> {
+    InitScriptParams {
         is_mobile,
         hide_header_enabled: column.settings.hide_header_enabled,
         hide_tweet_input_enabled: effective_hide_tweet_input_enabled(column),
@@ -130,6 +146,7 @@ fn build_column_init_script(app: &AppHandle, column: &ColumnData, is_mobile: boo
         blur_image_enabled: column.settings.blur_image_enabled,
         blur_image_amount: &column.settings.blur_image_amount,
         hide_ad_enabled: script_settings.hide_ad_enabled,
+        hide_grok_button_enabled: script_settings.hide_grok_button_enabled,
         api_rate_limit_monitor_enabled: script_settings.api_rate_limit_monitor_enabled,
         image_popup_enabled: script_settings.image_popup_enabled,
         video_popup_enabled: script_settings.video_popup_enabled,
@@ -146,13 +163,16 @@ fn build_column_init_script(app: &AppHandle, column: &ColumnData, is_mobile: boo
         minimal_injection: column.page_type == "external",
         return_to_last_read_included: is_return_to_last_read_target(column),
         return_to_last_read_enabled: column.settings.return_to_last_read_enabled,
-        mobile_swipe_area_offset: resolve_mobile_swipe_area_offset(is_mobile, &script_settings),
-        language: crate::commands::ui_language::current_ui_lang(app).as_code(),
-    })
+        mobile_swipe_area_offset: resolve_mobile_swipe_area_offset(is_mobile, script_settings),
+        language,
+    }
 }
 
 /// column_id がファイルパスとして安全か（パス区切り文字・親ディレクトリ参照を含まないか）を判定する。
 /// IPC 経由で任意の文字列を受け取る `column_id` に対するパストラバーサル対策の純粋関数部分。
+const EXTERNAL_COLUMNS_DIR: &str = "external_columns";
+const EXTERNAL_COLUMN_DIR_PREFIX: &str = "column-";
+
 fn is_safe_column_id(column_id: &str) -> bool {
     !column_id.is_empty()
         && !column_id.contains('/')
@@ -169,9 +189,57 @@ fn external_column_data_dir(app_data: &Path, column_id: &str) -> Option<PathBuf>
     }
     Some(
         app_data
-            .join("external_columns")
-            .join(format!("column-{column_id}")),
+            .join(EXTERNAL_COLUMNS_DIR)
+            .join(format!("{EXTERNAL_COLUMN_DIR_PREFIX}{column_id}")),
     )
+}
+
+/// `external_column_data_dir` が組み立てる形
+/// （`<app_data>/external_columns/column-<安全なID>`）と完全に一致するパスか。
+/// 字句的判定（存在確認しない）。親ディレクトリ参照・深い階層・別ディレクトリは拒否する。
+pub(crate) fn is_external_column_data_dir(path: &Path, app_data: &Path) -> bool {
+    use std::path::Component;
+    if path.components().any(|c| matches!(c, Component::ParentDir)) {
+        return false;
+    }
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let Some(id) = name.strip_prefix(EXTERNAL_COLUMN_DIR_PREFIX) else {
+        return false;
+    };
+    is_safe_column_id(id) && path.parent() == Some(app_data.join(EXTERNAL_COLUMNS_DIR).as_path())
+}
+
+/// 削除できたら None、再試行しても消せなければ削除予定に登録すべきパス文字列を返す。
+/// 削除処理 `remove` は注入できる（テストで失敗を再現するため）。
+async fn delete_external_dir_with_retry<F>(
+    data_dir: &Path,
+    attempts: u32,
+    interval: std::time::Duration,
+    remove: F,
+) -> Option<String>
+where
+    F: Fn(&Path) -> std::io::Result<()>,
+{
+    let result = crate::commands::account::retry_with_delay(attempts, interval, || async {
+        if data_dir.exists() {
+            remove(data_dir)
+        } else {
+            Ok(())
+        }
+    })
+    .await;
+    match result {
+        Ok(()) => None,
+        Err(e) => {
+            log::warn!(
+                "[delete_external_column_data] failed after retries {}: {e}",
+                data_dir.display()
+            );
+            Some(data_dir.to_string_lossy().to_string())
+        }
+    }
 }
 
 /// external カラム（アカウント非依存の任意URLカラム）専用のデータディレクトリを解決する。
@@ -197,20 +265,25 @@ pub async fn get_external_column_data_directory(
 /// external カラム専用のデータディレクトリを削除する。column_id から Rust 側でパスを
 /// 組み立てるため、呼び出し元（TS 側）は任意パスを直接指定できない。ディレクトリが
 /// 存在しない場合は何もしない（カラム追加前にキャンセルされた場合など）。
+/// WebView2 は破棄直後もフォルダを掴むことがあるため再試行し、それでも消せなければ
+/// 削除予定に登録すべきパスを返す（削除完了なら None）。
 #[tauri::command]
 pub async fn delete_external_column_data(
     caller: tauri::Webview,
     app: AppHandle,
     column_id: String,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     crate::commands::require_main_caller(&caller)?;
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let data_dir = external_column_data_dir(&app_data, &column_id)
         .ok_or_else(|| "invalid column id".to_string())?;
-    if data_dir.exists() {
-        std::fs::remove_dir_all(&data_dir).map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    Ok(delete_external_dir_with_retry(
+        &data_dir,
+        crate::commands::account::DELETE_RETRY_MAX_ATTEMPTS,
+        crate::commands::account::DELETE_RETRY_INTERVAL,
+        |p| std::fs::remove_dir_all(p),
+    )
+    .await)
 }
 
 #[cfg(desktop)]
@@ -497,21 +570,29 @@ pub async fn resize_column_webview(
         // 幅クリップ（左右対称）: ウィンドウは常に x>=0 に配置し、はみ出し分だけ幅を縮める。
         // Linux WM がウィンドウを画面内にクランプするため負位置クリップ（案A）は使えない。
         // x_offset は常に 0 以上。完全に画面外のときのみ非表示にする。
-        match linux_column_layout(bounds.x, bounds.width, win_logical_width) {
-            None => {
-                let _ = webview_window.hide();
-                return Ok(());
-            }
-            Some((x_offset, vis_width)) => {
-                let screen_x = inner_pos.x as f64 / scale + x_offset;
+        let layout = linux_column_layout(bounds.x, bounds.width, win_logical_width);
+        // is_visible はイベントループ処理済みの状態を返すため、直前の hide / show 要求が
+        // 未処理だとずれうる（その場合も当て直しが 1 回増減するだけで悪化はしない）。
+        let was_visible = webview_window.is_visible().unwrap_or(false);
+        let (x_offset, vis_width) = layout.unwrap_or((0.0, 1.0));
+        let screen_x = inner_pos.x as f64 / scale + x_offset;
+        for op in linux_column_window_ops(layout.is_some(), was_visible) {
+            match op {
+                LinuxColumnWindowOp::Hide => {
+                    let _ = webview_window.hide();
+                }
                 // show 前に reposition してフラッシュ回避（既存コメント方針を踏襲）
-                webview_window
-                    .set_position(LogicalPosition::new(screen_x, screen_y))
-                    .map_err(|e| e.to_string())?;
-                webview_window
-                    .set_size(LogicalSize::new(vis_width, bounds.height.max(1.0)))
-                    .map_err(|e| e.to_string())?;
-                let _ = webview_window.show();
+                LinuxColumnWindowOp::SetBounds => {
+                    webview_window
+                        .set_position(LogicalPosition::new(screen_x, screen_y))
+                        .map_err(|e| e.to_string())?;
+                    webview_window
+                        .set_size(LogicalSize::new(vis_width, bounds.height.max(1.0)))
+                        .map_err(|e| e.to_string())?;
+                }
+                LinuxColumnWindowOp::Show => {
+                    let _ = webview_window.show();
+                }
             }
         }
     }
@@ -607,9 +688,144 @@ fn linux_column_layout(
     Some((left, vis_width))
 }
 
+/// Linux カラムウィンドウへ適用する操作。
+#[cfg(target_os = "linux")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LinuxColumnWindowOp {
+    Hide,
+    SetBounds,
+    Show,
+}
+
+/// Linux カラムウィンドウへ適用する操作列を決める純粋関数。
+///
+/// - 完全に画面外（`visible_in_window == false`）: 非表示にするだけ（位置・幅は設定しない）
+/// - 直前まで表示中: 表示前に位置・幅を 1 回設定して表示する（フラッシュ回避）
+/// - 直前まで非表示: 上に加え、表示後にもう一度位置・幅を設定する。
+///   WM によっては map 前（非表示中）の位置指定を無視して map 時に位置を決め直すため。
+#[cfg(target_os = "linux")]
+fn linux_column_window_ops(
+    visible_in_window: bool,
+    was_visible: bool,
+) -> &'static [LinuxColumnWindowOp] {
+    use LinuxColumnWindowOp::*;
+    match (visible_in_window, was_visible) {
+        (false, _) => &[Hide],
+        (true, true) => &[SetBounds, Show],
+        (true, false) => &[SetBounds, Show, SetBounds],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 外部カラムのデータフォルダ判定は許可形のみ通す() {
+        let app_data = Path::new("/data/app");
+        let ext = app_data.join("external_columns");
+        assert!(is_external_column_data_dir(
+            &ext.join("column-abc123"),
+            app_data
+        ));
+        let rejected = [
+            ext.clone(),
+            ext.join("column-a").join("sub"),
+            ext.join("foo"),
+            ext.join("column-.."),
+            ext.join("column-a..b"),
+            ext.join("column-"),
+            app_data.join("other").join("column-a"),
+            app_data.join("accounts").join("column-a"),
+            PathBuf::from("/etc"),
+            PathBuf::from(""),
+            ext.join("..")
+                .join("accounts")
+                .join("x")
+                .join("..")
+                .join("..")
+                .join("column-a"),
+        ];
+        for path in rejected {
+            assert!(
+                !is_external_column_data_dir(&path, app_data),
+                "path={path:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn 外部カラムのデータフォルダが存在すれば削除されnoneを返す() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("external_columns").join("column-a");
+        std::fs::create_dir_all(dir.join("Default")).unwrap();
+        std::fs::write(dir.join("Default").join("Cookies"), b"x").unwrap();
+        let result = delete_external_dir_with_retry(&dir, 5, std::time::Duration::ZERO, |p| {
+            std::fs::remove_dir_all(p)
+        })
+        .await;
+        assert_eq!(result, None);
+        assert!(!dir.exists());
+    }
+
+    #[tokio::test]
+    async fn 外部カラムのデータフォルダが元から無ければnoneを返す() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("external_columns").join("column-none");
+        let result = delete_external_dir_with_retry(&dir, 5, std::time::Duration::ZERO, |p| {
+            std::fs::remove_dir_all(p)
+        })
+        .await;
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn 使用中で二回失敗した後に削除できればnoneを返す() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("column-a");
+        std::fs::create_dir_all(&dir).unwrap();
+        let calls = AtomicU32::new(0);
+        let result = delete_external_dir_with_retry(
+            &dir,
+            crate::commands::account::DELETE_RETRY_MAX_ATTEMPTS,
+            std::time::Duration::ZERO,
+            |p| {
+                if calls.fetch_add(1, Ordering::SeqCst) < 2 {
+                    Err(std::io::Error::other("locked"))
+                } else {
+                    std::fs::remove_dir_all(p)
+                }
+            },
+        )
+        .await;
+        assert_eq!(result, None);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn 全ての再試行が失敗したらフォルダのパスをsomeで返す() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("column-a");
+        std::fs::create_dir_all(&dir).unwrap();
+        let calls = AtomicU32::new(0);
+        let result = delete_external_dir_with_retry(
+            &dir,
+            crate::commands::account::DELETE_RETRY_MAX_ATTEMPTS,
+            std::time::Duration::ZERO,
+            |_| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Err(std::io::Error::other("locked"))
+            },
+        )
+        .await;
+        assert_eq!(result, Some(dir.to_string_lossy().to_string()));
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            crate::commands::account::DELETE_RETRY_MAX_ATTEMPTS
+        );
+    }
     use crate::commands::settings::ColumnSettings;
 
     fn column(page_type: &str) -> ColumnData {
@@ -881,6 +1097,7 @@ mod tests {
         crate::commands::settings_store::ColumnScriptSettings {
             video_auto_play_stop_enabled: false,
             hide_ad_enabled: false,
+            hide_grok_button_enabled: false,
             api_rate_limit_monitor_enabled: false,
             image_popup_enabled: false,
             video_popup_enabled: false,
@@ -889,6 +1106,24 @@ mod tests {
             mobile_swipe_area_enabled,
             mobile_swipe_area_height,
         }
+    }
+
+    #[test]
+    fn 全体設定のgrokボタン非表示がonのとき起動スクリプトの設定へ伝わる() {
+        let mut settings = script_settings(true, 28);
+        settings.hide_grok_button_enabled = true;
+        let home = column("home");
+        let params = column_init_script_params(&home, false, &settings, "ja");
+        assert!(params.hide_grok_button_enabled);
+    }
+
+    #[test]
+    fn 全体設定のgrokボタン非表示がoffのとき起動スクリプトの設定でも無効になる() {
+        let mut settings = script_settings(true, 28);
+        settings.hide_grok_button_enabled = false;
+        let home = column("home");
+        let params = column_init_script_params(&home, false, &settings, "ja");
+        assert!(!params.hide_grok_button_enabled);
     }
 
     #[test]
@@ -971,6 +1206,29 @@ mod tests {
     #[allow(non_snake_case)]
     mod linux_layout {
         use super::super::linux_column_layout;
+        use super::super::{linux_column_window_ops, LinuxColumnWindowOp};
+
+        #[test]
+        fn 画面外で非表示だったカラムが画面内に戻るときは表示後に位置と幅を当て直す() {
+            use LinuxColumnWindowOp::*;
+            assert_eq!(
+                linux_column_window_ops(true, false),
+                &[SetBounds, Show, SetBounds]
+            );
+        }
+
+        #[test]
+        fn もともと表示中のカラムは位置と幅を1回だけ設定する() {
+            use LinuxColumnWindowOp::*;
+            assert_eq!(linux_column_window_ops(true, true), &[SetBounds, Show]);
+        }
+
+        #[test]
+        fn 画面外に出たカラムは非表示にし位置と幅は設定しない() {
+            use LinuxColumnWindowOp::*;
+            assert_eq!(linux_column_window_ops(false, true), &[Hide]);
+            assert_eq!(linux_column_window_ops(false, false), &[Hide]);
+        }
 
         #[test]
         fn 左端はみ出しはx_offsetが0でvis_widthがはみ出し分だけ縮む() {

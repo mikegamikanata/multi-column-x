@@ -24,6 +24,7 @@ digraph flow {
   "4. プロパティベーステスト" [shape=box];
   "5. 完了処理(format/lint/test/build)" [shape=box];
   "6. 手動テスト項目出力" [shape=box];
+  "6.5 自律手動テスト" [shape=box];
 
   "1. 要求明確化" -> "1.5 Gherkin仕様定義(承認)";
   "1.5 Gherkin仕様定義(承認)" -> "2. 実装プラン策定";
@@ -35,6 +36,7 @@ digraph flow {
   "仕様明確かつ実装から導出可能?" -> "5. 完了処理(format/lint/test/build)" [label="no"];
   "4. プロパティベーステスト" -> "5. 完了処理(format/lint/test/build)";
   "5. 完了処理(format/lint/test/build)" -> "6. 手動テスト項目出力";
+  "6. 手動テスト項目出力" -> "6.5 自律手動テスト";
 }
 ```
 
@@ -49,6 +51,7 @@ digraph flow {
 | 4. プロパティベーステスト     | 仕様が明確かつ対応コードから実装可能なら作成（TS=fast-check / Rust=proptest / Kotlin=kotest-property）                                                     | `property-based-testing`                                                                    |
 | 5. 完了処理                   | フォーマッタ適用・Lint・全テスト実行・ビルド確認                                                                                                           | `check-creation`                                                                            |
 | 6. 手動テスト項目出力（必須） | `@manual` シナリオと自動チェックで検出できない手動QA観点を `integration-test.md` に出力する                                                                | `integration-test-viewpoints`                                                               |
+| 6.5 自律手動テスト            | `integration-test.md` のうちエージェントが安全に実施できる項目を実機（Windows の CDP / Android エミュレータ）で実施し、結果セルに記録する                  | `autonomous-manual-test`                                                                    |
 
 ## Gherkin仕様駆動ルール（必須）
 
@@ -56,6 +59,7 @@ digraph flow {
 - 承認済み `.feature` のシナリオから、**単体テスト（`@unit`）と結合テスト（`@integration`）を作成する**（フェーズ3）。テスト名はシナリオ名を日本語で用い、`.feature` への参照はテスト側に書かない。
 - **Gherkinから導出するテストは、TDD（Red先行）に従わず、実装後に作成してもよい。** どちらで進めるかはフェーズ2のプランに明記する。実装後作成の場合も、シナリオごとのテスト作成とコミット前のミューテーション確認は必須（詳細は `tdd` スキル「進め方の選択」）。Gherkin対象外の変更・シナリオに無い追加テストは従来どおりTDD。
 - **自動化できないシナリオ（`@manual`）は手動テスト項目として必ず出力する**（フェーズ6）。
+- **リリース前に実アプリで確認し続けるべき観点は、`docs/release/pre-release-checklist.md` に項目として追加する**（フェーズ6で `integration-test.md` を出力するとき、あわせて判断する）。機能追加・挙動変更・バグ修正の PR で、次回以降のリリースでも回帰確認が必要なものが対象。チェックリストは項目の増減と内容の修正だけを書く場所で、結果・実施日・実施回数は書かない（結果はリリース時に `pre-release-test` がリリースPRへ記載する）。No. は各プレフィックスの最大番号の次を使い、再採番しない。追加漏れはリリース時に `pre-release-test` が補う。
 - 仕様が途中で変わったら、実装に進む前に `.feature` を更新して再承認を得る。
 
 ## 横断ルール（全フェーズ共通）
@@ -76,6 +80,7 @@ digraph flow {
 - **inject スクリプト**: `src-tauri/src/inject/_src/` を変更したら `npm run build:inject`。ビルド済み `.js` は編集禁止。inject の開発手順は `inject-script-dev` スキルに従う。
 - **Tauri コマンドの追加・削除**: `src-tauri/build.rs` の `AppManifest` と capability（`default.json` / `column-webview.json`）の更新が必須（`acl_contract.rs` の契約テストで検出される）。
 - **領域別の設計ノート**: 変更対象に対応する `docs/development/*-notes.md`（CLAUDE.md「アーキテクチャ上の重要な制約」が参照先を示す）を着手前に読む。
+- **UI の変更**: React / SCSS を変更する場合は `ui-design-principles` スキル（余白・文字サイズ・状態・a11y・Android の 44px）を参照する。
 - **serde 命名**: JS側 camelCase には `#[serde(rename)]` が必須。
 - **Android**: `MainActivity.kt` のメソッド変更時は ProGuard keep ルールを同期（リリースビルドで動作確認）。
 

@@ -285,6 +285,12 @@ window.MCX_DATA.index.push(
   },
   {
     page: "android",
+    id: "if-back",
+    title: "Kotlin → JS（端末の戻る操作の問い合わせ）",
+    level: 3,
+  },
+  {
+    page: "android",
     id: "accounts",
     title: "アカウント追加・再認証（AddAccount）",
     level: 2,
@@ -587,12 +593,6 @@ window.MCX_DATA.index.push(
 );
 // <mcx-index:end>
 
-Object.assign(window.MCX_DATA.flows, {
-  /* id: flow */
-});
-Object.assign(window.MCX_DATA.catalogs, {
-  /* id: catalog */
-});
-Object.assign(window.MCX_DATA.details, {
-  /* id: detail */
-});
+Object.assign(window.MCX_DATA.flows, {/* id: flow */});
+Object.assign(window.MCX_DATA.catalogs, {/* id: catalog */});
+Object.assign(window.MCX_DATA.details, {/* id: detail */});

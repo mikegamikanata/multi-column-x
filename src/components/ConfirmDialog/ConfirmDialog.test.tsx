@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import i18n from "@/i18n";
+import { expectAccessibleControls } from "@/test-utils/a11y";
 import { expectNoJapanese } from "@/test-utils/japanese";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -97,6 +98,158 @@ describe("ConfirmDialog", () => {
     );
     expect(screen.getByText("OK")).toBeInTheDocument();
     expect(screen.queryByText("キャンセル")).not.toBeInTheDocument();
+  });
+
+  describe("危険操作の表示", () => {
+    it("危険操作の確認ダイアログでは確定ボタンが危険操作の見た目になる", () => {
+      render(
+        <ConfirmDialog
+          variant="danger"
+          message="このアカウントを削除しますか？"
+          confirmLabel="削除する"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      const button = screen.getByRole("button", { name: "削除する" });
+      expect(button.className).toContain("dangerBtn");
+      expect(button.className).not.toContain("confirmBtn");
+    });
+
+    it("危険操作を指定しない確認ダイアログでは確定ボタンが主ボタンの見た目のままになる", () => {
+      render(
+        <ConfirmDialog
+          message="このアカウントを削除しますか？"
+          confirmLabel="削除する"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      const button = screen.getByRole("button", { name: "削除する" });
+      expect(button.className).toContain("confirmBtn");
+      expect(button.className).not.toContain("dangerBtn");
+    });
+
+    it("OKだけのお知らせダイアログでは確定ボタンが主ボタンの見た目のままになる", () => {
+      render(
+        <ConfirmDialog
+          singleButton
+          message="再認証に失敗しました"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      const button = screen.getByRole("button", { name: "OK" });
+      expect(button.className).toContain("confirmBtn");
+      expect(button.className).not.toContain("dangerBtn");
+    });
+
+    it("危険操作の確認ダイアログを開いてもどのボタンにもフォーカスが当たらない", () => {
+      render(
+        <ConfirmDialog
+          variant="danger"
+          message="このアカウントを削除しますか？"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      for (const button of screen.getAllByRole("button")) {
+        expect(button).not.toHaveFocus();
+      }
+    });
+
+    it("危険操作の確認ダイアログでもEscキーでキャンセルになる", () => {
+      const onConfirm = vi.fn();
+      const onCancel = vi.fn();
+      render(
+        <ConfirmDialog
+          variant="danger"
+          message="このアカウントを削除しますか？"
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />,
+      );
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onCancel).toHaveBeenCalled();
+      expect(onConfirm).not.toHaveBeenCalled();
+    });
+
+    it("危険操作の確認ダイアログで確定ボタンを押すと確定になる", () => {
+      const onConfirm = vi.fn();
+      render(
+        <ConfirmDialog
+          variant="danger"
+          message="このアカウントを削除しますか？"
+          confirmLabel="削除する"
+          onConfirm={onConfirm}
+          onCancel={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "削除する" }));
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("ダイアログのアクセシビリティ", () => {
+    it("見出しがあるときは見出しがダイアログの名前になる", () => {
+      render(
+        <ConfirmDialog
+          title="アカウント削除の確認"
+          message="この操作は取り消せません"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      const dialog = screen.getByRole("dialog", {
+        name: "アカウント削除の確認",
+      });
+      expect(dialog).toHaveAttribute("aria-modal", "true");
+      expect(dialog).toHaveAccessibleDescription("この操作は取り消せません");
+    });
+
+    it("見出しが無いときは本文がダイアログの名前になる", () => {
+      render(
+        <ConfirmDialog
+          message="再認証に失敗しました"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      expect(
+        screen.getByRole("dialog", { name: "再認証に失敗しました" }),
+      ).toHaveAttribute("aria-modal", "true");
+    });
+
+    it("すべてのボタンにアクセシブルネームがある", () => {
+      const { container } = render(
+        <ConfirmDialog
+          title="確認"
+          message="削除しますか？"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      expectAccessibleControls(container);
+    });
+
+    it("閉じたあと開く前にフォーカスしていた要素へフォーカスが戻る", () => {
+      const opener = document.createElement("button");
+      document.body.appendChild(opener);
+      opener.focus();
+
+      const { unmount } = render(
+        <ConfirmDialog
+          message="削除しますか？"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      screen.getByRole("button", { name: "OK" }).focus();
+      unmount();
+
+      expect(opener).toHaveFocus();
+      opener.remove();
+    });
   });
 
   describe("表示言語", () => {

@@ -1,5 +1,6 @@
 import React from "react";
 import { Trans, useTranslation } from "react-i18next";
+import { StatusMark } from "@/components/StatusMark/StatusMark";
 import {
   MOBILE_COLUMN_COUNT_MAX,
   MOBILE_COLUMN_COUNT_MIN,
@@ -106,7 +107,26 @@ const AdSettingsSection: React.FC<SectionProps> = ({ draft, set }) => {
   );
 };
 
-const ApiRateLimitSettingsSection: React.FC<SectionProps> = ({
+const GrokSettingsSection: React.FC<SectionProps> = ({ draft, set }) => {
+  const { t } = useTranslation();
+  return (
+    <section className={styles.section}>
+      <h3 className={styles.sectionTitle}>
+        {t("settings:general.grok.title")}
+      </h3>
+      <label className={styles.checkLabel}>
+        <input
+          type="checkbox"
+          checked={draft.hideGrokButtonEnabled}
+          onChange={(e) => set("hideGrokButtonEnabled", e.target.checked)}
+        />
+        {t("settings:general.grok.hide")}
+      </label>
+    </section>
+  );
+};
+
+export const ApiRateLimitSettingsSection: React.FC<SectionProps> = ({
   draft,
   set,
 }) => {
@@ -153,10 +173,16 @@ const NgWordsSection: React.FC<SectionProps & { error?: string | null }> = ({
         className={styles.cssTextarea}
         value={draft.globalNgWordsText}
         onChange={(e) => set("globalNgWordsText", e.target.value)}
+        aria-label={t("settings:general.ngWords.title")}
         placeholder={t("settings:general.ngWords.placeholder")}
         spellCheck={false}
       />
-      {error && <p className={styles.errorText}>{error}</p>}
+      {error && (
+        <p className={styles.errorText}>
+          <StatusMark kind="warning" />
+          {error}
+        </p>
+      )}
       <p className={styles.hint}>{t("settings:general.ngWords.hint")}</p>
     </section>
   );
@@ -179,13 +205,18 @@ const RepostHiddenUsersSection: React.FC<
         placeholder={t("settings:general.repostHidden.placeholder")}
         spellCheck={false}
       />
-      {error && <p className={styles.errorText}>{error}</p>}
+      {error && (
+        <p className={styles.errorText}>
+          <StatusMark kind="warning" />
+          {error}
+        </p>
+      )}
       <p className={styles.hint}>{t("settings:general.repostHidden.hint")}</p>
     </section>
   );
 };
 
-/** フィルタ系設定セクション群（グローバルNGワード・リポストを非表示にするユーザー・広告・API残量モニター） */
+/** フィルタ系設定セクション群（グローバルNGワード・リポストを非表示にするユーザー・広告） */
 export const FilterSettingsSections: React.FC<FilterSettingsSectionsProps> = ({
   draft,
   set,
@@ -200,7 +231,7 @@ export const FilterSettingsSections: React.FC<FilterSettingsSectionsProps> = ({
       error={repostHiddenUserIdsError}
     />
     <AdSettingsSection draft={draft} set={set} />
-    <ApiRateLimitSettingsSection draft={draft} set={set} />
+    <GrokSettingsSection draft={draft} set={set} />
   </>
 );
 
@@ -262,6 +293,7 @@ export const AndroidSettingsSections: React.FC<SectionProps> = ({
           })}
           <input
             type="range"
+            className={styles.rangeInput}
             min={0}
             max={100}
             step={5}

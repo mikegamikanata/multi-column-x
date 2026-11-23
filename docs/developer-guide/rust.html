@@ -259,6 +259,9 @@
               <button class="dg-node" data-detail="rust.ipc">
                 ipc_constants.rs
               </button>
+              <button class="dg-node" data-detail="rust.http_tls">
+                http_tls.rs
+              </button>
               <button class="dg-node" data-detail="rust.acl">
                 build.rs + capabilities
               </button>
@@ -571,9 +574,12 @@
           </div>
           <ul>
             <li>
-              <code>delete_account_data</code> は
-              <code>accounts</code> 配下のパスのみ許可し、ファイルロックに備えて
-              200ms 間隔でリトライ。
+              <code>delete_account_data</code> は <code>accounts</code> 配下と
+              <code>external_columns</code> 直下の
+              <code>column-&lt;ID&gt;</code>
+              のみ許可し、ファイルロックに備えて 200ms 間隔でリトライ。
+              <code>delete_external_column_data</code>
+              も同じリトライを行い、消せなければ削除予定に積むパスを返す。
             </li>
             <li>
               再認証（既存アカウントのログインし直し）は新セッションのディレクトリを返し、呼び出し側が対象アカウントへ
@@ -634,7 +640,7 @@
                 <code>tauri-plugin-updater</code> が
                 <code>tauri.conf.json</code>
                 の公開鍵（minisign）で署名検証してから適用。 再起動は
-                <code>tauri-plugin-process</code>。capability は
+                <code>relaunch_app</code> コマンド。capability は
                 <code>updater.json</code>。
               </p>
             </div>
@@ -644,7 +650,15 @@
                 限定／URL は自リポジトリの GitHub Releases の
                 <code>.apk</code> のみ（<code>..</code> や
                 <code>?</code> 等を拒否）／Kotlin 側で SHA-256
-                照合（fail-closed）。
+                照合（fail-closed）。URL の許可プレフィックスは cargo feature
+                <code>updater-test</code>（既定は無効）を付けた
+                試験ビルドでだけ、ローカル配信サーバー （<code>localhost</code>
+                / <code>127.0.0.1</code> / <code>10.0.2.2</code> の
+                8787）へ拡張されます。実行時の切替に
+                しないのは、本番バイナリに許可経路を残さないためです。詳細は
+                <a href="../development/updater-test-notes.md"
+                  >updater-test-notes.md</a
+                >。
               </p>
             </div>
           </div>
@@ -655,7 +669,9 @@
             ファイル、HLS のみなら映像・音声を別ファイルで保存。 URL は
             <code>video.twimg.com</code> 系のみ許可（SSRF 対策）、検証を経る公開
             API と実 I/O を分離。進捗は
-            <code>video-download-progress</code>。Android
+            <code>video-download-progress</code>（呼び出し元 WebView
+            のラベル宛てに <code>emit_to</code>。受け手は <code>listen</code> に
+            <code>target</code> 指定が必要）。Android
             はネイティブ通知付きの別経路（<code>handle_android_video_download_request</code>）。
           </p>
 

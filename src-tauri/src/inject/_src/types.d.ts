@@ -40,6 +40,7 @@ declare global {
     blurImageEnabled: boolean;
     blurImageAmount: string;
     hideAdEnabled: boolean;
+    hideGrokButtonEnabled?: boolean;
     apiRateLimitMonitorEnabled?: boolean;
     imagePopupEnabled?: boolean;
     videoPopupEnabled?: boolean;
@@ -63,10 +64,16 @@ declare global {
     payload: T;
   }
 
+  interface TauriEventListenOptions {
+    /** ラベル文字列（AnyLabel）。そのラベル宛ての emit_to だけを受け取る。 */
+    target?: string;
+  }
+
   interface TauriEvent {
     listen: <T>(
       event: string,
       handler: (payload: TauriEventPayload<T>) => void,
+      options?: TauriEventListenOptions,
     ) => Promise<() => void>;
   }
 

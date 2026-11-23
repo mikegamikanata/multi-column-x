@@ -53,7 +53,7 @@ Object.assign(window.MCX_DATA.flows, {
         to: "rs",
         label: "(desktop) 保存済み windowBounds をメインウィンドウへ適用",
         detail:
-          "<p>ストアの <code>appSettings.globalSettings.windowBounds</code> を読み、いずれかのモニタ上に 100px 以上見える場合のみ位置を復元。サイズは最小 600x400 にクランプして適用する。Android には無い処理。</p>",
+          "<p>ストアの <code>appSettings.globalSettings.windowBounds</code> を読み、いずれかのモニタ上に 100px 以上見える場合のみ位置を復元。サイズは内側（<code>inner_size</code>）で保存・復元し、最小 600x400 にクランプして適用する（位置は外側左上。最小化中の終了は保存しない）。Android には無い処理。</p>",
         files: ["src-tauri/src/lib.rs"],
       },
       {
@@ -660,6 +660,16 @@ Object.assign(window.MCX_DATA.catalogs, {
         ],
       },
       {
+        name: "relaunch_app",
+        summary: "アプリを再起動する",
+        area: "アプリ制御",
+        platform: "デスクトップ（AppImage で特別処理）",
+        caller: "メイン",
+        detail:
+          "<p>引数なし。AppImage 実行中は、<code>APPDIR</code> 配下を指す環境変数・非 CLOEXEC の fd・作業ディレクトリを整理した起動計画を作り、<code>RunEvent::Exit</code> で <code>$APPIMAGE</code> を <code>setsid</code> 付きで起動し直す（旧プロセスの終了後に spawn するので新旧が重ならない）。それ以外は tauri の再起動（<code>request_restart</code>）。呼び出し元は main のみ。<code>@tauri-apps/plugin-process</code> は使わない。</p>",
+        files: ["src-tauri/src/commands/relaunch.rs"],
+      },
+      {
         name: "download_video",
         summary: "カラム上の動画をダウンロードして保存する",
         area: "動画",
@@ -971,7 +981,7 @@ Object.assign(window.MCX_DATA.details, {
     layer: "rust",
     summary:
       "エントリポイントとアプリ組み立て。プラグイン・State・setup・ウィンドウイベント・コマンド登録を担う。",
-    body: "<p><code>main.rs</code> は <code>run()</code> を呼ぶだけ。<code>lib.rs::run()</code> が Builder にプラグイン（opener/os/store/notification/log、desktop は updater/process/dialog）と State を登録し、<code>setup</code> で設定復旧とストア登録、<code>on_window_event</code>（desktop）で終了時処理、<code>generate_handler!</code> でコマンドを登録する。</p><ul><li>メイン CloseRequested: windowBounds 保存 → 公式設定ポップアップ追跡停止 → 常駐コンポーズの destroy → Linux はカラム/ポップアップを close</li><li>popup- の CloseRequested: 公式設定ポップアップの閉じを検出して emit</li></ul>",
+    body: "<p><code>main.rs</code> は <code>run()</code> を呼ぶだけ。<code>lib.rs::run()</code> が Builder にプラグイン（opener/os/store/notification/log、desktop は updater/process/dialog）と State を登録し、<code>setup</code> で設定復旧とストア登録、<code>on_window_event</code>（desktop）で終了時処理、<code>generate_handler!</code> でコマンドを登録する。</p><ul><li>メイン CloseRequested: windowBounds 保存（最小化中は保存しない）→ 公式設定ポップアップ追跡停止 → 常駐コンポーズの destroy → Linux はカラム/ポップアップを close</li><li>popup- の CloseRequested: 公式設定ポップアップの閉じを検出して emit</li></ul>",
     files: ["src-tauri/src/main.rs", "src-tauri/src/lib.rs"],
     related: ["rust.settings", "rust.acl"],
   },
@@ -1004,6 +1014,15 @@ Object.assign(window.MCX_DATA.details, {
       "イベント名・ラベル接頭辞・inject グローバル名の定数。TS と fixture で同期。",
     body: "<p><code>contracts/ipc-constants.json</code> と TS 側の対応定数を契約テストで照合する。定数の追加時は Rust / TS / fixture の 3 点を更新。</p>",
     files: ["src-tauri/src/ipc_constants.rs", "contracts/ipc-constants.json"],
+  },
+  "rust.http_tls": {
+    title: "http_tls.rs（reqwest の TLS 設定）",
+    layer: "rust",
+    summary:
+      "reqwest クライアント共通の暗号プロバイダ（ring）と証明書検証の設定。",
+    body: "<p>reqwest は <code>rustls-no-provider</code> で使うため、プロバイダ未設定だと <code>build()</code> が panic する。クライアントを新設するときは必ず <code>configure_tls</code> を通す。desktop は OS の証明書ストアで検証し、Android は同梱ルート証明書（webpki-root-certs）だけを <code>tls_certs_only</code> で信頼する（<code>tls_certs_merge</code> は Android でビルドエラー）。aws-lc-rs は入れない。</p>",
+    files: ["src-tauri/src/http_tls.rs"],
+    docs: ["../development/android-notes.md"],
   },
   "rust.acl": {
     title: "ACL（build.rs / capabilities / acl_contract.rs）",
@@ -1089,8 +1108,9 @@ Object.assign(window.MCX_DATA.details, {
     layer: "rust",
     summary:
       "Android の APK 自己更新の検証入口。desktop の更新は tauri-plugin-updater。",
-    body: "<p>呼び出し元 main 限定・URL 許可リスト・SHA-256 検証（Kotlin 側）の 3 層。desktop は minisign 署名で検証される。</p>",
-    files: ["src-tauri/src/commands/update.rs"],
+    body: "<p>呼び出し元 main 限定・URL 許可リスト・SHA-256 検証（Kotlin 側）の 3 層。desktop は minisign 署名で検証される。cargo feature <code>updater-test</code>（既定無効）のときだけ許可リストにローカル配信サーバー（8787）が加わる。</p>",
+    files: ["src-tauri/src/commands/update.rs", "src-tauri/Cargo.toml"],
+    docs: ["../development/updater-test-notes.md"],
   },
   "rust.video": {
     title: "動画ダウンロード（video/ + video_download.rs）",

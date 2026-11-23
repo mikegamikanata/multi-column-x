@@ -278,6 +278,35 @@
           </p>
           <h3 id="if-sentinel">ファイルによる通知（センチネル）</h3>
           <div class="catalog" data-catalog="android.sentinels"></div>
+          <h3 id="if-back">Kotlin → JS（端末の戻る操作の問い合わせ）</h3>
+          <p>
+            <code>MainActivity.handleOnBackPressed</code> は次の順で処理します。
+          </p>
+          <ol>
+            <li>ポップアップが開いていれば最前面を閉じる（最優先）。</li>
+            <li>
+              メイン WebView に
+              <code>window.__mcxHandleBack()</code>
+              を <code>evaluateJavascript</code> で問い合わせ、結果が
+              <code>"true"</code>
+              なら画面側（アプリ設定の詳細画面など）が処理したので終了。
+            </li>
+            <li>
+              処理されなければ、アクティブカラムの履歴を戻る →
+              バックグラウンドへ （<code>moveTaskToBack</code>）。
+            </li>
+          </ol>
+          <p>
+            メイン WebView の参照は、自動生成の
+            <code>WryActivity.kt</code>
+            を編集せず
+            <code>onWebViewCreate</code> のオーバーライドで受け取ります。
+            判定は純粋関数 <code>MainPageBack.kt</code> に切り出し済みで、Rust
+            から呼ぶメソッドではないため ProGuard の keep
+            ルールは変更不要です。画面側は
+            <code>useAndroidBackHandler</code> で登録します（詳細:
+            <code>docs/development/settings-panel-navigation-notes.md</code>）。
+          </p>
         </section>
 
         <section>

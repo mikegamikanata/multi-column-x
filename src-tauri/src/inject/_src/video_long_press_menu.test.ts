@@ -8,6 +8,9 @@ import {
   findLongPressMediaIndex,
   buildLongPressVideoUrl,
   buildLongPressIStatusVideoUrl,
+  chooseLongPressDownloadTransport,
+  formatLongPressDownloadText,
+  shouldAutoDismissLongPressToast,
 } from "./video_long_press_menu";
 // 画面文言の共有ハブ（window.__mcxI18n）を読み込む（日本語固定の既定言語で従来の文言を検証する）
 import "./i18n";
@@ -529,5 +532,317 @@ describe("inject/video_long_press_menu の表示言語", () => {
     const texts = itemTexts();
     expect(texts).toEqual(["Download video", "Show video in popup"]);
     expect(texts.some(containsJapanese)).toBe(false);
+  });
+});
+
+describe("inject/video_long_press_menu のデスクトップ動画ダウンロード", () => {
+  type DownloadProgressForTest = {
+    fileIndex: number;
+    fileCount: number;
+    current: number;
+    total: number | null;
+    phase: "downloading" | "completed" | "failed";
+  };
+
+  const listenMock = vi.fn(
+    (
+      _event: string,
+      _handler: (payload: {
+        event: string;
+        payload: DownloadProgressForTest;
+      }) => void,
+      _options?: { target?: string },
+    ) => Promise.resolve<() => void>(() => undefined),
+  );
+
+  function getListenCall() {
+    const call = listenMock.mock.calls.find(
+      (c) => c[0] === "video-download-progress",
+    );
+    if (!call) throw new Error("listen not registered");
+    return call;
+  }
+
+  function emitProgress(payload: Partial<DownloadProgressForTest>) {
+    getListenCall()[1]({
+      event: "video-download-progress",
+      payload: {
+        fileIndex: 1,
+        fileCount: 1,
+        current: 0,
+        total: 100,
+        phase: "downloading",
+        ...payload,
+      },
+    });
+  }
+
+  function getToast(): HTMLElement | null {
+    return document.getElementById("tv-video-download-toast");
+  }
+
+  async function setupAndClickDownload(props: unknown = PLAYER_PROPS) {
+    await importLongPressMenu();
+    const videoEl = createVideoComponent();
+    attachFiber(videoEl, props);
+    dispatchContextMenu(videoEl);
+    // 過去の import で登録済みのリスナーも同じメニューを作るため、今回の import が作った最後のメニューを操作する
+    const menus = document.querySelectorAll("#tv-video-long-press-menu");
+    const item = menus[menus.length - 1]?.firstElementChild;
+    if (!item) throw new Error("menu item not found");
+    item.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = "";
+    getMenu()?.remove();
+    getToast()?.remove();
+    invokeMock.mockReset();
+    invokeMock.mockImplementation(() => Promise.resolve<unknown>(undefined));
+    postMessageMock.mockClear();
+    listenMock.mockClear();
+    window.__TAURI__ = {
+      core: { invoke: invokeMock },
+      event: { listen: listenMock as unknown as TauriEvent["listen"] },
+    };
+    window.__TAURI_INTERNALS__ = {
+      metadata: { currentWebview: { label: WEBVIEW_LABEL } },
+    };
+    delete window.__mcxVideoDownloadBridge;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    window.__TAURI__ = undefined;
+    delete window.__TAURI_INTERNALS__;
+    delete window.__mcxVideoDownloadBridge;
+    getMenu()?.remove();
+    getToast()?.remove();
+  });
+
+  it("デスクトップ（ブリッジ無し）でダウンロードを選ぶとdownload_videoがvariantsとツイートID由来のファイル名でinvokeされる", async () => {
+    await setupAndClickDownload();
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith("download_video", {
+      variants: [
+        {
+          contentType: "application/x-mpegURL",
+          url: "https://video.twimg.com/amplify_video/1/pl/xxx.m3u8",
+        },
+        {
+          contentType: "video/mp4",
+          bitrate: 632000,
+          url: "https://video.twimg.com/amplify_video/1/vid/avc1/320x568/xxx.mp4",
+        },
+      ],
+      suggestedFileName: "2083360318248378472",
+    });
+    expect(postMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("Androidブリッジがあるときはブリッジへ依頼しdownload_videoはinvokeされない", async () => {
+    window.__mcxVideoDownloadBridge = { postMessage: postMessageMock };
+
+    await setupAndClickDownload();
+
+    expect(postMessageMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("chooseLongPressDownloadTransportはブリッジ有りならbridge・無しでinvoke有りならinvoke・どちらも無ければnoneを返す", () => {
+    expect(
+      chooseLongPressDownloadTransport({ hasBridge: true, hasInvoke: true }),
+    ).toBe("bridge");
+    expect(
+      chooseLongPressDownloadTransport({ hasBridge: true, hasInvoke: false }),
+    ).toBe("bridge");
+    expect(
+      chooseLongPressDownloadTransport({ hasBridge: false, hasInvoke: true }),
+    ).toBe("invoke");
+    expect(
+      chooseLongPressDownloadTransport({ hasBridge: false, hasInvoke: false }),
+    ).toBe("none");
+  });
+
+  it("動画情報が取得できないときはdownload_videoをinvokeせずトーストも出さない", async () => {
+    await setupAndClickDownload({ foo: "bar" });
+
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(getToast()).toBeNull();
+  });
+
+  it("invokeがrejectされたとき失敗のトーストを表示しconsole.errorに記録する", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    invokeMock.mockImplementation(() => Promise.reject(new Error("boom")));
+
+    await setupAndClickDownload();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(getToast()?.textContent).toBe("ダウンロード失敗");
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("invokeが同期的に例外を投げても失敗のトーストを表示し例外を漏らさない", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    invokeMock.mockImplementation(() => {
+      throw new Error("sync boom");
+    });
+
+    await expect(setupAndClickDownload()).resolves.not.toThrow();
+
+    expect(getToast()?.textContent).toBe("ダウンロード失敗");
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("失敗イベントを受信済みのときinvokeのrejectでトーストを上書きしない", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    let rejectInvoke: (e: unknown) => void = () => {};
+    invokeMock.mockImplementation(
+      () =>
+        new Promise<unknown>((_, reject) => {
+          rejectInvoke = reject;
+        }),
+    );
+
+    await setupAndClickDownload();
+    emitProgress({ fileIndex: 2, fileCount: 2, phase: "failed" });
+    expect(getToast()?.textContent).toBe("ダウンロード失敗 (2/2)");
+
+    rejectInvoke(new Error("boom"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(getToast()?.textContent).toBe("ダウンロード失敗 (2/2)");
+  });
+
+  it("進捗イベントを受信すると進捗率付きのダウンロード中トーストが表示され自動では消えない", async () => {
+    await importLongPressMenu();
+
+    emitProgress({ current: 45, total: 100 });
+
+    expect(getToast()?.textContent).toBe("ダウンロード中 45%");
+    vi.advanceTimersByTime(60_000);
+    expect(getToast()?.textContent).toBe("ダウンロード中 45%");
+  });
+
+  it("fileCountが2のときトーストにファイル番号(1/2)が併記される", async () => {
+    await importLongPressMenu();
+
+    emitProgress({ fileIndex: 1, fileCount: 2, current: 45, total: 100 });
+
+    expect(getToast()?.textContent).toBe("ダウンロード中 (1/2) 45%");
+  });
+
+  it("formatLongPressDownloadTextは総量不明なら率を省略し総量0なら0%・完了と失敗でもファイル番号を併記する", () => {
+    const t = (key: string, params?: Record<string, string | number>) =>
+      window.__mcxI18n!.t(key, params);
+    const base = { fileIndex: 1, fileCount: 1, current: 10, total: 100 };
+
+    expect(
+      formatLongPressDownloadText(
+        { ...base, total: null, phase: "downloading" },
+        t,
+      ),
+    ).toBe("ダウンロード中");
+    expect(
+      formatLongPressDownloadText(
+        { ...base, total: 0, phase: "downloading" },
+        t,
+      ),
+    ).toBe("ダウンロード中 0%");
+    expect(
+      formatLongPressDownloadText(
+        { ...base, fileIndex: 2, fileCount: 2, phase: "completed" },
+        t,
+      ),
+    ).toBe("ダウンロード完了 (2/2)");
+    expect(
+      formatLongPressDownloadText(
+        { ...base, fileIndex: 1, fileCount: 2, phase: "failed" },
+        t,
+      ),
+    ).toBe("ダウンロード失敗 (1/2)");
+  });
+
+  it("shouldAutoDismissLongPressToastはダウンロード中だけ消さず完了と失敗では消す", () => {
+    expect(shouldAutoDismissLongPressToast("downloading")).toBe(false);
+    expect(shouldAutoDismissLongPressToast("completed")).toBe(true);
+    expect(shouldAutoDismissLongPressToast("failed")).toBe(true);
+  });
+
+  it("完了イベントを受信すると完了のトーストが表示され3秒後に消える", async () => {
+    await importLongPressMenu();
+
+    emitProgress({ current: 100, phase: "completed" });
+
+    expect(getToast()?.textContent).toBe("ダウンロード完了");
+    vi.advanceTimersByTime(2999);
+    expect(getToast()).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(getToast()).toBeNull();
+  });
+
+  it("失敗イベントを受信すると失敗のトーストが表示され3秒後に消える", async () => {
+    await importLongPressMenu();
+
+    emitProgress({ phase: "failed" });
+
+    expect(getToast()?.textContent).toBe("ダウンロード失敗");
+    vi.advanceTimersByTime(2999);
+    expect(getToast()).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(getToast()).toBeNull();
+  });
+
+  it("完了トースト表示中に次の進捗が届いたらタイマーを解除して進捗表示に切り替わり消えない", async () => {
+    await importLongPressMenu();
+
+    emitProgress({ fileIndex: 1, fileCount: 2, phase: "completed" });
+    vi.advanceTimersByTime(2000);
+    emitProgress({ fileIndex: 2, fileCount: 2, current: 30, total: 100 });
+    vi.advanceTimersByTime(5000);
+
+    expect(getToast()?.textContent).toBe("ダウンロード中 (2/2) 30%");
+  });
+
+  it("保存ダイアログをキャンセルしてinvokeが何も返さず終了してもトーストは表示されない", async () => {
+    await setupAndClickDownload();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(getToast()).toBeNull();
+  });
+
+  it("進捗の購読は自WebViewのラベル宛てに限定して登録される", async () => {
+    await importLongPressMenu();
+
+    expect(getListenCall()[2]).toEqual({ target: WEBVIEW_LABEL });
+  });
+
+  it("自WebViewのラベルが取れないときは進捗を購読せず例外にもならない", async () => {
+    delete window.__TAURI_INTERNALS__;
+
+    await expect(importLongPressMenu()).resolves.not.toThrow();
+
+    expect(listenMock).not.toHaveBeenCalled();
+  });
+
+  it("トーストはpointer-events無効・fixed・最前面で表示されrole=statusを持つ", async () => {
+    await importLongPressMenu();
+
+    emitProgress({ current: 10 });
+
+    const toast = getToast();
+    expect(toast?.getAttribute("role")).toBe("status");
+    expect(toast?.style.pointerEvents).toBe("none");
+    expect(toast?.style.position).toBe("fixed");
+    expect(toast?.style.zIndex).toBe("2147483647");
   });
 });

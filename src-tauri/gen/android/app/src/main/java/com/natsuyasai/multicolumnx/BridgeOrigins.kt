@@ -33,8 +33,10 @@ fun isAllowedBridgeOrigin(origin: String): Boolean {
 }
 
 private fun isXOrTwitterHost(host: String): Boolean =
-  host == "x.com" || host.endsWith(".x.com") ||
-    host == "twitter.com" || host.endsWith(".twitter.com")
+  host == "x.com" ||
+    host.endsWith(".x.com") ||
+    host == "twitter.com" ||
+    host.endsWith(".twitter.com")
 
 /**
  * WEB_MESSAGE_LISTENER 機能の対応可否から、ネイティブブリッジを公開すべきかを判定する。

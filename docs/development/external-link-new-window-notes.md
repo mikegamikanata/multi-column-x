@@ -16,7 +16,7 @@
 
 ## 設計判断
 
-IPC・capability に頼らず、**Rust 側の `on_new_window`（Tauri 2.11 の `WebviewBuilder` / `WebviewWindowBuilder`）で新規ウィンドウ要求を処理する**。
+IPC・capability に頼らず、**Rust 側の `on_new_window`（Tauri 2.12 の `WebviewBuilder` / `WebviewWindowBuilder`）で新規ウィンドウ要求を処理する**。
 
 - デスクトップでは opener の自動クリックスクリプトを無効化する（`src-tauri/src/lib.rs` の `opener_js_links_on_click()`、mobile のみ有効）。
 - `src-tauri/src/commands/webview/external_link.rs` の `new_window_handler` を、カラム / ポップアップ / コンポーズ / 拡張機能ページ（`commands/extensions/mod.rs`）の**全 WebView builder** に付ける。

@@ -1,7 +1,14 @@
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import i18n from "@/i18n";
+import { expectAccessibleControls } from "@/test-utils/a11y";
 import { expectNoJapanese } from "@/test-utils/japanese";
 import type { Column, Account } from "../../types";
 import apiRateLimitIndicatorStyles from "../ApiRateLimitIndicator/ApiRateLimitIndicator.module.scss";
@@ -472,6 +479,230 @@ describe("MobileTabBar", () => {
       fireEvent.click(screen.getByText("通知"));
       expect(onDoubleTapColumn).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("MobileTabBar アクセシビリティ", () => {
+  it("折りたたみ時も展開後もすべての操作要素がアクセシブルネームを持つ", async () => {
+    const { container } = render(
+      <MobileTabBar {...defaultProps} columns={[col1, col2]} />,
+    );
+    expectAccessibleControls(container);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "メニュー表示の切り替え" }),
+    );
+    expectAccessibleControls(container);
+    expect(screen.getByRole("button", { name: "APIレート制限" })).toBeVisible();
+  });
+
+  it("タブバーが名前付きのナビゲーションランドマークになる", () => {
+    render(<MobileTabBar {...defaultProps} columns={[col1, col2]} />);
+    expect(
+      screen.getByRole("navigation", { name: "カラムのタブ" }),
+    ).toBeInTheDocument();
+  });
+
+  it("選択中のタブだけが aria-current で現在地として伝わる", () => {
+    render(
+      <MobileTabBar
+        {...defaultProps}
+        columns={[col1, col2]}
+        activeColumnId="col-2"
+      />,
+    );
+    const current = screen
+      .getAllByRole("button")
+      .filter((el) => el.getAttribute("aria-current") === "true");
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent("通知");
+    expect(
+      screen.getByText("ホーム").closest("[role=button]"),
+    ).not.toHaveAttribute("aria-current");
+  });
+
+  it("メニューの開閉ボタンが開閉状態を aria-expanded で伝える", async () => {
+    render(<MobileTabBar {...defaultProps} columns={[col1]} />);
+    const toggle = screen.getByRole("button", {
+      name: "メニュー表示の切り替え",
+    });
+    expect(toggle).toHaveAttribute("aria-label", "メニュー表示の切り替え");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("操作ボタンはすべて type=button でフォーム送信を起こさない", async () => {
+    render(<MobileTabBar {...defaultProps} columns={[col1]} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "メニュー表示の切り替え" }),
+    );
+    const buttons = screen
+      .getAllByRole("button")
+      .filter((el) => el.tagName === "BUTTON");
+    expect(buttons.length).toBeGreaterThan(4);
+    for (const button of buttons) {
+      expect(button).toHaveAttribute("type", "button");
+    }
+  });
+
+  it("スワイプの矢印は装飾なので支援技術から隠される", () => {
+    const { container } = render(
+      <MobileTabBar
+        {...defaultProps}
+        columns={[col1]}
+        swipeState={{ direction: "left", phase: "progress" }}
+      />,
+    );
+    const arrow = container.querySelector('[aria-hidden="true"]');
+    expect(arrow).toHaveTextContent("›");
+  });
+});
+
+// jsdom にはレイアウトが無いため、メニュー列の寸法とスクロール位置をモックする
+function mockMenuLayout(scrollWidth: number, clientWidth: number) {
+  const scrollLefts = new WeakMap<Element, number>();
+  const isMenu = (el: Element) =>
+    el.className.includes("menu") && !el.className.includes("menuWrap");
+  const original = {
+    scrollWidth: Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "scrollWidth",
+    ),
+    clientWidth: Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "clientWidth",
+    ),
+    scrollLeft: Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "scrollLeft",
+    ),
+  };
+  Object.defineProperty(Element.prototype, "scrollWidth", {
+    configurable: true,
+    get(this: Element) {
+      return isMenu(this) ? scrollWidth : 0;
+    },
+  });
+  Object.defineProperty(Element.prototype, "clientWidth", {
+    configurable: true,
+    get(this: Element) {
+      return isMenu(this) ? clientWidth : 0;
+    },
+  });
+  Object.defineProperty(Element.prototype, "scrollLeft", {
+    configurable: true,
+    get(this: Element) {
+      return scrollLefts.get(this) ?? 0;
+    },
+    set(this: Element, value: number) {
+      scrollLefts.set(this, value);
+    },
+  });
+  return () => {
+    for (const [key, desc] of Object.entries(original)) {
+      if (desc) Object.defineProperty(Element.prototype, key, desc);
+      else
+        delete (Element.prototype as unknown as Record<string, unknown>)[key];
+    }
+  };
+}
+
+function getMenu(container: HTMLElement): HTMLElement {
+  const menu = Array.from(container.querySelectorAll<HTMLElement>("div")).find(
+    (el) => el.className.includes("menu") && !el.className.includes("menuWrap"),
+  );
+  if (!menu) throw new Error("メニュー列が見つかりません");
+  return menu;
+}
+
+describe("MobileTabBar メニューの溢れ表示", () => {
+  let restoreLayout: (() => void) | null = null;
+  afterEach(() => {
+    restoreLayout?.();
+    restoreLayout = null;
+  });
+
+  it("展開するとメニューが末尾までスクロールされる", async () => {
+    restoreLayout = mockMenuLayout(600, 300);
+    const { container } = render(
+      <MobileTabBar {...defaultProps} columns={[col1]} />,
+    );
+    const menu = getMenu(container);
+    expect(menu.scrollLeft).toBe(0);
+    await userEvent.click(
+      screen.getByRole("button", { name: "メニュー表示の切り替え" }),
+    );
+    expect(menu.scrollLeft).toBe(600);
+  });
+
+  it("折りたたむとメニューが先頭へ戻る", async () => {
+    restoreLayout = mockMenuLayout(600, 300);
+    const { container } = render(
+      <MobileTabBar {...defaultProps} columns={[col1]} />,
+    );
+    const toggle = screen.getByRole("button", {
+      name: "メニュー表示の切り替え",
+    });
+    await userEvent.click(toggle);
+    await userEvent.click(toggle);
+    expect(getMenu(container).scrollLeft).toBe(0);
+  });
+
+  it("隠れているボタンがある側にだけフェードが表示される", async () => {
+    restoreLayout = mockMenuLayout(600, 300);
+    const { container } = render(
+      <MobileTabBar {...defaultProps} columns={[col1]} />,
+    );
+    // 展開前は先頭にいて続きがあるので右端のみ
+    expect(container.querySelector('[data-fade="end"]')).not.toBeNull();
+    expect(container.querySelector('[data-fade="start"]')).toBeNull();
+    // 展開すると末尾までスクロールされ、左端のみになる
+    await userEvent.click(
+      screen.getByRole("button", { name: "メニュー表示の切り替え" }),
+    );
+    expect(container.querySelector('[data-fade="start"]')).not.toBeNull();
+    expect(container.querySelector('[data-fade="end"]')).toBeNull();
+  });
+
+  it("ボタンが収まるときはフェードが表示されない", async () => {
+    restoreLayout = mockMenuLayout(300, 300);
+    const { container } = render(
+      <MobileTabBar {...defaultProps} columns={[col1]} />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "メニュー表示の切り替え" }),
+    );
+    expect(container.querySelector("[data-fade]")).toBeNull();
+  });
+
+  it("スクロールするとフェードの表示側が切り替わる", async () => {
+    restoreLayout = mockMenuLayout(600, 300);
+    const { container } = render(
+      <MobileTabBar {...defaultProps} columns={[col1]} />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "メニュー表示の切り替え" }),
+    );
+    const menu = getMenu(container);
+    menu.scrollLeft = 0;
+    fireEvent.scroll(menu);
+    await waitFor(() => {
+      expect(container.querySelector('[data-fade="start"]')).toBeNull();
+      expect(container.querySelector('[data-fade="end"]')).not.toBeNull();
+    });
+  });
+
+  it("フェードは装飾なので支援技術から隠される", () => {
+    restoreLayout = mockMenuLayout(600, 300);
+    const { container } = render(
+      <MobileTabBar {...defaultProps} columns={[col1]} />,
+    );
+    expect(container.querySelector("[data-fade]")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
   });
 });
 

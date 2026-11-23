@@ -52,10 +52,13 @@ fn build_progress_payload(
 /// 進捗発行の間引き状態（前回emit時刻・初回フラグ・直近の進捗値）を保持し、
 /// `video::should_emit_progress` による間引き判定つきで `app.emit_to` する。
 /// mp4用・HLS用それぞれの進捗コールバックはこの構造体を介してイベントを発行する。
+///
+/// `emit_to` は AnyLabel 宛て（`target_label` は呼び出し元 WebView のラベル）。受け手の JS は
+/// `listen` に `target` を指定すること（既定 target は宛先に関係なく全 emit を受け取る）。
 #[cfg(desktop)]
 struct ProgressEmitter<'a> {
     app: &'a tauri::AppHandle,
-    window_label: String,
+    target_label: String,
     file_index: u32,
     file_count: u32,
     last_emit_at: Option<std::time::Instant>,
@@ -68,13 +71,13 @@ struct ProgressEmitter<'a> {
 impl<'a> ProgressEmitter<'a> {
     fn new(
         app: &'a tauri::AppHandle,
-        window_label: String,
+        target_label: String,
         file_index: u32,
         file_count: u32,
     ) -> Self {
         Self {
             app,
-            window_label,
+            target_label,
             file_index,
             file_count,
             last_emit_at: None,
@@ -118,7 +121,7 @@ impl<'a> ProgressEmitter<'a> {
         let payload =
             build_progress_payload(self.file_index, self.file_count, current, total, phase);
         let _ = self.app.emit_to(
-            &self.window_label,
+            &self.target_label,
             crate::ipc_constants::events::VIDEO_DOWNLOAD_PROGRESS,
             payload,
         );
@@ -199,11 +202,13 @@ async fn pick_save_path(
 #[tauri::command]
 pub async fn download_video(
     app: tauri::AppHandle,
-    window: tauri::Window,
+    webview: tauri::Webview,
     variants: Vec<video::VideoVariantInput>,
     #[allow(non_snake_case)] suggestedFileName: String,
 ) -> Result<(), String> {
-    let window_label = window.label().to_string();
+    // 進捗の宛先は呼び出し元 WebView。Windows/macOS のカラムはメインウィンドウの子 WebView で
+    // window ラベルは "main" になり、宛先を絞れない。
+    let target_label = webview.label().to_string();
 
     let plan = plan_download(&variants)?;
     let base_name = video::sanitize_filename(&suggestedFileName);
@@ -219,7 +224,7 @@ pub async fn download_video(
 
             let client = http::build_client()?;
 
-            let mut emitter = ProgressEmitter::new(&app, window_label.clone(), 1, 1);
+            let mut emitter = ProgressEmitter::new(&app, target_label.clone(), 1, 1);
             let result = video::download_to_file_or_cleanup(&path, |mut file| {
                 let client = &client;
                 let url = &url;
@@ -264,7 +269,7 @@ pub async fn download_video(
             };
 
             if let Some(path) = pick_save_path(&app, format!("{base_name}_video.mp4")).await? {
-                let mut emitter = ProgressEmitter::new(&app, window_label.clone(), 1, file_count);
+                let mut emitter = ProgressEmitter::new(&app, target_label.clone(), 1, file_count);
                 let result = video::download_to_file_or_cleanup(&path, |mut file| {
                     let client = &client;
                     let video_playlist_url = &tracks.video_playlist_url;
@@ -294,7 +299,7 @@ pub async fn download_video(
             if let Some(audio_url) = tracks.audio_playlist_url {
                 if let Some(path) = pick_save_path(&app, format!("{base_name}_audio.m4a")).await? {
                     let mut emitter =
-                        ProgressEmitter::new(&app, window_label.clone(), 2, file_count);
+                        ProgressEmitter::new(&app, target_label.clone(), 2, file_count);
                     let result = video::download_to_file_or_cleanup(&path, |mut file| {
                         let client = &client;
                         let audio_url = &audio_url;
@@ -406,6 +411,8 @@ impl AndroidProgressNotifier {
 /// 処理本体は内部の async ブロックに切り出し、その成否に関わらず必ず
 /// `notify_video_download_finished` を呼んでからその結果を返す
 /// （`?` による早期returnが複数あるため、素直に書くとFinished通知漏れが起きるのを防ぐ）。
+/// 失敗したときは、Finished の前に `notify_video_download_failed` で失敗の通知を依頼する
+/// （後始末は `finish_android_video_download`）。
 #[cfg(target_os = "android")]
 pub async fn handle_android_video_download_request(
     app: &tauri::AppHandle,
@@ -536,14 +543,51 @@ pub async fn handle_android_video_download_request(
     }
     .await;
 
-    // 成否に関わらず必ずForeground Serviceを終了させる。
-    let _ = crate::android_bridge::notify_video_download_finished();
+    finish_android_video_download(
+        &result,
+        || {
+            let _ = crate::android_bridge::notify_video_download_failed();
+        },
+        || {
+            let _ = crate::android_bridge::notify_video_download_finished();
+        },
+    );
     result
+}
+
+/// Android のダウンロード処理の後始末。失敗なら失敗の通知を依頼してから、
+/// 成否に関わらず進捗の通知（Foreground Service）を終了させる。
+/// 失敗の通知を先に出すのは、進捗の通知が消えた後に何も残らない時間を作らないため。
+#[cfg(any(target_os = "android", test))]
+fn finish_android_video_download(
+    result: &Result<(), String>,
+    notify_failed: impl FnOnce(),
+    notify_finished: impl FnOnce(),
+) {
+    if result.is_err() {
+        notify_failed();
+    }
+    notify_finished();
 }
 
 #[cfg(all(test, not(target_os = "android")))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn download_videoは呼び出し元webview宛てに進捗を送る() {
+        const SOURCE: &str = include_str!("video_download.rs");
+        let start = SOURCE
+            .find("pub async fn download_video(")
+            .expect("download_video の定義が見つかること");
+        let end = SOURCE[start..]
+            .find(") -> Result")
+            .expect("引数リストの終端が見つかること")
+            + start;
+        let signature = &SOURCE[start..end];
+        assert!(signature.contains("webview: tauri::Webview"));
+        assert!(!signature.contains("tauri::Window"));
+    }
 
     fn mp4(bitrate: Option<u64>, url: &str) -> video::VideoVariantInput {
         video::VideoVariantInput {
@@ -772,6 +816,53 @@ mod tests {
             }"#;
             let payload: Result<AndroidVideoDownloadPayload, _> = serde_json::from_str(json);
             assert!(payload.is_err());
+        }
+    }
+
+    mod finish_android_video_download {
+        use super::*;
+        use std::cell::RefCell;
+
+        /// 後始末が呼んだ通知の順序を記録して返す。
+        fn run(result: Result<(), String>) -> Vec<&'static str> {
+            let calls = RefCell::new(Vec::new());
+            finish_android_video_download(
+                &result,
+                || calls.borrow_mut().push("failed"),
+                || calls.borrow_mut().push("finished"),
+            );
+            calls.into_inner()
+        }
+
+        #[test]
+        fn androidで動画のダウンロードが失敗すると失敗の通知を出す() {
+            let calls = run(Err("http error: 500".to_string()));
+
+            assert_eq!(calls, vec!["failed", "finished"]);
+        }
+
+        #[test]
+        fn androidでダウンロードを始める前に失敗したときも失敗の通知を出す() {
+            let plan_error = plan_download(&[]).unwrap_err();
+
+            let calls = run(Err(plan_error));
+
+            assert_eq!(calls, vec!["failed", "finished"]);
+        }
+
+        #[test]
+        fn hlsで映像の保存へ進んだ後に音声のダウンロードが失敗したときも失敗の通知を出す() {
+            let calls = run(Err("audio track download failed".to_string()));
+
+            assert!(calls.contains(&"failed"));
+            assert_eq!(calls.last(), Some(&"finished"));
+        }
+
+        #[test]
+        fn androidで動画のダウンロードが成功したときは失敗の通知を出さない() {
+            let calls = run(Ok(()));
+
+            assert_eq!(calls, vec!["finished"]);
         }
     }
 }

@@ -60,6 +60,8 @@ React 19 + TypeScript フロントエンドと Rust バックエンドで構成�
   - 承認済みシナリオごとに単体テスト（`@unit`）・結合テスト（`@integration`）を必ず作る。テスト名はシナリオ名に対応させるが、**テストコード・コメント・コミットに `.feature` への参照は書かない**。`.feature` 自体もコミットしない
   - **Gherkin由来のテストは、TDD（Red先行）に従わず実装後に作成してよい**（承認済みシナリオが期待結果の正になるため）。その場合もコミット前のミューテーション確認（主要な分岐を一時的に壊して Red になるか）は必須。どちらで進めるかはフェーズ2のプランに明記する。Gherkin対象外の変更やシナリオに無い追加テスト（プロパティテスト等）は従来どおりTDD。詳細は `tdd` スキル「進め方の選択」
   - 自動化できないシナリオ（`@manual`）は手動テスト項目として `integration-test.md` に必ず出力する（`integration-test-viewpoints`、フェーズ6は必須）
+  - `integration-test.md` の項目のうちエージェントが安全に実施できるものは `.claude/skills/autonomous-manual-test` に従って実施し、結果を記録する（X への外部影響操作・OS 設定変更は禁止、データ・端末設定は退避して復元）
+- リリース前に毎回確認すべき観点は `docs/release/pre-release-checklist.md` に項目として追加・削除・修正する（結果・実施日・実施回数は書かない）。リリース時は `.claude/skills/pre-release-test` でチェックリストの項目を試験し、項目と結果をリリースPR（develop → main）の本文に記載する
 - 対応完了時にはフォーマッターとテストを実行してオールグリーンとなること
 - 設計内容や実装内容に関して不明慮な点があれば必ず確認すること
   - ユーザーの依頼内容が曖昧・不完全な場合、そのまま着手せず、明確になるまで質問を繰り返して掘り下げる
@@ -85,6 +87,10 @@ Tauri v2 の子 WebView は OS ネイティブウィンドウのため、CSS `z-
 アプリ UI の倍率は `<html>` の font-size で変えるため、UI の寸法は `rem` で書く（`px` 禁止。1px 以下のヘアラインと media query を除く）。ネイティブ bounds に使う高さ定数は `src/lib/gridLayout.ts` の rem 定数 + `remToPx` を使い、SCSS の同値と一致させる（`gridLayout.contract.test.ts` が検証する）。詳細は `docs/development/ui-scale-notes.md` を参照。
 パネル型ダイアログを新設するときは `src/styles/_dialog-fullscreen.scss` のミキシンで Android 全画面化すること（詳細は `docs/development/ui-scale-notes.md`）。
 
+### UI のデザイン原則
+
+UI（React / SCSS）を新規作成・変更するときは `.claude/skills/ui-design-principles` と `docs/development/ui-design-principles-notes.md` に従う。要点: 余白は 0.25rem の倍数・最小文字 12px・hover / active / focus-visible / disabled の定義・操作要素の 44px は Android のみ（固定バー高さは変えない）。契約テスト `src/lib/uiDesign.contract.test.ts` が検査する。
+
 ### serde のフィールド命名
 
 Tauri v2 は JS→Rust のケース変換を行わない。JS 側 camelCase フィールドには `#[serde(rename = "...")]` が必要。
@@ -96,6 +102,10 @@ Tauri v2 は JS→Rust のケース変換を行わない。JS 側 camelCase フ�
 ### Linux カラム WebView のクリッピング・WebProcess クラッシュ対策（デグレ注意）
 
 Linux ではカラムが独立 `WebviewWindow`（親クリップが効かない）ため、横スクロール時のはみ出し表示を `linux_column_layout`（`src-tauri/src/commands/webview/column.rs`）で制御する。正式仕様は **`docs/development/linux-column-spec.md`** に明記。実装ファイル・落とし穴・テスト方針の詳細は `docs/development/linux-webview-notes.md` を参照。**過去にインライン実装・テスト無しで複数回デグレードしている領域のため、変更する場合は必ず参照ノートのテスト方針に従うこと。**
+
+### アプリの再起動
+
+アプリの再起動は Rust コマンド `relaunch_app` 経由で行う。`@tauri-apps/plugin-process` の `relaunch()` は使わない（plugin は削除済み。AppImage では旧マウントの環境変数・fd を新プロセスが引き継ぐため）。詳細は `docs/development/linux-webview-notes.md`「AppImage の再起動」を参照。
 
 ### Tauri ウィンドウの close() と destroy()（常駐ウィンドウの破棄）
 
@@ -118,13 +128,17 @@ Linux ではカラムが独立 `WebviewWindow`（親クリップが効かない�
 
 `src-tauri/gen/android/**` を変更する場合の詳細（単体テストコマンド、`MainActivity.kt` とのシグネチャ同期ルール）は `docs/development/android-notes.md` を参照。**`MainActivity.kt` のメソッドシグネチャを変更したら、必ず `proguard-rules.pro` も同時に更新すること**（リリースビルドでしか症状が出ないため注意）。
 
+### 設定画面（アプリ設定・カラム設定）のカテゴリ・タブ
+
+`AppSettingsPanel`（サイドナビ / Android は一覧→詳細）と `SettingsPanel`（カラム設定のタブ）のカテゴリ・タブを変更する場合は `docs/development/settings-panel-navigation-notes.md` を参照。カテゴリ定義は `settingsCategories.ts` が唯一の場所で、**アプリ設定の下書き（`SettingsDraft`）に項目を足したら `DRAFT_KEY_CATEGORY` に割当が必要**（`Record` なので型で強制される）。Android の端末の戻る操作を画面側で処理するときは `useAndroidBackHandler` で登録する（`MainActivity` は触らない）。
+
 ### API レート制限モニター
 
 X内部APIのレート制限ヘッダをツールバーのポップオーバーに表示する機能。`src/constants/apiRateLimitLabels.ts` / `src/components/ApiRateLimitIndicator/` / `src/lib/apiRateLimit.ts` を変更する場合の詳細（bucketKeyの対応表・severity判定ロジック）は `docs/development/api-rate-limit-operations-notes.md` を参照。
 
 ### リリースCI・テーマ切替・再認証
 
-`src/lib/theme.ts` / `src/hooks/useTheme.ts`（テーマ切替）、`src/lib/reauthIdentity.ts` / `src-tauri/src/commands/account.rs`（既存アカウントの再認証・Cookie上書き）、`src/services/updater.ts` / `src/hooks/useAppUpdater.ts` / `src-tauri/src/commands/update.rs`（自動更新・進捗表示）を変更する場合の詳細（設計判断・未確定事項・落とし穴）は `docs/development/release-theme-reauth-notes.md` を参照。設定の既定値は Rust の `impl Default`（構造体レベル `#[serde(default)]`）を唯一の定義とし、TS の既定値と `contracts/default-settings.json` の契約テストで一致を保証している。**既定値を変更するときは Rust / TS / fixture の3箇所を同時に更新すること。** `src/index.css` の配色トークンを変更するときは、`themeContrast.contract.test.ts`（コントラスト基準）と `swipeBarColors.contract.test.ts`（Android `SwipeBarOverlayView.kt` の色同期）を通すこと。**白文字を載せる塗り背景は `--mcx-accent-fill` を使うこと**（`--mcx-accent` を背景にすると白文字が読めない）。
+`src/lib/theme.ts` / `src/hooks/useTheme.ts`（テーマ切替）、`src/lib/reauthIdentity.ts` / `src-tauri/src/commands/account.rs`（既存アカウントの再認証・Cookie上書き）、`src/services/updater.ts` / `src/hooks/useAppUpdater.ts` / `src-tauri/src/commands/update.rs`（自動更新・進捗表示）を変更する場合の詳細（設計判断・未確定事項・落とし穴）は `docs/development/release-theme-reauth-notes.md` を参照。リリースを作らずに更新を試験する仕組み（`VITE_UPDATER_MOCK` の UI モック、`scripts/updater-test/` のローカル配信、cargo feature `updater-test`）は `docs/development/updater-test-notes.md` を参照（本番の updater 設定は契約テストで固定している）。設定の既定値は Rust の `impl Default`（構造体レベル `#[serde(default)]`）を唯一の定義とし、TS の既定値と `contracts/default-settings.json` の契約テストで一致を保証している。**既定値を変更するときは Rust / TS / fixture の3箇所を同時に更新すること。** `src/index.css` の配色トークンを変更するときは、`themeContrast.contract.test.ts`（コントラスト基準）と `swipeBarColors.contract.test.ts`（Android `SwipeBarOverlayView.kt` の色同期）を通すこと。**白文字を載せる塗り背景は `--mcx-accent-fill` を使うこと**（`--mcx-accent` を背景にすると白文字が読めない）。
 
 ### 設定ファイル（settings.json）の永続化
 
@@ -132,11 +146,15 @@ X内部APIのレート制限ヘッダをツールバーのポップオーバー�
 
 ### バックアップ／リストア
 
-`src-tauri/src/commands/backup/`、`src/lib/backupRestore.ts`、`src/services/backup.ts`、`src/hooks/useBackupFlow.ts`、`src/components/AppSettingsPanel/BackupTab.tsx`、`MainActivity.kt` の `startBackupExport` / `startBackupImport` / `detectXUserId` を変更する場合は `docs/development/backup-restore-notes.md` を参照。出力は `BackupGlobalSettings` のホワイトリスト（`GlobalSettingsData` に項目を足すとキー集合テストが失敗し、取捨の判断を強制する）。復元は `apply_restore`（退避 → 置換 → `save_store_atomically` 1 回）で、復元中は `restoreInProgress` が自動保存・自動更新・アカウント追加／再認証を止める。手動テスト項目は `docs/development/backup-restore/integration-test.md`。
+`src-tauri/src/commands/backup/`、`src/lib/backupRestore.ts`、`src/services/backup.ts`、`src/hooks/useBackupFlow.ts`、`src/components/AppSettingsPanel/BackupTab.tsx`、`MainActivity.kt` の `startBackupExport` / `startBackupImport` / `detectXUserId` を変更する場合は `docs/development/backup-restore-notes.md` を参照。出力は `BackupGlobalSettings` のホワイトリスト（`GlobalSettingsData` に項目を足すとキー集合テストが失敗し、取捨の判断を強制する）。復元は `apply_restore`（退避 → 置換 → `save_store_atomically` 1 回）で、復元中は `restoreInProgress` が自動保存・自動更新・アカウント追加／再認証を止める。
+
+### データフォルダの削除予定（外部サイトカラム・アカウント）
+
+`delete_external_column_data`（`commands/webview/column.rs`）、`delete_account_data` の許可パス（`account.rs` の `is_safe_deletable_data_dir`）、`src/hooks/usePendingDataDirectoryCleanup.ts` / `src/lib/dataDirectoryGuard.ts` を変更する場合は `docs/development/external-column-data-cleanup-notes.md` を参照。許可パスを広げるときは拒否パターンのテストを必ず足すこと。
 
 ### ブラウザ拡張機能（Windows のみ）
 
-Windows の WebView2 に Chrome 拡張を読み込む機能。`src-tauri/src/commands/extensions/`、`src/components/AppSettingsPanel/ExtensionsTab.tsx`、`src/lib/extensionsSupport.ts`、`commands/webview/{column,compose,popup}.rs` を変更する場合は `docs/development/browser-extensions-notes.md` を参照（macOS / Linux を見送った理由もそこ）。**アカウントの data_directory を使う全 WebView builder に `#[cfg(windows)]` で `.browser_extensions_enabled(true)` が必須**（食い違うと `ERROR_INVALID_STATE`。契約テストが検査する）。コマンドの追加・削除は `build.rs` / `default.json` / `lib.rs` の `generate_handler!` の 3 点同時更新（上節の ACL）で、`column-webview.json` には足さない。状態は `settings.json` の `browserExtensions` キー（`appSettings` とは別。バックアップ対象外）に持ち、保存は `save_store_atomically` を使う。手動テスト項目は `docs/development/browser-extensions/integration-test.md`。
+Windows の WebView2 に Chrome 拡張を読み込む機能。`src-tauri/src/commands/extensions/`、`src/components/AppSettingsPanel/ExtensionsTab.tsx`、`src/lib/extensionsSupport.ts`、`commands/webview/{column,compose,popup}.rs` を変更する場合は `docs/development/browser-extensions-notes.md` を参照（macOS / Linux を見送った理由もそこ）。**アカウントの data_directory を使う全 WebView builder に `#[cfg(windows)]` で `.browser_extensions_enabled(true)` が必須**（食い違うと `ERROR_INVALID_STATE`。契約テストが検査する）。コマンドの追加・削除は `build.rs` / `default.json` / `lib.rs` の `generate_handler!` の 3 点同時更新（上節の ACL）で、`column-webview.json` には足さない。状態は `settings.json` の `browserExtensions` キー（`appSettings` とは別。バックアップ対象外）に持ち、保存は `save_store_atomically` を使う。
 
 ### 多言語対応（i18n）
 

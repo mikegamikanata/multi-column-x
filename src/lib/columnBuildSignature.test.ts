@@ -60,6 +60,15 @@ describe("columnBuildSignature", () => {
     expect(after).not.toBe(before);
   });
 
+  it("Grok ボタンの非表示設定だけ変えると署名が変わり表示中のカラムが再構築される", () => {
+    const before = columnBuildSignature(column, DEFAULT_GLOBAL_SETTINGS);
+    const after = columnBuildSignature(column, {
+      ...DEFAULT_GLOBAL_SETTINGS,
+      hideGrokButtonEnabled: !DEFAULT_GLOBAL_SETTINGS.hideGrokButtonEnabled,
+    });
+    expect(after).not.toBe(before);
+  });
+
   it("旧データで repostHiddenUserIds が無くても空配列と同じ署名になる", () => {
     const legacy = {
       ...column,

@@ -37,9 +37,9 @@ Use the buttons in the column header.
 - **Refresh** — Refreshes the column manually.
 - **Reload page** — Reloads the column's page.
 - **Settings (gear)** — Opens the settings for that column ([Per-column settings](#per-column-settings)).
-- **Close column (✕)** — Removes the column.
+- **Close column (✕)** — Removes the column. A confirmation dialog appears, and the column is removed when you choose Delete. For an external site column, its data, such as login information, is deleted as well.
 
-To reorder or rearrange columns, use the **"Column layout"** tab in the app settings ([Grid layout](#grid-layout-advanced)).
+To reorder or rearrange columns, use the **"Column layout"** category in the app settings ([Grid layout](#grid-layout-advanced)).
 
 ### Auto-reload
 
@@ -48,7 +48,7 @@ Auto-reload is enabled for every column by default. You can change the interval 
 ## Grid layout (advanced)
 
 You can place columns on a grid of rows and columns. On desktop, edit it from
-**App settings (`Ctrl+,`) → "Column layout" tab**.
+**App settings (`Ctrl+,`) → "Column layout" category**.
 
 ### Basic concepts
 
@@ -58,7 +58,7 @@ You can place columns on a grid of rows and columns. On desktop, edit it from
 
 ### How to arrange
 
-1. Open the "Column layout" tab.
+1. Open the "Column layout" category.
 2. Set **"Columns:"**.
 3. Click an empty cell (`+`) in the grid to select it as the destination.
 4. Click the column you want to place in the **"Unassigned"** list on the right, and it is placed in the selected cell.
@@ -78,7 +78,7 @@ Use the **▲ / ▼** buttons in the "Display order" list to change the order of
 
 Finally, click **"Apply"** to apply the layout.
 
-![Column layout tab](../images/column-layout-tab.png)
+![Column layout category](../images/column-layout-tab.png)
 
 _Assign columns to each grid column, and edit the height settings of the selected column and the "Display order"._
 
@@ -103,6 +103,18 @@ Use the **Settings (gear)** button in the column header (on Android, long-press 
 | Allowlist                      | Shows only posts that contain the specified words (the opposite of muted words)                                                                                                                                                               |
 | Custom CSS                     | Write any CSS to apply to that column                                                                                                                                                                                                         |
 
+The settings are split into the following four tabs (it always opens on "Basic").
+
+| Tab        | Sections                                               |
+| ---------- | ------------------------------------------------------ |
+| Basic      | Column, auto-reload, notifications                     |
+| Display    | Display, images, image blur                            |
+| Filters    | Muted words, users whose reposts are hidden, allowlist |
+| Custom CSS | Custom CSS                                             |
+
+- External-site columns have few settings, so no tabs are shown; the column settings and custom CSS appear on a single page.
+- If a muted-words field or similar has an input error and the settings cannot be applied, the view switches to the "Filters" tab and the tab is marked with an error indicator.
+- If you try to close with **✕** in the header or the Esc key while there are unapplied changes, a confirmation appears (**"Discard and close"** / **"Back"**). **"Cancel"** discards the changes and closes without asking.
 - Use **"Reload"** at the bottom to reload the column right away.
 - Changes take effect when you click **"Apply"**.
 

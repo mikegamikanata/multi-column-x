@@ -29,6 +29,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
@@ -54,16 +55,21 @@ class MainActivity : TauriActivity() {
   // UI スレッドからのみアクセスする。
   private var swipeBarOverlay: SwipeBarOverlayView? = null
 
-  // saveDownloadedVideo で起動した SAF 保存ダイアログの結果を受け取るまでの間、
-  // コピー元の一時ファイルパスと後処理（一時ファイル削除など）を保持する。
-  // UI スレッドからのみアクセスする。
-  private var pendingVideoSaveRequest: PendingVideoSaveRequest? = null
-
-  private data class PendingVideoSaveRequest(
-    val tempPath: String,
-    // 保存の成否に関わらず行う後処理（一時ファイル削除など）
-    val onDone: () -> Unit,
-  )
+  // saveDownloadedVideo の保存要求を要求順に 1 件ずつ SAF 保存ダイアログへ流すキュー。
+  // HLS の動画は映像と音声の要求が続けて届くため、1 件だけ保持すると後の要求が前を上書きしてしまう。
+  // UI スレッドからのみアクセスする。saveVideoLauncher はラムダ内で遅延参照する。
+  private val videoSaveQueue: VideoSaveQueue<Uri> =
+    VideoSaveQueue(
+      launch = { fileName -> saveVideoLauncher.launch(fileName) },
+      write = { uri, tempPath ->
+        val output =
+          contentResolver.openOutputStream(uri)
+            ?: throw IOException("failed to open output stream for $uri")
+        output.use { out -> File(tempPath).inputStream().use { input -> input.copyTo(out) } }
+      },
+      delete = { tempPath -> File(tempPath).delete() },
+      onError = { message, e -> Log.e(TAG, "saveDownloadedVideo: $message: ${e.message}") },
+    )
 
   // SAF（Storage Access Framework）の「名前を付けて保存」ダイアログ。
   // ダウンロードした動画/音声の一時ファイルをユーザーが選んだ場所へコピーする。
@@ -71,21 +77,8 @@ class MainActivity : TauriActivity() {
   // プロパティ初期化子で登録する。
   private val saveVideoLauncher: ActivityResultLauncher<String> =
     registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
-      val request = pendingVideoSaveRequest
-      pendingVideoSaveRequest = null
-      if (request == null) return@registerForActivityResult
-      try {
-        // uri == null はユーザーがキャンセルした場合。エラー扱いにしない。
-        if (uri != null) {
-          contentResolver.openOutputStream(uri)?.use { output ->
-            File(request.tempPath).inputStream().use { input -> input.copyTo(output) }
-          } ?: Log.e(TAG, "saveDownloadedVideo: failed to open output stream for $uri")
-        }
-      } catch (e: Exception) {
-        Log.e(TAG, "saveDownloadedVideo: failed to copy to $uri: ${e.message}")
-      } finally {
-        request.onDone()
-      }
+      // uri == null はユーザーがキャンセルした場合。エラー扱いにしない。
+      videoSaveQueue.onResult(uri)
     }
 
   // <input type="file"> のファイル選択結果を受け取るまでコールバックを保持する。
@@ -231,17 +224,38 @@ class MainActivity : TauriActivity() {
         override fun handleOnBackPressed() {
           // 1. ポップアップが開いていれば最前面を閉じる
           if (closeTopPopupWebView()) return
-          // 2. アクティブなカラム WebView が戻れる履歴を持っていれば戻る
-          val activeWv = activeColumnWebViewId?.let { columnWebViews[it] }
-          if (activeWv != null && activeWv.canGoBack()) {
-            activeWv.goBack()
+          // 2. メイン画面（アプリ設定の詳細画面など）が戻る操作を処理するか問い合わせる
+          val main = mainWebView
+          if (main == null) {
+            handleNativeBack()
             return
           }
-          // 3. それ以外はアプリをバックグラウンドへ（終了しない）
-          moveTaskToBack(true)
+          main.evaluateJavascript(MAIN_PAGE_BACK_SCRIPT) { result ->
+            if (!isBackConsumedByMainPage(result)) handleNativeBack()
+          }
         }
       },
     )
+  }
+
+  // メイン画面が戻る操作を処理しなかったときの従来の戻る処理
+  private fun handleNativeBack() {
+    // アクティブなカラム WebView が戻れる履歴を持っていれば戻る
+    val activeWv = activeColumnWebViewId?.let { columnWebViews[it] }
+    if (activeWv != null && activeWv.canGoBack()) {
+      activeWv.goBack()
+      return
+    }
+    // それ以外はアプリをバックグラウンドへ（終了しない）
+    moveTaskToBack(true)
+  }
+
+  // メイン画面の WebView（戻る操作の問い合わせ先）。WryActivity.onWebViewCreate で保持する
+  private var mainWebView: WebView? = null
+
+  override fun onWebViewCreate(webView: WebView) {
+    super.onWebViewCreate(webView)
+    mainWebView = webView
   }
 
   // AddAccount Activity を account_id を Intent Extra として渡して起動する。
@@ -358,11 +372,7 @@ class MainActivity : TauriActivity() {
         Log.e(TAG, "saveDownloadedVideo: temp file not found: $tempPath")
         return@runOnUiThread
       }
-      pendingVideoSaveRequest =
-        PendingVideoSaveRequest(tempPath) {
-          File(tempPath).delete()
-        }
-      saveVideoLauncher.launch(suggestedFileName)
+      videoSaveQueue.enqueue(VideoSaveQueue.Request(tempPath, suggestedFileName))
     }
   }
 
@@ -450,6 +460,12 @@ class MainActivity : TauriActivity() {
     startService(intent)
   }
 
+  // 動画ダウンロードの失敗を通知する。Rust 側で失敗したとき、notifyVideoDownloadFinished の前に呼ぶ。
+  // JNI スレッドから呼ばれる（NotificationManagerCompat.notify はスレッドを問わない）。
+  fun notifyVideoDownloadFailed() {
+    showVideoDownloadFailureNotification(this)
+  }
+
   // ポップアップ WebView を全画面オーバーレイとして追加する。
   // カラム WebView の上に重なり、戻るボタンで閉じられる。
   // JNI スレッドから呼ばれるため runOnUiThread + CountDownLatch で UI 操作を同期する。
@@ -481,6 +497,7 @@ class MainActivity : TauriActivity() {
                   AppBridge.onOfficialSettingsReport(accountId, snapshot)
                 },
                 { popupId -> removePopupWebView(popupId) },
+                { payloadJson -> AppBridge.onVideoDownloadRequest(payloadJson) },
               )
             WebViewCompat.addWebMessageListener(
               wv,
@@ -926,7 +943,9 @@ class MainActivity : TauriActivity() {
   // x.com 内のナビゲーションはそのまま WebView に委ね、外部 URL はシステムブラウザへ転送する。
   // Profile API のプロファイル読み込みや Cookie 設定のタイミングにより Cookie が一時的に
   // 利用できずログイン画面が表示される場合がある。検知したら遅延後に元 URL へリカバリする（1回限り）。
-  private inner class ExternalLinkWebViewClient(private val recoveryUrl: String) : WebViewClient() {
+  private inner class ExternalLinkWebViewClient(
+    private val recoveryUrl: String,
+  ) : WebViewClient() {
     private var loginRetried = false
 
     override fun shouldOverrideUrlLoading(

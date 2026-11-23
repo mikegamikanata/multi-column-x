@@ -14,7 +14,7 @@
 ## グリッドレイアウト・カラム WebView の座標計算
 
 - カラムは `gridRow` / `gridCol` でマトリクス配置する。座標計算は `src/lib/gridLayout.ts` の `calculateGridBounds`（純粋関数）が担当し、各カラムの絶対座標を Rust の `create_column_webview` / `resize_column_webview` に渡す。WebView への IPC 呼び出しは `src/services/columnWebview.ts` に集約されている。
-- Tauri v2 の子 WebView は OS ネイティブウィンドウのため、CSS の `z-index` は機能しない。ダイアログ表示中は `hideColumnWebviews()` で全 WebView を画面外に退避し、閉じると `recalculateAllBounds()` で復元する。この挙動は `src/App.tsx` の `dialogOpen` effect（`anyDialogOpen` の変化のみで発火し、他の依存では再実行しない設計）で制御している。新しいダイアログ・ポップアップ系 UI を追加する際は、この `anyDialogOpen` の条件（`dialogOpen || updater.available || whatsNew.notes || h264Setup.isDialogOpen || pendingAccountName || pendingRemoval || accountNotice || settingsLoadNotice || apiRateLimitPopoverOpen` など。定義は `App.tsx` の `anyDialogOpen`）に追加する必要がある。
+- Tauri v2 の子 WebView は OS ネイティブウィンドウのため、CSS の `z-index` は機能しない。ダイアログ表示中は `hideColumnWebviews()` で全 WebView を画面外に退避し、閉じると `recalculateAllBounds()` で復元する。この挙動は `src/App.tsx` の `dialogOpen` effect（`anyDialogOpen` の変化のみで発火し、他の依存では再実行しない設計）で制御している。新しいダイアログ・ポップアップ系 UI を追加する際は、この `anyDialogOpen` の条件（`dialogOpen || updater.available || whatsNew.notes || h264Setup.isDialogOpen || pendingAccountName || pendingRemoval || pendingColumnRemoval || accountNotice || settingsLoadNotice || apiRateLimitPopoverOpen` など。定義は `App.tsx` の `anyDialogOpen`）に追加する必要がある。
 
 ## モバイルのカラム切り替え（スワイプバー）
 
@@ -25,6 +25,7 @@
 - タッチ判定は `SwipeGestureResolver`（純粋関数、Android 非依存）に切り出し、`SwipeBarOverlayView.onTouchEvent` から呼ぶ。しきい値は移動量 `40dp` 以上・`|dx| > |dy|`（縦移動が横移動以上＝斜め方向優勢なら無効）の2条件で、時間制限は無い（旧 DOM 実装 `MobileSwipeBar.tsx` にも時間条件は無かった）。`progress`（指の移動方向の強調表示）は `SwipeBarOverlayView` がローカルで即座に描画し、`switching`（遷移確定フラッシュ）は自前判定せず、React 側の `navigateColumn` が実際に遷移を決定したときだけ `flashMobileSwipeBar` 経由で明示的にトリガーする（`navigateColumn` の早期return時にフラッシュしてしまう退行を防ぐため。遷移可否の権威は常に React 側に置く）。
 - 過去に見つかった不整合: モバイル column WebView の bounds が、作成時は `y: 0` なのに `setActiveColumn` / `restoreMobileColumns` でのリサイズ時だけ `y: MOBILE_TAB_BAR_HEIGHT(56)` になる不整合があった。アプリが動作していたのは作成時の `y: 0` がそのまま効いていたためで、たまたま表面化していなかった。正しくは常に `y: 0` とし、`mobileColumnLayout` という単一の純粋関数に一本化している。同種のレイアウト計算を追加する際は、作成時とリサイズ時で bounds 計算ロジックが分岐していないか確認すること。
 - 却下した代替案: ボリュームキーでの切り替え（メディア音量操作と競合するため）、2本指スワイプ（片手操作に不向きなため）。
+- **複数列表示でタブ選択しても表示窓を動かさない**: `mobileColumnLayout` は窓の先頭を毎回アクティブ index から導出していたため、表示中のカラムをタブで選ぶとそれが左端へ来て並びがずれていた。`windowStartId`（任意入力）を渡すと窓を維持し、アクティブが窓外に出るときだけ最小限（1 カラム分）ずらす。窓先頭は `useMobileColumns` の `windowStartIdRef` に保持し（永続化しない）、`setActiveColumn(id, { keepWindow: true })` のときだけレイアウトへ渡す。維持するのはタブ選択（表示中のカラム。`selectColumn`）・スワイプ（`navigateColumn`）・WebView 再作成のみで、非表示カラムのタブ選択・カラム追加・削除・起動時復元は従来どおりアクティブ基準で再計算する。窓先頭が削除済み ID の場合は従来導出へフォールバックする。ストア保存にしなかったのは、再起動時はアクティブ基準で復元する仕様のため。
 
 ## グリッドレイアウトの割り切り仕様
 

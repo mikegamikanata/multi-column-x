@@ -64,6 +64,8 @@ export function useColumns() {
     setActiveColumnIdState,
     swipeState,
     setActiveColumn,
+    selectColumn,
+    getWindowStartId,
     navigateColumn,
     setSwipeProgress,
     restoreMobileColumns,
@@ -204,8 +206,11 @@ export function useColumns() {
         isMobile &&
         activeColumnId != null &&
         activeColumnId !== columnId &&
-        mobileLayoutForViewport(columnsBeforeRemoval, activeColumnId)[columnId]
-          ?.x >= 0;
+        mobileLayoutForViewport(
+          columnsBeforeRemoval,
+          activeColumnId,
+          getWindowStartId(),
+        )[columnId]?.x >= 0;
 
       await removeColumnWebview(columnId).catch(
         logError("handleRemoveColumn:removeColumnWebview"),
@@ -213,9 +218,16 @@ export function useColumns() {
       if (removedColumn && isExternalColumn(removedColumn)) {
         // external カラム専用の保存先ディレクトリは WebView 破棄後に削除する
         // （WebView がフォルダを使用中のため）。失敗してもログのみ。
-        await deleteExternalColumnData(columnId).catch(
-          logError("handleRemoveColumn:deleteExternalColumnData"),
+        const undeleted = await deleteExternalColumnData(columnId).catch(
+          (e) => {
+            logError("handleRemoveColumn:deleteExternalColumnData")(e);
+            return null;
+          },
         );
+        if (undeleted) {
+          // 再試行しても消せなかったフォルダは次回起動時に削除する
+          useAppStore.getState().addPendingDataDirectoryDeletion(undeleted);
+        }
       }
       removeColumn(columnId);
       const { columns: remainingColumns } = useAppStore.getState();
@@ -244,6 +256,7 @@ export function useColumns() {
       activeColumnId,
       setActiveColumn,
       setActiveColumnIdState,
+      getWindowStartId,
     ],
   );
 
@@ -315,9 +328,10 @@ export function useColumns() {
           const displayLayout = mobileLayoutForViewport(
             currentColumns,
             activeColumnId,
+            getWindowStartId(),
           );
           if (displayLayout[columnId].x >= 0) {
-            await setActiveColumn(activeColumnId);
+            await setActiveColumn(activeColumnId, { keepWindow: true });
           }
         }
         await hideIfDialogOpen();
@@ -354,6 +368,7 @@ export function useColumns() {
       scrollbarRef,
       activeColumnId,
       setActiveColumn,
+      getWindowStartId,
       recalculateAllBounds,
       hideColumnWebviews,
     ],
@@ -452,6 +467,7 @@ export function useColumns() {
     activeColumnId,
     swipeState,
     setActiveColumn,
+    selectColumn,
     navigateColumn,
     setSwipeProgress,
     setDialogOpen,

@@ -42,6 +42,7 @@ interface VideoDownloadProgressPayload {
  * - "downloading": total が分かればパーセンテージを表示、不明なら省略する。
  * - "completed" / "failed": その旨のテキストを表示する。
  * - fileCount > 1 の場合（HLSの映像+音声）は "(fileIndex/fileCount)" を併記する。
+ * video_long_press_menu.ts の formatLongPressDownloadText と同じ組み立て（同期すること）。
  */
 export function formatVideoDownloadProgressText(
   payload: VideoDownloadProgressPayload,
@@ -368,6 +369,14 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
   downloadStatus.style.cssText =
     "margin-left: 8px; white-space: nowrap; color: #f4212e;";
 
+  // 保存要求を届ける手段（Android のネイティブブリッジ / desktop の Tauri IPC）があるか。
+  function canRequestVideoDownload(): boolean {
+    return (
+      window.__mcxPopupBridge !== undefined ||
+      (window.__TAURI__?.core?.invoke ?? window.__TAURI__?.invoke) !== undefined
+    );
+  }
+
   /**
    * ダウンロードボタンの表示/非表示を、動画プレイヤーがDOM上に存在するかどうかで切り替える。
    * ポップアップで開かれるページは動画詳細ページとは限らないため、動画が無いページでは
@@ -381,7 +390,8 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
     // 到達しないが、テストのノイズ防止のためガードする。
     if (typeof document === "undefined") return;
     const hasVideo = extractVideoVariantsFromPlayer() !== null;
-    downloadButton.style.display = hasVideo ? "" : "none";
+    downloadButton.style.display =
+      hasVideo && canRequestVideoDownload() ? "" : "none";
   }
 
   const DOWNLOAD_FEEDBACK_CLEAR_DELAY_MS = 3000;
@@ -405,6 +415,17 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
       return;
     }
     const suggestedFileName = extractVideoIdFromPlayer() ?? "";
+    // Android のネイティブ WebView には Tauri IPC が無いため、カラムの長押しメニューと
+    // 同じ形（payload は JSON 文字列）でブリッジへ送り、同じ Rust の保存処理を使う。
+    // 進捗と結果は Android の通知に出るため、ボタンは無効化しない。
+    const androidBridge = window.__mcxPopupBridge;
+    if (androidBridge) {
+      postBridgeMessage(androidBridge, {
+        type: "downloadVideo",
+        payload: JSON.stringify({ variants, suggestedFileName }),
+      });
+      return;
+    }
     downloadButton.disabled = true;
     tauriInvoke(DOWNLOAD_VIDEO, { variants, suggestedFileName }, function () {
       downloadButton.disabled = false;
@@ -551,12 +572,19 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
 
   const listen = window.__TAURI__?.event?.listen;
   if (listen) {
-    listen<VideoDownloadProgressPayload>(VIDEO_DOWNLOAD_PROGRESS, function (e) {
-      downloadStatus.textContent = formatVideoDownloadProgressText(e.payload);
-      if (e.payload.phase !== "downloading") {
-        clearDownloadFeedbackAfterDelay();
-      }
-    }).catch(function (err: unknown) {
+    // 既定 target（Any）は他 WebView 宛ての進捗（カラムのダウンロード）も受け取るため、自ラベルに限定する。
+    const ownLabel =
+      window.__TAURI_INTERNALS__?.metadata?.currentWebview?.label;
+    listen<VideoDownloadProgressPayload>(
+      VIDEO_DOWNLOAD_PROGRESS,
+      function (e) {
+        downloadStatus.textContent = formatVideoDownloadProgressText(e.payload);
+        if (e.payload.phase !== "downloading") {
+          clearDownloadFeedbackAfterDelay();
+        }
+      },
+      ownLabel ? { target: ownLabel } : undefined,
+    ).catch(function (err: unknown) {
       console.error("[popup_toolbar]", err);
     });
   }

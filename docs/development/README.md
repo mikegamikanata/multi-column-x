@@ -12,13 +12,14 @@
 - [release-theme-reauth-notes.md](release-theme-reauth-notes.md) — 意図的にスコープ外とした判断、リリース CI / 自動更新、テーマ切替、更新進捗表示、再認証（Cookie 上書き）
 - [api-rate-limit-operations-notes.md](api-rate-limit-operations-notes.md) — API レート制限モニターのヘッダ仕様、severity 判定ロジック、operationName（bucketKey）一覧
 - [topbar-column-reorder-notes.md](topbar-column-reorder-notes.md) — TopBar（desktop）のカラム並び替え（dnd-kit）のドラッグしきい値・click 抑制・Storybook play 上の注意
-- [backup-restore-notes.md](backup-restore-notes.md) — バックアップ／リストア（ファイル形式、ホワイトリスト出力、アカウント紐づけ、復元手順、退避、Android SAF、xUserId 取得）。手動テスト項目は [backup-restore/integration-test.md](backup-restore/integration-test.md)
+- [backup-restore-notes.md](backup-restore-notes.md) — バックアップ／リストア（ファイル形式、ホワイトリスト出力、アカウント紐づけ、復元手順、退避、Android SAF、xUserId 取得）
+- [external-column-data-cleanup-notes.md](external-column-data-cleanup-notes.md) — 外部サイトカラム削除時のデータフォルダ削除（再試行 → 削除予定 → 起動時削除、許可パス、不採用案）
 - [settings-file-crash-safety-notes.md](settings-file-crash-safety-notes.md) — settings.json のアトミック書き込み、起動時の検査と復旧、`.prev` 世代、読み込み失敗時の保存ガード
-- [browser-extensions-notes.md](browser-extensions-notes.md) — ブラウザ拡張機能（Windows のみ）：永続化（`browserExtensions` キー）、reconcile、WebView2 の PoC で確認した事実、不採用案、落とし穴、macOS / Linux を見送った調査結果。手動テスト項目は [browser-extensions/integration-test.md](browser-extensions/integration-test.md)
+- [browser-extensions-notes.md](browser-extensions-notes.md) — ブラウザ拡張機能（Windows のみ）：永続化（`browserExtensions` キー）、reconcile、WebView2 の PoC で確認した事実、不採用案、落とし穴、macOS / Linux を見送った調査結果
 - [i18n-notes.md](i18n-notes.md) — 多言語対応（日本語／英語）：辞書とキーの規約、名前空間、用語集、新規文言の追加手順、React 外・純粋関数での翻訳、`expectNoJapanese` によるテスト
+- [ui-design-principles-notes.md](ui-design-principles-notes.md) — UI デザイン原則のアプリ向け翻訳：余白 0.25rem 倍数・最小文字 12px・フォーカスリング・Android のみ 44px・契約テスト（全 `*.module.scss` を例外定数付きで検査）・共通トークン／ミキシン・Storybook の落とし穴
 - [ui-scale-notes.md](ui-scale-notes.md) — アプリUI表示サイズ（端末倍率への追従と設定での上書き）：`<html>` の font-size による倍率、UI 寸法の rem 規約、ネイティブ bounds 用の rem 定数、Android のパネル型ダイアログ全画面化
 - [external-link-new-window-notes.md](external-link-new-window-notes.md) — 外部リンクの新規ウィンドウ処理：`on_new_window` で http/https/mailto/tel を既定ブラウザで開き常に Deny する仕組み（iframe 内リンク対応）、`.disable_drag_drop_handler()`
-- [desktop-file-drop/integration-test.md](desktop-file-drop/integration-test.md) — デスクトップ版の画像ファイルドラッグ&ドロップ添付の手動テスト項目
 
 ## リファレンス
 

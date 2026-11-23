@@ -7,8 +7,7 @@ import { validateNgWordLines } from "./ngWordPattern";
 import { parseUserIdLines, validateUserIdLine } from "./repostHiddenUserId";
 
 export type LineListParseResult =
-  | { kind: "valid"; values: string[] }
-  | { kind: "invalid"; error: string };
+  { kind: "valid"; values: string[] } | { kind: "invalid"; error: string };
 
 function splitLines(text: string): string[] {
   return text

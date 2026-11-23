@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { MobileTabBar } from "@/components/MobileTabBar/MobileTabBar";
+import { installAppReset, installThemeTokens } from "@/test-utils/storyTheme";
+import { expectAdjacentGap, expectTapTargets } from "@/test-utils/tapTargets";
 import type { Account, Column } from "@/types";
 
 const settings = {
@@ -103,6 +105,13 @@ function AndroidRoot({
   return <>{children}</>;
 }
 
+// index.css の `*` リセット（border-box など）を再現する。固定高さのバーは border-box 前提で、
+// Storybook は index.css を読まないため、これが無いと border 分だけ高さが増える
+function AppReset({ children }: { children: ReactNode }) {
+  useLayoutEffect(() => installAppReset(), []);
+  return <>{children}</>;
+}
+
 // 狭い画面（スマホ幅）を再現するため、vitest の browser 実行時だけ viewport を絞る。戻す関数を返す。
 // Storybook の画面上で開いた場合は viewport を変えられないので何もしない
 async function narrowViewport(width: number, height: number) {
@@ -121,6 +130,17 @@ const meta: Meta<typeof MobileTabBar> = {
   title: "Components/MobileTabBar",
   component: MobileTabBar,
   parameters: { layout: "fullscreen" },
+  // Storybook は index.css を読まないため、--mcx-* のテーマ変数を Story 側で有効にする
+  decorators: [
+    (Story) => {
+      installThemeTokens();
+      return (
+        <AppReset>
+          <Story />
+        </AppReset>
+      );
+    },
+  ],
   args: {
     columns,
     accounts: [account],
@@ -194,7 +214,9 @@ const androidDecorator = (fontSize?: string) => [
 ];
 
 function queryMenu(canvasElement: HTMLElement): HTMLElement {
-  const menu = canvasElement.querySelector<HTMLElement>('[class*="menu"]');
+  const menu = canvasElement.querySelector<HTMLElement>(
+    '[class*="menu"]:not([class*="menuWrap"])',
+  );
   if (!menu) throw new Error("メニュー列が見つかりません");
   return menu;
 }
@@ -212,8 +234,12 @@ export const AndroidLargeScaleMenuReachable: Story = {
       await expect(menu.scrollWidth).toBeGreaterThan(menu.clientWidth);
       await expect(getComputedStyle(menu).overflowX).toMatch(/auto|scroll/);
 
+      // 展開しただけで（手動でスクロールせずに）末尾側のボタンが押せる位置にある
       const addButton = canvas.getByRole("button", { name: "カラムを追加" });
-      addButton.scrollIntoView({ inline: "end" });
+      await waitFor(() => {
+        const r = addButton.getBoundingClientRect();
+        expect(r.right).toBeLessThanOrEqual(window.innerWidth + 1);
+      });
       const rect = addButton.getBoundingClientRect();
       await expect(rect.left).toBeGreaterThanOrEqual(0);
       await expect(rect.right).toBeLessThanOrEqual(window.innerWidth + 1);
@@ -221,7 +247,7 @@ export const AndroidLargeScaleMenuReachable: Story = {
       await expect(args.onAddColumn).toHaveBeenCalledTimes(1);
 
       // バーの高さは変わらず、ページ全体にも横スクロールは出ない
-      const bar = menu.parentElement as HTMLElement;
+      const bar = canvasElement.querySelector("nav") as HTMLElement;
       const rootFontPx = parseFloat(
         getComputedStyle(document.documentElement).fontSize,
       );
@@ -284,5 +310,273 @@ export const AndroidNormalScaleNoScroll: Story = {
     } finally {
       await restoreViewport();
     }
+  },
+};
+
+function queryFade(canvasElement: HTMLElement, side: "start" | "end") {
+  return canvasElement.querySelector<HTMLElement>(`[data-fade="${side}"]`);
+}
+
+function rootFontPx() {
+  return parseFloat(getComputedStyle(document.documentElement).fontSize);
+}
+
+export const AndroidLargeScaleMenuExpandScrollsToEnd: Story = {
+  name: "大きな表示サイズで展開すると最後のボタンが画面内に見える",
+  args: { columns: manyColumns },
+  decorators: androidDecorator("20px"),
+  play: async ({ canvasElement }) => {
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      const canvas = within(canvasElement);
+      await userEvent.click(canvas.getByTitle("メニュー表示の切り替え"));
+      const menu = queryMenu(canvasElement);
+      await expect(menu.scrollWidth).toBeGreaterThan(menu.clientWidth);
+      const buttons = menu.querySelectorAll("button");
+      const last = buttons[buttons.length - 1];
+      await waitFor(() => {
+        const rect = last.getBoundingClientRect();
+        expect(rect.left).toBeGreaterThanOrEqual(0);
+        expect(rect.right).toBeLessThanOrEqual(window.innerWidth + 1);
+      });
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+export const AndroidLargeScaleMenuFadeShown: Story = {
+  name: "隠れているボタンがある側の端にフェードが表示される",
+  args: { columns: manyColumns },
+  decorators: androidDecorator("20px"),
+  play: async ({ canvasElement }) => {
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      const canvas = within(canvasElement);
+      await userEvent.click(canvas.getByTitle("メニュー表示の切り替え"));
+      // 展開直後は末尾までスクロール済みなので、隠れているのは左側（先頭側）
+      await waitFor(() =>
+        expect(queryFade(canvasElement, "start")).not.toBeNull(),
+      );
+      await expect(queryFade(canvasElement, "end")).toBeNull();
+      const fade = queryFade(canvasElement, "start") as HTMLElement;
+      await expect(getComputedStyle(fade).pointerEvents).toBe("none");
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+export const AndroidNormalScaleMenuNoFade: Story = {
+  name: "標準サイズで収まるときはフェードが表示されない",
+  decorators: androidDecorator(),
+  play: async ({ canvasElement }) => {
+    const restoreViewport = await narrowViewport(480, 640);
+    try {
+      const canvas = within(canvasElement);
+      await userEvent.click(canvas.getByTitle("メニュー表示の切り替え"));
+      const menu = queryMenu(canvasElement);
+      await expect(menu.scrollWidth).toBeLessThanOrEqual(menu.clientWidth);
+      await expect(queryFade(canvasElement, "start")).toBeNull();
+      await expect(queryFade(canvasElement, "end")).toBeNull();
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+export const AndroidLargeScaleMenuScrollRevealsButtons: Story = {
+  name: "横スクロールすると隠れていたボタンが見え押せて、フェードが追従する",
+  args: { columns: manyColumns },
+  decorators: androidDecorator("20px"),
+  play: async ({ canvasElement, args }) => {
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      const canvas = within(canvasElement);
+      await userEvent.click(canvas.getByTitle("メニュー表示の切り替え"));
+      const menu = queryMenu(canvasElement);
+      await waitFor(() =>
+        expect(queryFade(canvasElement, "start")).not.toBeNull(),
+      );
+      menu.scrollLeft = 0;
+      await waitFor(() => {
+        expect(queryFade(canvasElement, "start")).toBeNull();
+        expect(queryFade(canvasElement, "end")).not.toBeNull();
+      });
+      const compose = canvas.getByRole("button", { name: "ツイートを作成" });
+      const rect = compose.getBoundingClientRect();
+      await expect(rect.left).toBeGreaterThanOrEqual(0);
+      await expect(rect.right).toBeLessThanOrEqual(window.innerWidth + 1);
+      await userEvent.click(compose);
+      await expect(args.onComposeTweet).toHaveBeenCalledTimes(1);
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+export const AndroidLargeScaleTabsStayVisibleOnExpand: Story = {
+  name: "大きな表示サイズで展開してもタブ領域が一部残りバーの高さが変わらない",
+  args: { columns: manyColumns },
+  decorators: androidDecorator("20px"),
+  play: async ({ canvasElement }) => {
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      const canvas = within(canvasElement);
+      const bar = canvasElement.querySelector("nav") as HTMLElement;
+      const heightBefore = bar.getBoundingClientRect().height;
+      await userEvent.click(canvas.getByTitle("メニュー表示の切り替え"));
+      const tabs = canvasElement.querySelector<HTMLElement>('[class*="tabs"]');
+      if (!tabs) throw new Error("タブ領域が見つかりません");
+      await expect(tabs.clientWidth).toBeGreaterThanOrEqual(
+        rootFontPx() * 6.25 - 1,
+      );
+      await expect(bar.getBoundingClientRect().height).toBeCloseTo(
+        heightBefore,
+        0,
+      );
+      await expect(bar.getBoundingClientRect().height).toBeCloseTo(
+        rootFontPx() * 3.5,
+        0,
+      );
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+// 配色の目視確認用（フェードがバーの背景になじむか）。assert は最小限
+export const AndroidLargeScaleMenuFadeLight: Story = {
+  name: "大きな表示サイズのメニューのフェード（ライト）",
+  args: { columns: manyColumns },
+  decorators: [
+    ...androidDecorator("20px"),
+    (Story) => (
+      <ThemeRoot theme="light">
+        <Story />
+      </ThemeRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      await userEvent.click(
+        within(canvasElement).getByTitle("メニュー表示の切り替え"),
+      );
+      await waitFor(() =>
+        expect(queryFade(canvasElement, "start")).not.toBeNull(),
+      );
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+export const AndroidLargeScaleMenuFadeDark: Story = {
+  name: "大きな表示サイズのメニューのフェード（ダーク）",
+  args: { columns: manyColumns },
+  decorators: [
+    ...androidDecorator("20px"),
+    (Story) => (
+      <ThemeRoot theme="dark">
+        <Story />
+      </ThemeRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      await userEvent.click(
+        within(canvasElement).getByTitle("メニュー表示の切り替え"),
+      );
+      await waitFor(() =>
+        expect(queryFade(canvasElement, "start")).not.toBeNull(),
+      );
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+// バー内のすべての操作要素が、バー（3.5rem 固定）の高さ・画面の幅に収まって 44px 以上・間隔 8px 以上であること
+async function expectBarTapTargetsFit(canvasElement: HTMLElement) {
+  const bar = canvasElement.querySelector("nav");
+  if (!bar) throw new Error("タブバーが見つかりません");
+  const barRect = bar.getBoundingClientRect();
+  const rootFontPx = parseFloat(
+    getComputedStyle(document.documentElement).fontSize,
+  );
+  await expect(barRect.height).toBeCloseTo(rootFontPx * 3.5, 0);
+  await expectTapTargets(canvasElement, 44);
+  await expectAdjacentGap(canvasElement, 8);
+  const controls = canvasElement.querySelectorAll('button, [role="button"]');
+  for (const control of Array.from(controls)) {
+    const rect = control.getBoundingClientRect();
+    await expect(rect.top).toBeGreaterThanOrEqual(barRect.top - 0.5);
+    await expect(rect.bottom).toBeLessThanOrEqual(barRect.bottom + 0.5);
+  }
+  // タブ 1 つ分の最小幅（6.25rem）は Android でも縮まない
+  const tabs = canvasElement.querySelectorAll('[role="button"]');
+  await expect(tabs.length).toBeGreaterThan(0);
+  for (const tab of Array.from(tabs)) {
+    await expect(tab.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      rootFontPx * 6.25 - 0.5,
+    );
+  }
+  await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+    document.documentElement.clientWidth,
+  );
+}
+
+export const AndroidTapTargetsFitBar: Story = {
+  name: "Android・ボトムバーの操作要素が44px以上・間隔8px以上でバーの高さに収まる",
+  args: { columns: manyColumns },
+  decorators: androidDecorator(),
+  play: async ({ canvasElement }) => {
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      await userEvent.click(
+        within(canvasElement).getByRole("button", {
+          name: "メニュー表示の切り替え",
+        }),
+      );
+      await expectBarTapTargetsFit(canvasElement);
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+export const AndroidLargeScaleTapTargetsFitBar: Story = {
+  name: "Android・UI表示サイズ特大でもボトムバーの操作要素がバーの高さに収まる",
+  args: { columns: manyColumns },
+  decorators: androidDecorator("20px"),
+  play: async ({ canvasElement }) => {
+    const restoreViewport = await narrowViewport(360, 640);
+    try {
+      await userEvent.click(
+        within(canvasElement).getByRole("button", {
+          name: "メニュー表示の切り替え",
+        }),
+      );
+      await expectBarTapTargetsFit(canvasElement);
+    } finally {
+      await restoreViewport();
+    }
+  },
+};
+
+export const SelectedTabIsMarked: Story = {
+  name: "選択中のタブだけが現在地として伝わり、キーボードでフォーカスリングが出る",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const current = canvasElement.querySelectorAll('[aria-current="true"]');
+    await expect(current).toHaveLength(1);
+    await expect(current[0]).toHaveTextContent("ホーム");
+
+    await userEvent.tab();
+    const firstTab = canvas.getByText("ホーム").closest('[role="button"]');
+    await expect(firstTab).toHaveFocus();
+    await expect(getComputedStyle(firstTab!).outlineStyle).not.toBe("none");
   },
 };

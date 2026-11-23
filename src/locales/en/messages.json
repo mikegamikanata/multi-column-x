@@ -42,6 +42,12 @@
       "message": "Delete “{{label}}”? Its session data will also be deleted.",
       "confirm": "Delete"
     },
+    "removeColumn": {
+      "title": "Delete column",
+      "message": "Delete “{{label}}”?",
+      "messageExternal": "Delete “{{label}}”? Its data, such as login information, will also be deleted.",
+      "confirm": "Delete"
+    },
     "settingsLoadFailedTitle": "Failed to load settings"
   },
   "update": {
@@ -113,6 +119,9 @@
       "unsupportedArch": "This environment ({{detail}}) is not supported. Automatic H.264 codec download is only available on x86_64",
       "extractFailed": "Failed to decompress the bzip2 archive: {{detail}}",
       "downloadTimeout": "The download timed out: {{detail}}"
+    },
+    "relaunch": {
+      "appImageMissing": "Cannot restart because the AppImage was not found. Check that it has not been moved or renamed, then start the app manually ({{detail}})"
     }
   }
 }

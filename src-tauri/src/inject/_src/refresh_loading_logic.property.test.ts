@@ -15,8 +15,7 @@ import {
 import type { LoadingState } from "./refresh_loading_logic";
 
 type LoadingEvent =
-  | { kind: "started"; id: number }
-  | { kind: "finished"; id: number };
+  { kind: "started"; id: number } | { kind: "finished"; id: number };
 
 const idArb = fc.integer({ min: 0, max: 5 });
 

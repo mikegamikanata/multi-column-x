@@ -1,11 +1,12 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { IPC_COMMANDS } from "@/constants/ipc";
 import { fetchLatestRelease } from "../lib/githubRelease";
 import { isNewerVersion } from "../lib/version";
+import { createMockUpdater, parseMockUpdaterKind } from "./mockUpdater";
+import { requestAppRelaunch } from "./relaunch";
 
 export interface AppUpdate {
   version: string;
@@ -58,7 +59,7 @@ function createDesktopUpdater(): Updater {
         }
       });
       onProgress?.({ phase: "restarting" });
-      await relaunch();
+      await requestAppRelaunch();
     },
   };
 }
@@ -95,5 +96,10 @@ function createMobileUpdater(): Updater {
 }
 
 export function createUpdater(isMobile: boolean): Updater {
+  // 更新試験ビルド専用。未設定なら分岐ごとビルド時に除去される。
+  if (import.meta.env.VITE_UPDATER_MOCK) {
+    const kind = parseMockUpdaterKind(import.meta.env.VITE_UPDATER_MOCK);
+    if (kind) return createMockUpdater(kind);
+  }
   return isMobile ? createMobileUpdater() : createDesktopUpdater();
 }

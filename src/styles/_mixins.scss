@@ -1,0 +1,42 @@
+// アプリUI共通のミキシン。使い方: @use "../../styles/mixins" as m;
+@use "tokens" as t;
+
+// 使い方: &:focus-visible { @include m.focus-ring; }
+@mixin focus-ring {
+  outline: t.$focus-ring-width solid var(--mcx-accent);
+  outline-offset: t.$focus-ring-offset;
+}
+
+// 使い方: @include m.transition-base(color, background-color);
+@mixin transition-base($props...) {
+  transition-property: $props;
+  transition-duration: t.$duration-fast;
+  transition-timing-function: ease;
+}
+
+// Android のみ当たり判定を 44px 以上にする。固定高さのバーの中では使わない（TopBar/ColumnHeader は desktop 専用）
+@mixin android-tap-target($min: t.$tap-target-min) {
+  :global([data-platform="android"]) & {
+    min-height: $min;
+    min-width: $min;
+  }
+}
+
+// 隣り合うボタン列の間隔を Android で 8px 以上にする
+@mixin android-button-gap($gap: t.$space-2) {
+  :global([data-platform="android"]) & {
+    gap: $gap;
+  }
+}
+
+// 画面には出さず、支援技術にだけ伝える（状態の印に添える文言など）
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

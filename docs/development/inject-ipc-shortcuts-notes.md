@@ -30,6 +30,15 @@ inject スクリプトは X(twitter.com) の実 DOM 構造に依存する。X �
 - `eval_in_webview` 用の Rust 側テンプレート文字列には、グローバル変数名（`window.__multiColumnX` など）が**文字列として直接埋め込まれている**。グローバル変数名を変更する場合、型定義2箇所・inject 各スクリプトのローカル定数に加えて、このテンプレート文字列内の埋め込みも別途更新が必要になる。見落としやすい同期漏れポイント。
 - コマンド名・イベント名・ラベルプレフィックスを変更する際は、Rust 側の IPC 定数定義・TS 側の IPC 定数定義・inject 側の参照用定数ドキュメント・各 inject スクリプトのローカル定数・両方の `window` 型定義、という**5箇所同期**が必要。ショートカット追加時の複数箇所同期と同種の、より広い範囲に及ぶ配線ルールとして把握しておくこと。
 
+### 既知の警告（対応不要）: X ページの DevTools に出る `ipc.localhost` の CSP 違反
+
+- 現象: カラム等の X ページの DevTools コンソールに、`http://ipc.localhost`（macOS / Linux は `ipc://localhost`）への接続が CSP の `connect-src` 違反で拒否された旨の警告が、ページごとに 1 回出る。機能への影響は無い。
+- 原因: X ページ自身の CSP に ipc 宛てが含まれない。Tauri の IPC（`tauri-2.12.7` の `scripts/ipc-protocol.js` 37-72 行付近）は、初回の `fetch`（37 行）が失敗すると `console.warn` を出して `customProtocolIpcFailed = true` にし、`postMessage` 方式へフォールバックする（59-68 行）。設計どおりの挙動で、以降は `postMessage` で通信する。
+- 不採用にした案（再検討する場合の記録）:
+  - B: inject で ipc 宛ての `fetch` だけ即 reject するラップ。CSP のログは消えるが、Tauri 側の `console.warn` は残り、リスクの割に得が小さい。
+  - C: `postMessage` 側の差し替え。値が `defineProperty` で固定されているため不可。
+  - D: CSP ヘッダの書き換え。公式の手段が無い。
+
 ## 多言語（`__mcxI18n`）
 
 inject の自前 UI 文言（ポップアップで開くメニュー、ヘッダーカスタマイズ、ポップアップツールバー、前回の続きへ戻るボタン、動画長押しメニュー）は日本語・英語に対応している。
@@ -259,7 +268,7 @@ X の XHR ラッパーは `timeout` の既定が 0（無制限）で固定のタ
   - 動画タップ後、パスは `/<user>/status/<id>/mediaviewer`（小文字）になり、約 100ms 後に `/mediaViewer`（V が大文字）へ書き換わる。大文字小文字を区別する判定だと書き換え後を拡大表示と認識できない。
   - `button[data-testid="playButton"]` は無い。`video` は 2 個（`[data-testid="videoComponent"]` 内、blob: ソース）で、1 つ目が現在のポストの動画（画面内）、2 つ目が次のポストの動画（画面のすぐ外）。X 自身が `play()` を何度も呼ぶ。
   - `video_control` も同じ正規表現でパスを判定しており、大文字パスを拡大表示と認識できず「最初の 1 回だけ通して直後に pause、以降の `play()` は握りつぶす」で X の再生を止めていた。これが再生されない主因だった。`isMediaViewerPath` を `i` フラグ付きにして解消した。
-  - 修正後の再生確認は Android 実機での手動テスト（`integration-test.md`）で行う。
+  - 修正後の再生確認は Android 実機での手動テストで行う。
 
 ## 広告の非表示（`hide_ad.ts` / `hide_ad_matcher.ts`）
 
@@ -276,3 +285,59 @@ X の XHR ラッパーは `timeout` の既定が 0（無制限）で固定のタ
 - 実例: `hide_ad_matcher.ts` を新設した際、トップレベルの `AD_TEXTS` が `return_to_last_read.js` の同名と衝突した。matcher にはモジュール固有の接頭辞を付ける（`HIDE_AD_TEXTS` など）。
 - 検出: `inject_concat.contract.test.ts` が、ビルド済み inject を連結して構文チェックする（`build:inject` 後に有効）。`mod.rs` に inject を追加したらこのテストの対象リストにも追加する。
 - 実機で CDP から検証するときは `Page.reload` しない（注入済みの設定が消える）。アプリを再起動して確認する。
+
+## Grok ボタンの非表示（`hide_grok_button.ts`）
+
+全体設定 `hideGrokButtonEnabled` が ON のとき、各ポスト右上の Grok ボタン（日本語 UI: `aria-label="Grokのアクション"`）を隠す。JS の DOM 走査は書かず、専用の `<style id="multi-column-x-hide-grok-button">` に CSS を 1 本入れるだけ。
+
+```css
+article button[aria-label*="grok" i]:has(svg path[d^="M12.745 20.54"]) {
+  display: none !important;
+}
+```
+
+### 実 DOM で確認した事実（2026-11-23、デスクトップ Chrome 158・ログイン済み・日本語 UI / Android WebView は Chrome 153 を CDP で確認）
+
+- ポスト内ボタンは `<button aria-label="Grokのアクション" role="button">` で、**`data-testid` が無い**。手がかりは `aria-label` と SVG `path` の `d`（全件同一で `M12.745 20.54l10.97-8.19…` から始まる）。
+- ポスト外にも同じアイコンがある（左の Grok ドロワー `data-testid="GrokDrawerHeader"`、画像生成 `data-testid="grokImgGen"`）。**`article` に限定しないと誤って隠す**。ポスト外の Grok 関連 UI は残す方針。
+- ボタンだけ隠せば親のラッパー `DIV` が 0×0 に潰れ、`caret`（もっと見る）など隣のボタンの位置は変わらない（隙間は出ない）。ラッパーまで隠す必要は無い。
+- デスクトップ・Android とも同じセレクタで、ポスト内の Grok ボタンだけが `display:none` になり、返信・いいね・もっと見る・ブックマーク（`data-testid` 付き）は表示されたままだった。Android は 11 件すべてに同じ `aria-label`・SVG path があった。確認は一時 style を追加して直後に削除する形で、X の状態は変えていない。
+
+### `:has()`（CSS）で隠す理由
+
+- ユーザーが CSS 方式を選択した。ボタンの親を辿る JS の走査・MutationObserver での再判定が要らず、X の仮想リストが後からポストを描画しても CSS が自動で効く。
+- `aria-label` は言語で変わるため、判定は言語非依存にする。`aria-label` に `grok` を含む（大文字小文字無視）**かつ** ボタン内 SVG の `path` の `d` が Grok ロゴで始まる、の両方を満たすものだけ隠す。片方だけでは隠さない（ラベルに Grok を含む別ボタン／Grok アイコンのラベル違いの誤判定を避ける）。
+
+### `custom_css`（`applyCustomCSS`）に混ぜない理由
+
+`applyCustomCSS` は style 要素を 1 つだけ持つ。設定画面でカラムのカスタム CSS を実行時に差し替えると、そこへ足した Grok のルールも一緒に消える。干渉を避けるため専用の style 要素にした。head から消された場合の作り直しは `custom_css.ts` と同じ（head の `childList` を監視し、100ms 後に再作成）。
+
+### `:has()` のサポート状況
+
+| 環境              | 対応                                                                                                                                                                                                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows WebView2  | Chromium 105 以降（Evergreen なので現行は対応）                                                                                                                                                                                                                                                |
+| Android WebView   | Chromium 105 以降。minSdk 24 だが WebView は Play で更新される。更新されていない古い端末のみ非対応の可能性。エミュレータの Chrome 153 では `CSS.supports('selector(:has(*))')` が `true`                                                                                                       |
+| macOS (WKWebView) | Safari 15.4 以降 = macOS 12.3 以降。それより古い OS は非対応（`tauri.conf.json` に `minimumSystemVersion` 指定なし）                                                                                                                                                                           |
+| Linux (WebKitGTK) | WebKit 本体は Safari 15.4 相当から対応。WebKitGTK 2.34.3 は**非対応と確認済み**。このプロジェクトは `webkit2gtk` を `v2_40` にピン留めしているため 2.40 以上なら対応のはずだが、**WebKitGTK の対応開始バージョンは公式資料で未確認**。Linux 実機での確認はリリース前チェックリストに入れてある |
+
+非対応環境では `:has()` を解釈できないブラウザがルール全体を読み捨てるだけで、ほかの CSS・スクリプトには影響しない。**ボタンが隠れず従来どおり表示されるだけ**で、安全側に倒れる。
+
+### 未確認事項
+
+- **英語 UI の Grok ボタン（`aria-label` は `Grok actions` と想定）は実画面で未確認**。`?lang=en` はログイン済みでは効かず、ログアウト状態のポストには Grok ボタンが出ない。アカウントの言語は変更しない方針のため、言語非依存の判定（`aria-label` に grok を含む＋SVG path）で担保し、実画面の確認はリリース前チェックリストに回している。Android の英語 UI も同様に未確認。
+- 設定を ON にした実カラムでの消去（Android・Linux を含む）は、リリース前チェックリストで確認する。
+
+### 不採用案
+
+- **JS で DOM を走査して隠す**: CSS 方式を選んだため。監視・再スキャンの処理が増える。
+- **ボタンのラッパー `DIV` まで隠す**: 実測でボタンだけ隠せば 0×0 に潰れ、隙間が出ないため不要。
+- **`custom_css` の文字列にルールを足す**: 上記のとおり、カスタム CSS の実行時の差し替えでルールが消える。
+
+## 動画ダウンロード（デスクトップのカラム `video_long_press_menu.ts`）
+
+- 送信経路は `chooseLongPressDownloadTransport` で選ぶ。Android ブリッジ（`__mcxVideoDownloadBridge`）があれば `__TAURI__` の有無に関わらずブリッジ優先、無ければ `download_video` を invoke、どちらも無ければ何もしない。
+- 進捗イベント `video-download-progress` は Rust が `emit_to(webview.label(), …)` で呼び出し元 WebView 宛てに送る。ただし JS の `listen` は既定 target（Any）だと宛先ラベルに関係なく全 emit を受け取るため、**`listen` には必ず `{ target: 自 WebView のラベル }` を指定する**（ラベルは `__TAURI_INTERNALS__.metadata.currentWebview.label`）。カラムもポップアップもこの指定が必要で、片方が欠けると他 WebView のダウンロード進捗が混入する。ラベルが取れないカラムでは購読しない。購読は起動時に1回だけ行う（クリック時の登録は取りこぼしの恐れがある）。
+- 保存ダイアログのキャンセルは Rust がイベントを出さず `Ok(())` で終わるため、トーストは出ない。開始前エラーは invoke の reject でのみ通知される（失敗トースト + `console.error`）。ダウンロード中のエラーは失敗イベントと reject の両方が来るため、失敗イベント受信済みなら reject 側はトーストを上書きしない。新しい進捗のたびに自動消去タイマーを解除する。
+- トーストは `textContent` を直接設定する。`__mcxI18n.apply` は key しか記録せず、言語切替の再適用で `{file}` `{percent}` が補間されなくなる。`pointer-events: none` で操作を妨げない。inject は X ページ内 DOM のため rem 規約は適用しない（px）。
+- 文言は popup と共通の `popupToolbar.download.*` を再利用する。`formatLongPressDownloadText`（`video_long_press_menu.ts`）と `formatVideoDownloadProgressText`（`popup_toolbar.ts`）はファイル間 import できないため複製で、変更時は両方を同期する。

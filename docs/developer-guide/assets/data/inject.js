@@ -542,6 +542,19 @@ Object.assign(window.MCX_DATA.catalogs, {
         files: [INJ + "hide_ad.ts", INJ + "hide_ad.test.ts"],
       },
       {
+        name: "hide_grok_button.ts",
+        summary:
+          "ポスト内（article 配下）の Grok ボタンを、専用の style 要素に入れた CSS の :has() で非表示にする。",
+        enable: "hideGrokButtonEnabled（グローバル設定）",
+        target: "カラム",
+        platform: "共通",
+        test: "あり",
+        kind: "フィルタ",
+        detail:
+          "<p>隠す条件は <code>aria-label</code> に grok を含み、かつ SVG path が Grok のロゴであるボタンで、表示言語に依存しません。ポスト外の Grok ドロワーや画像生成は <code>article</code> の外なので対象外です。<code>:has()</code> 非対応の WebView ではルールが無視され、ボタンが従来どおり表示されるだけです。<code>custom_css</code> には混ぜず専用の style 要素にしています（実行時のカスタム CSS の差し替えで消えないため）。詳細は開発ノートを参照。</p>",
+        files: [INJ + "hide_grok_button.ts", INJ + "hide_grok_button.test.ts"],
+      },
+      {
         name: "ng_word.ts",
         summary:
           "NG ワード・ホワイトリスト・リポスト非表示ユーザーに一致する投稿を除去/非表示。recheckNgWords を公開。",
@@ -770,7 +783,8 @@ Object.assign(window.MCX_DATA.catalogs, {
         name: "download_video",
         from: "popup_toolbar.ts",
         summary: "ポップアップ内の動画をダウンロード",
-        android: "（要確認）",
+        android:
+          "__mcxPopupBridge（downloadVideo → PopupSessionBridge → AppBridge.onVideoDownloadRequest）。届ける手段が無いポップアップではボタンを出さない",
       },
       {
         name: "report_official_settings",
@@ -869,7 +883,7 @@ Object.assign(window.MCX_DATA.details, {
     layer: "inject",
     summary:
       "Rust が WebView 生成時に埋め込む設定オブジェクト。各 inject が読む。",
-    body: "<p>キー: hideHeaderEnabled / hideTweetInputEnabled / showCustomMenu / visibleLinks / smallImageEnabled / smallImageWidth / blurImageEnabled / blurImageAmount / hideAdEnabled / apiRateLimitMonitorEnabled / imagePopupEnabled / videoPopupEnabled / ngWords / globalNgWords / repostHiddenUserIds / globalRepostHiddenUserIds / whitelistEnabled / whitelistWords / returnToLastReadEnabled / scrollPosRestoreEnabled / mobileSwipeAreaOffset（計 21 個）。</p><p>生成時の値なので、後から変えるには <code>WEBVIEW_SCRIPTS</code> で eval してオブジェクトを書き換える必要があります。新しい GlobalSettings フラグを追加するときは<b>7 箇所同期</b>（types, fixture, settings.rs, settings_store.rs, column.rs, inject/mod.rs, types.d.ts）です。</p>",
+    body: "<p>キー: hideHeaderEnabled / hideTweetInputEnabled / showCustomMenu / visibleLinks / smallImageEnabled / smallImageWidth / blurImageEnabled / blurImageAmount / hideAdEnabled / hideGrokButtonEnabled / apiRateLimitMonitorEnabled / imagePopupEnabled / videoPopupEnabled / ngWords / globalNgWords / repostHiddenUserIds / globalRepostHiddenUserIds / whitelistEnabled / whitelistWords / returnToLastReadEnabled / scrollPosRestoreEnabled / mobileSwipeAreaOffset（計 22 個）。</p><p>生成時の値なので、後から変えるには <code>WEBVIEW_SCRIPTS</code> で eval してオブジェクトを書き換える必要があります。新しい GlobalSettings フラグを追加するときは<b>7 箇所同期</b>（types, fixture, settings.rs, settings_store.rs, column.rs, inject/mod.rs, types.d.ts）です。</p>",
     files: [
       "src-tauri/src/inject/mod.rs",
       "src-tauri/src/inject/_src/types.d.ts",

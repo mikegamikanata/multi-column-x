@@ -1,6 +1,6 @@
 /// <reference types="vitest/globals" />
 import { beforeEach, vi } from "vitest";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 import i18n from "@/i18n";
 
 // 既存テストは日本語文言を前提にしているため、全テストを日本語に固定する
@@ -9,6 +9,9 @@ beforeEach(async () => {
   vi.spyOn(navigator, "language", "get").mockReturnValue("ja-JP");
   await i18n.changeLanguage("ja");
 });
+
+// jsdom には scrollIntoView が無いため、呼び出しても落ちないようにする
+Element.prototype.scrollIntoView ??= vi.fn();
 
 // Tauri APIをモック
 Object.defineProperty(window, "__TAURI__", {

@@ -54,6 +54,7 @@
     public void notifyVideoDownloadStarted();
     public void notifyVideoDownloadProgress(int, int, long, long);
     public void notifyVideoDownloadFinished();
+    public void notifyVideoDownloadFailed();
     public void setSwipeBarOverlay(boolean, int, int, int, boolean);
     public void setSwipeBarFlash(java.lang.String);
 }

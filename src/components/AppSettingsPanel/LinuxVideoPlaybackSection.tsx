@@ -1,8 +1,10 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { StatusMark } from "@/components/StatusMark/StatusMark";
 import type {
   H264DownloadError,
   H264DownloadState,
+  H264RelaunchError,
 } from "@/hooks/useH264Setup";
 import { describeAppError } from "@/lib/appError";
 import styles from "./AppSettingsPanel.module.scss";
@@ -15,6 +17,8 @@ export interface H264SettingsInfo {
   h264Available: boolean;
   downloadState: H264DownloadState;
   downloadError: H264DownloadError | null;
+  /** 「今すぐ再起動」の失敗内容（無ければ null） */
+  relaunchError: H264RelaunchError | null;
   onEnable: () => void;
   onRelaunch: () => void;
 }
@@ -37,20 +41,28 @@ const H264Row: React.FC<{ h264: H264SettingsInfo }> = ({ h264 }) => {
   // downloadState を先に判定する
   if (downloadState === "success") {
     return (
-      <div className={styles.inlineRow}>
-        <span className={styles.hint} role="status">
-          {t("settings:linuxVideo.h264Restart", {
-            notice: t("settings:linuxVideo.restartNotice"),
-          })}
-        </span>
-        <button
-          type="button"
-          className={styles.applyAllBtn}
-          onClick={h264.onRelaunch}
-        >
-          {t("settings:linuxVideo.relaunch")}
-        </button>
-      </div>
+      <>
+        <div className={styles.inlineRow}>
+          <span className={styles.hint} role="status">
+            {t("settings:linuxVideo.h264Restart", {
+              notice: t("settings:linuxVideo.restartNotice"),
+            })}
+          </span>
+          <button
+            type="button"
+            className={styles.applyAllBtn}
+            onClick={h264.onRelaunch}
+          >
+            {t("settings:linuxVideo.relaunch")}
+          </button>
+        </div>
+        {h264.relaunchError && (
+          <p className={styles.errorText} role="alert">
+            <StatusMark kind="warning" />
+            {describeAppError(h264.relaunchError, t)}
+          </p>
+        )}
+      </>
     );
   }
 
@@ -71,6 +83,7 @@ const H264Row: React.FC<{ h264: H264SettingsInfo }> = ({ h264 }) => {
     return (
       <>
         <p className={styles.errorText} role="alert">
+          <StatusMark kind="warning" />
           {h264.downloadError
             ? describeAppError(h264.downloadError, t)
             : t("settings:linuxVideo.fetchFailed")}

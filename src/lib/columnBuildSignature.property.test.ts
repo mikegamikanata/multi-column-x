@@ -45,6 +45,7 @@ const columnArb = fc
 const globalArb = fc
   .record({
     hideAdEnabled: fc.boolean(),
+    hideGrokButtonEnabled: fc.boolean(),
     ngWords: fc.array(fc.string(), { maxLength: 4 }),
     mobileSwipeAreaHeight: fc.integer({ min: 0, max: 200 }),
   })
@@ -109,6 +110,10 @@ const embeddedMutations: Array<[string, Mutation]> = [
   [
     "global.hideAdEnabled",
     (c, g) => [c, { ...g, hideAdEnabled: !g.hideAdEnabled }],
+  ],
+  [
+    "global.hideGrokButtonEnabled",
+    (c, g) => [c, { ...g, hideGrokButtonEnabled: !g.hideGrokButtonEnabled }],
   ],
   ["global.ngWords", (c, g) => [c, { ...g, ngWords: [...g.ngWords, "x"] }]],
   [

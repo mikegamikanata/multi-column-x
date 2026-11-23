@@ -173,7 +173,7 @@
                 <td>Rust → inject（起動時）</td>
                 <td><code>window.__multiColumnXConfig</code> ほか</td>
                 <td>
-                  設定フラグ 21 項目（NG
+                  設定フラグ 22 項目（NG
                   ワード、ポップアップ可否、画像縮小…）。言語は別グローバル
                   <code>window.__mcxLang</code>。ポップアップは
                   <code>__mcxAccounts</code> /
@@ -210,9 +210,10 @@
                 <td>Rust → inject（イベント）</td>
                 <td><code>listen</code></td>
                 <td>
-                  ポップアップの
-                  <code>video-download-progress</code> のみ（popup_toolbar
-                  が購読）。
+                  <code>video-download-progress</code> のみ。ポップアップ
+                  （popup_toolbar）とカラム（video_long_press_menu）が購読し、どちらも
+                  <code>listen</code> の <code>target</code> に自 WebView
+                  のラベルを指定して自分宛ての進捗だけを受け取ります。
                 </td>
               </tr>
               <tr>
@@ -403,8 +404,8 @@
                 mediaviewer_autoplay（mobile のみ）
               </li>
               <li>
-                small_image → blur_image → hide_ad → ng_word → custom_css →
-                image_popup / context_menu / scroll_event /
+                small_image → blur_image → hide_ad → hide_grok_button → ng_word
+                → custom_css → image_popup / context_menu / scroll_event /
                 keyboard_shortcut（desktop）→ sidebar_hide →
                 mobile_area_hide（mobile）→ notification_header_hide →
                 compose_only（compose のみ）→ video_long_press_menu →
@@ -534,9 +535,8 @@
             表示するリンクを選ぶ独自メニューが状態を持つため React
             で描画します。React 本体を同梱するので生成物は約 587KB（他の数
             KB〜数十 KB と桁違い）。Vite の設定でも専用の
-            <code>--mode react</code> パスにして
-            <code>inlineDynamicImports</code> で 1
-            ファイルに固めます。全カラムに入れると重いので、
+            <code>--mode react</code> パスにして <code>format: "iife"</code> で
+            1 ファイルに固めます。全カラムに入れると重いので、
             <b>ヘッダー非表示または投稿欄非表示が ON のカラムだけ</b> Rust
             が連結します。設定変更時は『アンマウント →
             必要なら再マウント』で整合を取ります。
@@ -550,7 +550,10 @@
             play() を再試行するため、最初の play() だけ通して 1
             度止める工夫付き）。<code>video_long_press_menu</code> は DOM に URL
             が無いため React Fiber の props から動画 variants
-            を取り出します。ダウンロードは Android ブリッジ専用です。
+            を取り出します。ダウンロードは Android
+            ではブリッジへ委譲し、デスクトップでは
+            <code>download_video</code> を invoke
+            して進捗をカラム下端のトーストに表示します。
           </p>
           <p>
             <code>mediaviewer_autoplay</code> は <b>モバイルのカラムだけ</b>に

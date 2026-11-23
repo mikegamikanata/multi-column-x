@@ -42,6 +42,12 @@
       "message": "「{{label}}」を削除しますか？セッションデータも削除されます。",
       "confirm": "削除する"
     },
+    "removeColumn": {
+      "title": "カラムの削除",
+      "message": "「{{label}}」を削除しますか？",
+      "messageExternal": "「{{label}}」を削除しますか？ログイン情報などこのカラムのデータも削除されます。",
+      "confirm": "削除する"
+    },
     "settingsLoadFailedTitle": "設定の読み込みに失敗しました"
   },
   "update": {
@@ -113,6 +119,9 @@
       "unsupportedArch": "この環境（{{detail}}）には対応していません。H.264 コーデックの自動取得は x86_64 のみ対応です",
       "extractFailed": "bzip2展開に失敗しました: {{detail}}",
       "downloadTimeout": "ダウンロードがタイムアウトしました: {{detail}}"
+    },
+    "relaunch": {
+      "appImageMissing": "AppImage が見つからないため再起動できません。移動・名前変更していないか確認し、手動で起動し直してください（{{detail}}）"
     }
   }
 }

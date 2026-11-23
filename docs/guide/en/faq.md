@@ -2,7 +2,7 @@
 
 ## A column is blank or the display is broken
 
-In App settings (`Ctrl+,`) → "General" → "WebView", press **"Recreate all WebViews"** to recreate all columns in turn (your settings are kept). See [App-wide settings](./settings#app-wide-settings) for details. For an individual column, you can also try **⟳ (Reload page)** in the column header.
+In App settings (`Ctrl+,`) → "Maintenance" → "WebView", press **"Recreate all WebViews"** to recreate all columns in turn (your settings are kept). See [App-wide settings](./settings#app-wide-settings) for details. For an individual column, you can also try **⟳ (Reload page)** in the column header.
 
 ## I got logged out (the cookie became invalid)
 
@@ -18,11 +18,11 @@ Auto-reload is skipped while you are scrolling. You can also enable or disable a
 
 ## The "API" button on the toolbar is not shown
 
-"Enable the API usage monitor" in the "General" tab of the app settings may be turned off. See [First Launch and Screen Layout](./screen) for details.
+"Enable the API usage monitor" in the "Display" category of the app settings may be turned off. See [First Launch and Screen Layout](./screen) for details.
 
 ## Videos do not play on Linux
 
-The AppImage version does not bundle the H.264 video decoder. In App settings (`Ctrl+,`) → "General" → "Video playback (Linux)", press **"Enable H.264"** to get the required decoder (a restart is required for it to take effect). For the deb version, or if you install the decoder yourself, install your distribution's GStreamer plugins (such as `gstreamer1.0-plugins-bad` and `gstreamer1.0-libav`). See [Settings](./settings) for details.
+The AppImage version does not bundle the H.264 video decoder. In App settings (`Ctrl+,`) → "Media" → "Video playback (Linux)", press **"Enable H.264"** to get the required decoder (a restart is required for it to take effect). For the deb version, or if you install the decoder yourself, install your distribution's GStreamer plugins (such as `gstreamer1.0-plugins-bad` and `gstreamer1.0-libav`). See [Settings](./settings) for details.
 
 ## The AppImage does not start on Linux
 
@@ -36,7 +36,7 @@ The deb version does not support in-app updates. Download the new `.deb` and ins
 
 [Supported Environments and Features](./environments) summarizes what is supported on Windows, Linux, and Android.
 
-## The "Extensions" tab is not shown in the settings
+## The "Extensions" category is not shown in the settings
 
 Extension management is available on Windows only. It is not shown on Linux or Android. See [Extensions](./settings#extensions-advanced) for details.
 
@@ -46,8 +46,8 @@ Check that the extension is "Enabled" in the list and that it does not show "Not
 
 ## I want to carry my settings over to another device
 
-Export a backup file from the "Backup" tab in the app settings and restore it on the new device. Login information is not included, so add your accounts on the new device first. See [Backup and restore](./settings#backup-and-restore-advanced) for details.
+Export a backup file from the "Backup" category in the app settings and restore it on the new device. Login information is not included, so add your accounts on the new device first. See [Backup and restore](./settings#backup-and-restore-advanced) for details.
 
 ## I dismissed the notification about a new version
 
-You can check manually at any time with **"Check for updates"** in App settings (`Ctrl+,`) → "General" → "About the app". See [Updating the App](./update) for details.
+You can check manually at any time with **"Check for updates"** in App settings (`Ctrl+,`) → "About". See [Updating the App](./update) for details.

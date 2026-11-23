@@ -9,6 +9,7 @@ class PopupSessionBridgeTest {
   private val switchSessionCalls = mutableListOf<Triple<String, String, String>>()
   private val reportOfficialSettingsCalls = mutableListOf<Pair<String, String>>()
   private val closePopupCalls = mutableListOf<String>()
+  private val downloadVideoCalls = mutableListOf<String>()
 
   private val bridge =
     PopupSessionBridge(
@@ -16,6 +17,7 @@ class PopupSessionBridgeTest {
       { popupId, accountId, url -> switchSessionCalls.add(Triple(popupId, accountId, url)) },
       { accountId, snapshot -> reportOfficialSettingsCalls.add(Pair(accountId, snapshot)) },
       { popupId -> closePopupCalls.add(popupId) },
+      { payloadJson -> downloadVideoCalls.add(payloadJson) },
     )
 
   @Test
@@ -41,8 +43,21 @@ class PopupSessionBridgeTest {
 
   @Test
   fun `対象外のメッセージは無視される`() {
-    bridge.handle(BridgeMessage.DownloadVideo("payload"))
+    bridge.handle(BridgeMessage.ReportApiRateLimit("payload"))
 
+    assertTrue(switchSessionCalls.isEmpty())
+    assertTrue(reportOfficialSettingsCalls.isEmpty())
+    assertTrue(closePopupCalls.isEmpty())
+    assertTrue(downloadVideoCalls.isEmpty())
+  }
+
+  @Test
+  fun `ポップアップからのダウンロード要求はカラムの長押しと同じ保存処理に届く`() {
+    val payload = """{"variants":[],"suggestedFileName":"123"}"""
+
+    bridge.handle(BridgeMessage.DownloadVideo(payload))
+
+    assertEquals(listOf(payload), downloadVideoCalls)
     assertTrue(switchSessionCalls.isEmpty())
     assertTrue(reportOfficialSettingsCalls.isEmpty())
     assertTrue(closePopupCalls.isEmpty())

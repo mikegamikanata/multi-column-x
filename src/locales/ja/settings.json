@@ -7,24 +7,70 @@
   "panel": {
     "title": "アプリ設定",
     "close": "閉じる",
-    "tabs": {
-      "general": "一般",
-      "layout": "カラム配置",
-      "presets": "プリセット",
-      "extensions": "拡張機能",
-      "backup": "バックアップ"
-    },
-    "groups": {
-      "display": "表示",
-      "columnDefaults": "新規カラムの既定値",
-      "filter": "閲覧・フィルタ",
-      "media": "メディア",
-      "android": "Android専用",
-      "maintenance": "アプリ・メンテナンス"
-    },
     "actions": {
       "cancel": "キャンセル",
-      "apply": "適用"
+      "apply": "適用",
+      "close": "閉じる",
+      "back": "戻る"
+    },
+    "nav": {
+      "label": "設定のカテゴリ",
+      "groups": {
+        "general": "一般",
+        "columns": "カラム",
+        "dataExtensions": "データ・拡張",
+        "app": "アプリ"
+      }
+    },
+    "categories": {
+      "display": {
+        "label": "表示",
+        "desc": "言語・テーマ・表示サイズ・API残量モニター"
+      },
+      "filter": {
+        "label": "閲覧・フィルタ",
+        "desc": "X公式設定・NGワード・リポスト非表示・広告・Grokボタン"
+      },
+      "media": {
+        "label": "メディア",
+        "desc": "動画・ポップアップウィンドウ"
+      },
+      "columnDefaults": {
+        "label": "カラム既定値",
+        "desc": "新しく追加するカラムの初期設定"
+      },
+      "android": {
+        "label": "Android専用",
+        "desc": "ツイート・スワイプ切替・複数カラム表示"
+      },
+      "layout": {
+        "label": "カラム配置",
+        "desc": "列数・並び順・高さ"
+      },
+      "presets": {
+        "label": "プリセット",
+        "desc": "レイアウトの保存と読み込み"
+      },
+      "extensions": {
+        "label": "拡張機能",
+        "desc": "Chrome 拡張機能の追加と管理"
+      },
+      "backup": {
+        "label": "バックアップ",
+        "desc": "書き出しと復元"
+      },
+      "maintenance": {
+        "label": "メンテナンス",
+        "desc": "WebView の再生成・データフォルダの削除"
+      },
+      "about": {
+        "label": "このアプリについて",
+        "desc": "バージョンと更新の確認"
+      }
+    },
+    "status": {
+      "unapplied": "未適用の変更あり",
+      "error": "入力エラーあり"
     }
   },
   "general": {
@@ -41,6 +87,10 @@
     "ad": {
       "title": "広告",
       "hide": "広告を非表示にする"
+    },
+    "grok": {
+      "title": "Grok",
+      "hide": "ポスト内の Grok ボタンを非表示にする"
     },
     "apiRateLimit": {
       "title": "API残量モニター",
@@ -72,7 +122,7 @@
     }
   },
   "display": {
-    "title": "表示",
+    "title": "テーマと表示サイズ",
     "uiScale": {
       "label": "アプリUIの表示サイズ",
       "override": "アプリUIの表示サイズを変更する",
@@ -109,30 +159,36 @@
   },
   "columnDefaults": {
     "autoReload": {
-      "title": "カラムデフォルト - 自動更新",
+      "title": "自動更新",
       "enable": "自動更新を有効にする",
       "interval": "更新間隔（秒）",
       "countdown": "カウントダウンを表示する"
     },
     "display": {
-      "title": "カラムデフォルト - 表示",
+      "title": "表示",
       "hideHeader": "ヘッダーを非表示にする",
       "hideTweetInput": "投稿欄を非表示にする",
       "showCustomMenu": "カスタムメニューボタンを表示する",
       "restoreScroll": "写真閲覧後のスクロール位置を復元する"
     },
     "image": {
-      "title": "カラムデフォルト - 画像",
+      "title": "画像",
       "smallImage": "画像を縮小表示する",
-      "width": "幅（例: 50%, 200px）",
-      "blur": "画像をぼかして表示する",
-      "blurAmount": "ブラー量（例: 10px）"
+      "width": "幅（例: 50%, 200px）"
+    },
+    "imageBlur": {
+      "title": "画像ブラー",
+      "enable": "画像をぼかして表示する",
+      "amount": "ブラー量（例: 10px）"
+    },
+    "applyAll": {
+      "button": "既存の全カラムに適用",
+      "hint": "編集中の自動更新・表示・画像・画像ブラー・カスタム CSS の既定値を、いま開いているすべてのカラムに適用します。"
     },
     "customCss": {
-      "title": "カラムデフォルト - カスタムCSS",
+      "title": "カスタム CSS",
       "placeholder": "/* カスタムCSSを入力 */",
-      "hint": "新しく追加するカラムに適用されます",
-      "applyAll": "既存の全カラムに適用"
+      "hint": "新しく追加するカラムに適用されます"
     }
   },
   "layout": {
@@ -149,6 +205,8 @@
     "heightTitle": "高さ設定 — {{label}}",
     "heightAuto": "均等（自動）",
     "heightFixed": "固定:",
+    "heightValue": "高さの値",
+    "heightUnit": "高さの単位",
     "dragReorder": "ドラッグして並び替え",
     "moveUp": "上へ",
     "moveDown": "下へ",
@@ -165,7 +223,7 @@
   },
   "info": {
     "officialSettings": {
-      "title": "公式設定",
+      "title": "X公式設定",
       "hint": "X公式の設定画面をポップアップウィンドウで開きます。開いた画面から他アカウントへ設定を適用できます。",
       "open": "公式設定を開く"
     },

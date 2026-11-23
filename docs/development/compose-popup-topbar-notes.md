@@ -14,12 +14,20 @@
 
 - プログラムから確実に破棄する経路（置換・失敗時フォールバック・アプリ終了）は `destroy()` を使うこと。
 - `prevent_close` を使う常駐ウィンドウを新設したら、`src-tauri/src/lib.rs` のメインウィンドウ `CloseRequested` ハンドラに明示 `destroy()` を必ず追加すること。忘れると不可視ウィンドウが残りアプリプロセスが終了しなくなる。
+- ポップアップ（`popup-`）は `prevent_close` を使わない独立 `WebviewWindow` のため `close()` で閉じる（`destroy()` は不要）。メイン終了時の後始末は純粋関数 `windows_to_close_on_main_exit`（`src-tauri/src/lib.rs`）で決める。コンポーズは全 OS で destroy、ポップアップは全デスクトップ OS で close、カラムは Linux のみ close（Windows/macOS は子 WebView）。
+- 公式設定ポップアップの閉鎖通知の誤発火を防ぐため、追跡解除（`official_settings_popup_label = None`）はポップアップを閉じる前に行うこと（契約テストあり）。
 
 ## ウィンドウ位置・サイズ永続化
 
 - 実際に起きた事故と教訓: 当初案は `settings["globalSettings"]["windowBounds"]` のみを書き換える JSON 直接パッチ方式（他フィールド非破壊）だったが、実装過程で `AppSettingsData` 構造体に一度デシリアライズしてから再シリアライズする read-modify-write 方式に変わった。これが「フロント側の非同期 `saveSettings` 完了前にウィンドウを閉じると、直前のカラム設定（customCSS・NGワードなど）が古いスナップショットで上書き消失する」という実バグを引き起こしている（修正コミット: ウィンドウ終了時の `windowBounds` 保存を他フィールド非破壊にする対応）。
   - **教訓**: `CloseRequested` ハンドラで設定を保存する処理は、フロント側の非同期保存とレース条件になり得るため、対象フィールドのみを触るピンポイント更新（`merge_window_bounds` のような純粋関数）にすること。構造体経由のフル書き戻しは、他プロセス・他タイミングの書き込みと競合して危険。
 - 起動時のウィンドウ位置復元は `available_monitors()` と照合し、保存位置がどのモニター矩形にも収まっていなければ位置復元をスキップする（マルチモニター構成を解除したときに画面外へ飛ぶのを防ぐため）。サイズは `max(600, ...)` / `max(400, ...)` で最小値をクランプする。
+
+### inner / outer の使い分け（再起動で枠分大きくなる問題）
+
+- Tauri の `set_size` は内側（クライアント領域）サイズを設定し、`set_position` は外側左上基準。保存は「サイズ=`inner_size()`、位置=`outer_position()`」で対にする。`outer_size()` を保存すると復元のたびに枠分（Windows で約 16x39px）大きくなる。
+- 最小化中（Windows は位置が -32000 付近）の終了では保存しない（前回の保存値を維持する）。保存値の決定と復元サイズの計算は純粋関数 `window_bounds_to_save` / `restored_inner_size`（`src-tauri/src/lib.rs`）に切り出し、`save_window_bounds` が `outer_size()` に戻っていないことは契約テストで固定している。
+- 修正前の保存値（枠込みサイズ）は 1 回だけ枠分大きく復元され、次回終了時に内側サイズで保存し直されて収束する。このため移行処理は入れていない。最大化状態の保存・復元は未対応（スコープ外）。
 
 ## ポップアップ（投稿・アカウントセッション切り替え）
 

@@ -270,6 +270,8 @@ pub struct BackupGlobalSettings {
     pub blur_image_amount: String,
     #[serde(rename = "hideAdEnabled")]
     pub hide_ad_enabled: bool,
+    #[serde(rename = "hideGrokButtonEnabled")]
+    pub hide_grok_button_enabled: bool,
     #[serde(rename = "apiRateLimitMonitorEnabled")]
     pub api_rate_limit_monitor_enabled: bool,
     #[serde(rename = "columnScale")]
@@ -323,6 +325,7 @@ impl From<&GlobalSettingsData> for BackupGlobalSettings {
             blur_image_enabled: g.blur_image_enabled,
             blur_image_amount: g.blur_image_amount.clone(),
             hide_ad_enabled: g.hide_ad_enabled,
+            hide_grok_button_enabled: g.hide_grok_button_enabled,
             api_rate_limit_monitor_enabled: g.api_rate_limit_monitor_enabled,
             column_scale: g.column_scale.clone(),
             use_x_app_for_compose: g.use_x_app_for_compose,
@@ -374,6 +377,7 @@ impl BackupGlobalSettings {
             blur_image_enabled: self.blur_image_enabled,
             blur_image_amount: self.blur_image_amount,
             hide_ad_enabled: self.hide_ad_enabled,
+            hide_grok_button_enabled: self.hide_grok_button_enabled,
             api_rate_limit_monitor_enabled: self.api_rate_limit_monitor_enabled,
             column_scale: self.column_scale,
             use_x_app_for_compose: self.use_x_app_for_compose,

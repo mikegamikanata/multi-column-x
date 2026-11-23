@@ -9,6 +9,10 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { columnDisplayName } from "@/components/TopBar/columnDisplay";
+import { isExternalColumn } from "@/services/externalColumn";
+import { getColumnLabel } from "@/types";
+import type { Column } from "@/types";
 import styles from "./App.module.scss";
 import { AccountManager } from "./components/AccountManager/AccountManager";
 import { AccountNameDialog } from "./components/AccountNameDialog/AccountNameDialog";
@@ -37,6 +41,7 @@ import { useDialogState } from "./hooks/useDialogState";
 import { useH264Setup } from "./hooks/useH264Setup";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMobileSwipeBarSync } from "./hooks/useMobileSwipeBarSync";
+import { usePendingDataDirectoryCleanup } from "./hooks/usePendingDataDirectoryCleanup";
 import { usePlatformAttribute } from "./hooks/usePlatformAttribute";
 import { usePopupWindowHandlers } from "./hooks/usePopupWindowHandlers";
 import { useSettingsApplyHandlers } from "./hooks/useSettingsApplyHandlers";
@@ -52,6 +57,7 @@ import {
   useWebviewScrollRelay,
 } from "./hooks/useWebviewEvents";
 import { useWhatsNew } from "./hooks/useWhatsNew";
+import { installAndroidBackBridge } from "./lib/androidBackHandler";
 import { resolveExtensionPageAccountId } from "./lib/extensionsSupport";
 import { getHeaderHeight, getTopBarHeight } from "./lib/gridLayout";
 import { reloadColumnOrRecreate } from "./services/columnReload";
@@ -95,7 +101,7 @@ const App: React.FC = () => {
     handleScrollbarScroll,
     activeColumnId,
     swipeState,
-    setActiveColumn,
+    selectColumn,
     setDialogOpen,
     recreateAllWebviews,
     recreateColumnWebview,
@@ -156,6 +162,10 @@ const App: React.FC = () => {
   const uiScaleFactor = useUiScale(globalSettings.uiScale ?? "auto", isMobile);
   // CSS のプラットフォーム別スタイル用に <html> へ data-platform を付与する。
   usePlatformAttribute(isMobile);
+  // Android の戻る操作をネイティブ（MainActivity）から問い合わせられるよう入口を公開する。
+  useEffect(() => {
+    if (isMobile) installAndroidBackBridge();
+  }, [isMobile]);
 
   const { columnsRestored, appVersion } = useAppBootstrap({
     setIsMobile,
@@ -168,6 +178,11 @@ const App: React.FC = () => {
     columns,
     columnScale: globalSettings.columnScale,
   });
+  // 起動時（カラム復元後）に、削除できずに残っているデータフォルダを削除する
+  usePendingDataDirectoryCleanup(
+    columnsRestored,
+    retryPendingDataDirectoryDeletions,
+  );
   const updater = useAppUpdater(isMobile, columnsRestored);
   const whatsNew = useWhatsNew(columnsRestored);
   const h264Setup = useH264Setup(columnsRestored);
@@ -208,6 +223,25 @@ const App: React.FC = () => {
   useOfficialSettingsPopupReload(recreateAllWebviews);
   useWebviewScrollRelay(scrollbarRef);
 
+  // カラム削除の確認ダイアログ。id のみ保持し、対象カラムは都度 columns から導出する
+  const [pendingColumnRemovalId, setPendingColumnRemovalId] = useState<
+    string | null
+  >(null);
+  const requestColumnRemoval = useCallback((columnId: string) => {
+    setPendingColumnRemovalId(columnId);
+  }, []);
+  const cancelColumnRemoval = useCallback(() => {
+    setPendingColumnRemovalId(null);
+  }, []);
+  const confirmColumnRemoval = useCallback(() => {
+    const id = pendingColumnRemovalId;
+    setPendingColumnRemovalId(null);
+    if (id) void handleRemoveColumn(id);
+  }, [pendingColumnRemovalId, handleRemoveColumn]);
+  const pendingColumnRemoval = pendingColumnRemovalId
+    ? columns.find((c) => c.id === pendingColumnRemovalId)
+    : undefined;
+
   const handleOpenLinkPopup = useCallback(() => {
     setShowLinkPopupDialog(true);
   }, [setShowLinkPopupDialog]);
@@ -235,6 +269,7 @@ const App: React.FC = () => {
     h264Setup.isDialogOpen ||
     !!pendingAccountName ||
     !!pendingRemoval ||
+    !!pendingColumnRemoval ||
     !!accountNotice ||
     !!settingsLoadNotice ||
     apiRateLimitPopoverOpen;
@@ -427,9 +462,14 @@ const App: React.FC = () => {
     ? columns.find((c) => c.id === tabActionColumnId)
     : undefined;
 
+  const removeColumnLabel = (target: Column) =>
+    isMobile
+      ? getColumnLabel(target, t)
+      : columnDisplayName(target, accounts, t);
+
   if (!isLoaded) {
     return (
-      <div className={styles.loading}>
+      <div className={styles.loading} role="status">
         <span>{t("messages:app.loading")}</span>
       </div>
     );
@@ -450,7 +490,7 @@ const App: React.FC = () => {
           onComposeTweet={handleComposeTweet}
           onOpenLinkPopup={handleOpenLinkPopup}
           onJumpToColumn={handleJumpToColumn}
-          onClose={handleRemoveColumn}
+          onClose={requestColumnRemoval}
           onReorderColumnGroup={handleMoveColumnGroup}
           apiRateLimitMonitorEnabled={globalSettings.apiRateLimitMonitorEnabled}
           apiRateLimits={apiRateLimits}
@@ -462,7 +502,7 @@ const App: React.FC = () => {
           columns={columns}
           accounts={accounts}
           activeColumnId={activeColumnId}
-          onSelectColumn={setActiveColumn}
+          onSelectColumn={selectColumn}
           onAddColumn={() => setShowAddColumn(true)}
           onAccountManager={() => setShowAccountManager(true)}
           onAppSettings={() => setShowAppSettings(true)}
@@ -500,7 +540,7 @@ const App: React.FC = () => {
                 onReloadPage={handleReloadPage}
                 onScrollTop={handleDoubleTapColumn}
                 onSettings={setSettingsColumnId}
-                onClose={handleRemoveColumn}
+                onClose={requestColumnRemoval}
                 unreadCount={unreadCounts[column.id] ?? 0}
                 onClearUnread={clearUnreadCount}
               />
@@ -594,6 +634,7 @@ const App: React.FC = () => {
 
       {pendingRemoval && (
         <ConfirmDialog
+          variant="danger"
           title={t("messages:app.removeAccount.title")}
           message={t("messages:app.removeAccount.message", {
             label: pendingRemoval.label,
@@ -601,6 +642,25 @@ const App: React.FC = () => {
           confirmLabel={t("messages:app.removeAccount.confirm")}
           onConfirm={confirmRemoval}
           onCancel={cancelRemoval}
+        />
+      )}
+
+      {pendingColumnRemoval && (
+        <ConfirmDialog
+          variant="danger"
+          title={t("messages:app.removeColumn.title")}
+          message={
+            isExternalColumn(pendingColumnRemoval)
+              ? t("messages:app.removeColumn.messageExternal", {
+                  label: removeColumnLabel(pendingColumnRemoval),
+                })
+              : t("messages:app.removeColumn.message", {
+                  label: removeColumnLabel(pendingColumnRemoval),
+                })
+          }
+          confirmLabel={t("messages:app.removeColumn.confirm")}
+          onConfirm={confirmColumnRemoval}
+          onCancel={cancelColumnRemoval}
         />
       )}
 
@@ -669,6 +729,7 @@ const App: React.FC = () => {
             h264Available: h264Setup.h264Available,
             downloadState: h264Setup.downloadState,
             downloadError: h264Setup.downloadError,
+            relaunchError: h264Setup.relaunchError,
             onEnable: h264Setup.openFromSettings,
             onRelaunch: h264Setup.relaunchApp,
           }}
@@ -687,7 +748,7 @@ const App: React.FC = () => {
 
       {tabActionColumn && (
         <TabActionDialog
-          columnLabel={tabActionColumn.label || tabActionColumn.pageType}
+          columnLabel={getColumnLabel(tabActionColumn, t)}
           onReload={() => {
             setTabActionColumnId(null);
             handleReloadPage(tabActionColumn.id);
@@ -698,7 +759,7 @@ const App: React.FC = () => {
           }}
           onRemove={() => {
             setTabActionColumnId(null);
-            handleRemoveColumn(tabActionColumn.id);
+            requestColumnRemoval(tabActionColumn.id);
           }}
           onClose={() => setTabActionColumnId(null)}
         />
@@ -727,6 +788,7 @@ const App: React.FC = () => {
         <H264SetupDialog
           downloadState={h264Setup.downloadState}
           downloadError={h264Setup.downloadError}
+          relaunchError={h264Setup.relaunchError}
           onDownload={h264Setup.download}
           onDismiss={h264Setup.dismiss}
           onClose={h264Setup.close}

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use crate::commands::settings_file::SETTINGS_FILE;
 
 /// 無限ループ防止用の再実行済みフラグ。
-const REEXEC_GUARD_ENV: &str = "MULTI_COLUMN_X_LD_PATH_PRIMED";
+pub(crate) const REEXEC_GUARD_ENV: &str = "MULTI_COLUMN_X_LD_PATH_PRIMED";
 
 /// XDG Base Directory仕様に基づき、アプリのデータディレクトリを計算する（純粋関数）。
 /// `tauri::Manager::path().app_data_dir()` と同じ規則（$XDG_DATA_HOME、無ければ

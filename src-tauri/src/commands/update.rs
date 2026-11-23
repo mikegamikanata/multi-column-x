@@ -1,13 +1,28 @@
 //! アプリ更新コマンド（Android: APK 自己更新）。
 //! デスクトップは tauri-plugin-updater が担うため、ここでは Android のみ実装する。
 
-/// APK ダウンロード URL として許可する唯一のプレフィックス（自リポジトリの GitHub Releases）。
+/// APK ダウンロード URL として常に許可するプレフィックス（自リポジトリの GitHub Releases）。
 const ALLOWED_APK_URL_PREFIX: &str =
     "https://github.com/natsuyasai/multi-column-x/releases/download/";
+
+/// 許可する APK ダウンロード URL のプレフィックス一覧。
+/// 通常ビルドは GitHub Releases のみ。`updater-test` feature 有効時だけ、
+/// 更新試験用のローカル配信サーバー（ポート 8787）の URL も許可する。
+#[cfg(not(feature = "updater-test"))]
+const ALLOWED_APK_URL_PREFIXES: &[&str] = &[ALLOWED_APK_URL_PREFIX];
+
+#[cfg(feature = "updater-test")]
+const ALLOWED_APK_URL_PREFIXES: &[&str] = &[
+    ALLOWED_APK_URL_PREFIX,
+    "http://localhost:8787/download/",
+    "http://127.0.0.1:8787/download/",
+    "http://10.0.2.2:8787/download/",
+];
 
 /// APK 更新リクエストの検証（純関数・全プラットフォームでテスト可能）。
 /// - 呼び出し元は main ウィンドウのみ（x.com を表示する column/popup WebView からの invoke を拒否）
 /// - URL は自リポジトリの GitHub Releases ダウンロード URL のみ許可
+///   （`updater-test` feature 有効時のみ、ローカル配信サーバー 8787 の `/download/` 配下も許可）
 /// - expected_sha256 は 64 桁 hex
 pub(crate) fn validate_install_request(
     window_label: &str,
@@ -17,8 +32,9 @@ pub(crate) fn validate_install_request(
     if window_label != crate::ipc_constants::labels::MAIN {
         return Err("install_apk_update is only allowed from the main window".into());
     }
-    let rest = url
-        .strip_prefix(ALLOWED_APK_URL_PREFIX)
+    let rest = ALLOWED_APK_URL_PREFIXES
+        .iter()
+        .find_map(|prefix| url.strip_prefix(prefix))
         .ok_or_else(|| "invalid apk url: not an allowed release download url".to_string())?;
     if rest.contains("..")
         || rest.contains('\\')
@@ -180,6 +196,67 @@ mod tests {
         assert_eq!(result, Ok(()));
     }
 
+    const LOCAL_URLS: [&str; 3] = [
+        "http://localhost:8787/download/app.apk",
+        "http://127.0.0.1:8787/download/app.apk",
+        "http://10.0.2.2:8787/download/app.apk",
+    ];
+
+    #[cfg(feature = "updater-test")]
+    #[test]
+    fn 試験機能付きビルドではローカル配信サーバーのapkのインストール要求を受け付ける() {
+        for url in LOCAL_URLS.iter().copied().chain([VALID_URL]) {
+            assert_eq!(
+                validate_install_request("main", url, VALID_SHA256),
+                Ok(()),
+                "{url}"
+            );
+        }
+    }
+
+    #[cfg(feature = "updater-test")]
+    #[test]
+    fn 試験機能付きビルドでも許可外のapkのインストール要求は拒否する() {
+        let cases = [
+            (
+                "main",
+                "http://localhost:9999/download/app.apk",
+                VALID_SHA256,
+            ),
+            ("main", "http://evil.example.com:8787/app.apk", VALID_SHA256),
+            ("main", "http://localhost:8787/../etc/app.apk", VALID_SHA256),
+            (
+                "main",
+                "http://localhost:8787/download/app.txt",
+                VALID_SHA256,
+            ),
+            (
+                "main",
+                "http://localhost:8787/download/app.apk",
+                "0123456789abcdef",
+            ),
+            (
+                "column-0",
+                "http://localhost:8787/download/app.apk",
+                VALID_SHA256,
+            ),
+        ];
+        for (label, url, sha) in cases {
+            assert!(
+                validate_install_request(label, url, sha).is_err(),
+                "{label} {url} {sha}"
+            );
+        }
+    }
+
+    #[cfg(not(feature = "updater-test"))]
+    #[test]
+    fn 通常ビルドではローカル配信サーバーのapkのインストール要求を拒否する() {
+        for url in LOCAL_URLS {
+            assert!(validate_install_request("main", url, VALID_SHA256).is_err());
+        }
+    }
+
     mod properties {
         use super::*;
         use proptest::prelude::*;
@@ -195,7 +272,7 @@ mod tests {
             ) {
                 if validate_install_request(&window_label, &url, &expected_sha256).is_ok() {
                     prop_assert_eq!(window_label, "main");
-                    prop_assert!(url.starts_with(ALLOWED_APK_URL_PREFIX));
+                    prop_assert!(ALLOWED_APK_URL_PREFIXES.iter().any(|p| url.starts_with(p)));
                     prop_assert!(url.ends_with(".apk"));
                     prop_assert_eq!(expected_sha256.len(), 64);
                 }
