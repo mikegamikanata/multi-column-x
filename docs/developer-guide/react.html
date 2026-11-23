@@ -611,7 +611,24 @@
             OR が <code>dialogOpen</code>。App
             では更新通知・アカウント名入力・レート制限ポップオーバーなども足した
             <code>anyDialogOpen</code> が WebView
-            退避の条件です。パネル型ダイアログを新設するときは
+            退避の条件です。モーダルダイアログは素の <code>div</code> +
+            <code>role="dialog"</code> ではなく、共通部品
+            <code class="path">src/components/ModalDialog/ModalDialog.tsx</code>
+            （ネイティブ <code>&lt;dialog&gt;</code> +
+            <code>showModal()</code>）で作ります。<code>&lt;dialog&gt;</code>
+            自身が従来の全画面の暗い背景（<code>.overlay</code>）で、その SCSS
+            の先頭に
+            <code class="path">src/styles/_dialog-modal.scss</code> のミキシン
+            <code>modal-overlay</code> を
+            <code>@include</code>
+            します。背後の無効化と重なり順は標準動作に任せ、Tab の折り返し・Esc
+            （<code>onEscape</code>）・初期フォーカス（<code
+              >data-autofocus</code
+            >
+            属性。<code>autoFocus</code> は閉じた
+            <code>&lt;dialog&gt;</code> では効かない）・フォーカス復帰
+            （<code>useRestoreFocus</code>）を <code>ModalDialog</code>
+            が担います。パネル型ダイアログを新設するときは
             <code class="path">src/styles/_dialog-fullscreen.scss</code>
             のミキシンで Android 全画面化します。TopBar は desktop
             の常設ツールバー（展開で高さが変わり、変化時に bounds
@@ -799,9 +816,10 @@
                   余白・角丸・文字サイズは
                   <code>src/styles/_tokens.scss</code>、フォーカスリングと
                   Android の 44px は <code>_mixins.scss</code> を
-                  <code>@use</code>（相対パス）。ダイアログは
-                  <code>role="dialog"</code
-                  >・Esc・<code>useRestoreFocus</code>。契約テスト
+                  <code>@use</code>（相対パス）。モーダルダイアログは
+                  <code>ModalDialog</code>（ネイティブ
+                  <code>&lt;dialog&gt;</code
+                  >。Tab・Esc・初期フォーカス・フォーカス復帰を担う）。契約テスト
                   <code>uiDesign.contract.test.ts</code> が全
                   <code>*.module.scss</code> を検査する。詳細は
                   <code>.claude/skills/ui-design-principles</code> と

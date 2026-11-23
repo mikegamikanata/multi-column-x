@@ -738,6 +738,35 @@
               </div>
             </li>
             <li>
+              <b>モーダルダイアログなら <code>ModalDialog</code> で作る</b>
+              <div class="ck-body">
+                素の <code>div</code> + <code>role="dialog"</code> にせず
+                <code class="path"
+                  >src/components/ModalDialog/ModalDialog.tsx</code
+                >
+                を使う。<code>className</code> に <code>.overlay</code>
+                を渡し、その SCSS 先頭で
+                <code class="path">src/styles/_dialog-modal.scss</code> の
+                <code>modal-overlay</code> を <code>@include</code> する。<code
+                  >onEscape</code
+                >
+                に閉じる処理、<code>aria-labelledby</code>
+                に見出しの id、最初にフォーカスさせたい要素に
+                <code>data-autofocus</code>（<code>autoFocus</code>
+                は使わない）。パネルの <code>div</code> に
+                <code>role</code> は付けない。<code>useRestoreFocus</code> は
+                <code>ModalDialog</code> が呼ぶ。<code
+                  >ModalDialog.stories.tsx</code
+                >
+                の <code>ALL_DIALOGS</code>（Tab
+                巡回の検証対象）にも足す。詳細は
+                <a href="../development/ui-design-principles-notes.md"
+                  >ui-design-principles-notes.md</a
+                >
+                の 7 章。
+              </div>
+            </li>
+            <li>
               <b>パネル型ダイアログなら Android 全画面ミキシン</b>
               <div class="ck-body">
                 <code class="path">src/styles/_dialog-fullscreen.scss</code> の
@@ -822,8 +851,9 @@
             <p>
               <code>px</code>
               で寸法を書き表示サイズ設定に追従しない／Android
-              でダイアログが見切れる（ミキシン未使用）／バレルを作る／ Story
-              を作らず <code>test:story</code> が通らない。
+              でダイアログが見切れる（ミキシン未使用）／モーダルを素の
+              <code>div</code> で作る／バレルを作る／ Story を作らず
+              <code>test:story</code> が通らない。
             </p>
           </div>
         </section>

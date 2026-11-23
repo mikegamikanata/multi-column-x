@@ -129,26 +129,74 @@ TopBar の `.row2` は `padding: 0.125rem 0.25rem` が 0.25rem の倍数では�
 - **`android-tap-target` は `min-height` と `min-width` の両方を設定する**。すでに `min-width` を持つ要素（例: `MobileTabBar` の `.tab { min-width: 6.25rem }`）に使うと、Android で `min-width: 2.75rem` が上書きし、短いラベルのタブが 100px 未満に縮む。そうした要素にはミキシンを使わず、`:global([data-platform="android"]) & { min-height: t.$tap-target-min; }` で高さだけを指定する（契約テストの `min-height` 2.75rem 以上の判定を満たす）。
 - 固定高さのバーの中にミキシンを使わない（バーが高くなって bounds とずれる）。バー内の desktop 専用要素は `ANDROID_TAP_EXEMPT`。
 
-## 7. ダイアログ a11y と `useRestoreFocus`
+## 7. ダイアログ a11y・`ModalDialog`・`useRestoreFocus`
 
-共通フック `src/hooks/useRestoreFocus.ts` は、**初回レンダー中**に `document.activeElement`（`body` 以外）を覚え、アンマウント時に（DOM に残っていて、フォーカスが誰にも持たれていなければ）フォーカスを戻す。
+モーダルダイアログ（12 個: `AccountManager` / `AccountNameDialog` / `AddColumnDialog` / `AppSettingsPanel` / `ConfirmDialog`（`UnsavedChangesDialog` 経由を含む）/ `H264SetupDialog` / `LinkPopupDialog` / `SettingsPanel` / `ShortcutHelpDialog` / `TabActionDialog` / `UpdateDialog` / `WhatsNewDialog`）は、共通コンポーネント `src/components/ModalDialog/ModalDialog.tsx`（ネイティブ `<dialog>` + `showModal()`）で作る。素の `div` + `role="dialog"` で自作しない。
 
-- 保存を初回レンダー中に行うのは、子の `autoFocus` より前に取得するため。
-- 戻す条件を「フォーカスが `body` / `null` のとき」に絞っている。**React StrictMode の開発時の擬似アンマウントで、子の `autoFocus` を打ち消さないため**（絞らないと、擬似アンマウント → 元の要素へフォーカス復帰 → autoFocus した入力欄が失う）。実際のアンマウントではダイアログの DOM が消えてフォーカスは `body` に落ちるので、条件を満たす。他の要素が既にフォーカスを持っている場合は奪わない。
+### 構造
 
-ダイアログには `role="dialog"` / `aria-modal="true"` / `aria-labelledby`（`useId()` による見出し id）を付け、Esc で閉じる（`useEscapeKey`）。**フォーカストラップと `<dialog>` 要素化は実装しない**（挙動変更が大きく要求外）。
+- `<dialog>` 自身を従来の `.overlay`（全画面の暗い背景）として使い、中のパネル `div`（`.dialog` / `.panel` / `.sheet`）は従来のまま。パネルには `role` を付けない（`<dialog>` が暗黙の `dialog` ロール。`aria-modal="true"` と `tabIndex={-1}` は `ModalDialog` が付ける）。
+- `.overlay` の SCSS 先頭で `@use "../../styles/dialog-modal" as dm;` して `@include dm.modal-overlay;` する（`src/styles/_dialog-modal.scss`）。`<dialog>` の UA 既定（margin / padding / border / 幅・高さの上限 / 文字色）と、`display: flex` を書く `.overlay` が閉じた `<dialog>` を表示してしまう問題（`&:not([open]) { display: none }`）、`::backdrop` の二重掛け（暗い背景は `.overlay` 自身が担うので `::backdrop` は透明）を打ち消す。`position` / `background` / `display: flex` などは各 SCSS が従来どおり書く。
+- 背後の無効化（inert）・重なり順（`showModal()` を呼んだ順に手前へ積まれる）・top layer・背景クリックの遮断は**ネイティブ標準の動作に任せる**。z-index での調整はしない（カラム WebView は別問題で、`column-layout-notes.md` のとおり画面外へ退避する）。
+- `useRestoreFocus` は `ModalDialog` の中で呼ぶ（各ダイアログからは呼ばない）。
+
+### Tab の折り返しを足した理由（実機検証の事実）
+
+標準のモーダル `<dialog>` だけでは要求（Tab がダイアログの外へ出ない）を満たさなかった。Windows WebView2 157・実アプリ（CDP の `Input.dispatchKeyEvent`）で、最後の操作要素から Tab（前方向）を押すと `document.activeElement` が `BODY`・`document.hasFocus()` が `false`（フォーカスがページの外へ出る）になった。Shift+Tab は内側で巡回し外へ出なかった。`wry` 0.57.2 に `MoveFocusRequested` のハンドラは無く、出た先（ホストウィンドウか別カラムか）は特定できていない。
+
+そこで `ModalDialog` の `onKeyDown` で Tab を受け、**端（最後の要素で Tab / 最初の要素で Shift+Tab）だけ**を `preventDefault()` して反対側の端へ `focus()` する（`wrapTab`）。中間の要素はブラウザの既定に任せる。
+
+- 対象は「ダイアログ自身に属するタブ到達可能な要素」（`getTabbables`）: `:disabled`・`tabIndex < 0`・`[hidden]` / `[inert]` の内側・不可視を除き、入れ子の別 `<dialog>` 内の要素も除く。
+- フォーカスが入れ子の別 `<dialog>` 内にあるときは何もしない（内側の `ModalDialog` が処理する）。操作要素が無いときは `<dialog>` 自身に留める。
+- **実機未検証**: WebKitGTK（Linux）・Android WebView・OS の実キー入力（ハードウェアキーボード）での挙動。上記の実測は Windows WebView2 のみ。リリース前確認項目 C-23 で確認する。
+
+### Esc（二経路）と `HelpPopover`
+
+- `onKeyDown`: `Escape` かつ `!e.defaultPrevented` なら `preventDefault()` + `stopPropagation()` して `onEscape()`。keydown を止めるので UA の close request（`cancel`）は起きない。
+- ネイティブ `cancel`: keydown がダイアログに届かないとき（フォーカスが `body` にあるなど）の保険として `preventDefault()` + `onEscape()`。`close` イベントで、React がマウントしたままなら `showModal()` し直す（状態と表示を一致させる最終防衛）。
+- `stopPropagation` により、`document` の keydown を聞く `useEscapeKey` は**ダイアログ内からの Esc を受け取れない**。入れ子（`AppSettingsPanel` の `.overlay` の内側に `UnsavedChangesDialog` が描画される）でも、内側の Esc は外側へ伝わらず、最前面だけが閉じる。以前の「`AccountManager` の Esc が重なった `ConfirmDialog` と同時に閉じる」割り切りはこれで解消した。
+- ダイアログ内の非モーダル部品 `HelpPopover` は、コンテナの `onKeyDown` で「開いているとき かつ Esc」を処理して `preventDefault()` する。`ModalDialog` が `defaultPrevented` を見るので、**ポップオーバーだけが閉じてダイアログは閉じない**（最も内側の要素が先に閉じる）。
+- `useEscapeKey` 本体は `ApiRateLimitIndicator`（TopBar 側でダイアログの外）が使うので残している。ダイアログの外の非モーダル部品にだけ使う。
+
+### 初期フォーカスは `data-autofocus`（`autoFocus` は使わない）
+
+`autoFocus` prop は React が mount 時に `focus()` を呼ぶが、その時点で `<dialog>` はまだ閉じている（`display: none`）ためフォーカスできない。代わりに最初にフォーカスさせたい要素へ `data-autofocus` 属性を付ける。`ModalDialog` が `showModal()` の直後に `[data-autofocus]:not(:disabled)` を `focus()` する。見つからなければブラウザ既定（先頭の操作要素）に任せ、それでもフォーカスが `body` / `null` のままなら `<dialog>` 自身（`tabIndex={-1}`）にフォーカスする。
+
+### `useRestoreFocus`
+
+共通フック `src/hooks/useRestoreFocus.ts` は、**初回レンダー中**に `document.activeElement`（`body` 以外）を覚え、アンマウント時に（DOM に残っていて、フォーカスが誰にも持たれていなければ）フォーカスを戻す。`ModalDialog` が呼ぶ。`ModalDialog` 化では変更していない。
+
+- 保存を初回レンダー中に行うのは、`showModal()` 後の初期フォーカス（`data-autofocus`）より前に取得するため。
+- 戻す条件を「フォーカスが `body` / `null` のとき」に絞っている。**React StrictMode の開発時の擬似アンマウントで、初期フォーカスを打ち消さないため**（絞らないと、擬似アンマウント → 元の要素へフォーカス復帰 → 初期フォーカスした入力欄を失う）。実際のアンマウントではダイアログの DOM が消えてフォーカスは `body` に落ちるので、条件を満たす。他の要素が既にフォーカスを持っている場合は奪わない。
+
+### テストと jsdom の限界
+
+jsdom（31 で実測）は `HTMLDialogElement.showModal` / `close` / `inert` を実装していない。`src/test-setup.ts` に `open` 属性の付け外しだけを再現する最小 polyfill を足してあり、単体テストで確認できるのは開閉と Esc の呼び出しまで。**Tab の巡回・背後の inert・top layer・重なり順は jsdom では検証できない**ので、Storybook の play function（`src/components/ModalDialog/ModalDialog.stories.tsx`）で `vitest/browser` の実キー入力を使って検証する。`composeStories` で既存 Story を再利用し、12 ダイアログすべてで Tab / Shift+Tab / 連打 / 背景クリックの遮断 / 重なり / 見た目 / Android 全画面を見る。OS の実キー入力・WebKitGTK・Android WebView は手動確認（C-23）。
+
+### 新しいモーダルダイアログを作るときのチェックリスト
+
+1. `<dialog>` を直接書かず `ModalDialog` を使う（素の `div` + `role="dialog"` にしない）。
+2. `className` に `.overlay` を渡し、その SCSS 先頭で `@include dm.modal-overlay;`。
+3. `onEscape` に閉じる処理を渡す（`useEscapeKey` は使わない）。
+4. `aria-labelledby` に見出しの id（`useId()`）を渡す。パネル `div` に `role` / `aria-modal` を付けない。
+5. 最初にフォーカスさせたい要素に `data-autofocus` を付ける（`autoFocus` は使わない）。
+6. `useRestoreFocus` は呼ばない（`ModalDialog` が呼ぶ）。
+7. パネル型なら `_dialog-fullscreen.scss` のミキシンで Android 全画面化する（`ui-scale-notes.md`）。
+8. `anyDialogOpen`（`App.tsx`）に条件を足し、`ModalDialog.stories.tsx` の `ALL_DIALOGS` にも足す（Tab 巡回の検証対象にする）。
 
 ## 8. 共通ヘルパ
 
-| ファイル                          | 内容                                                                                         | 使いどころ                                       |
-| --------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `src/test-utils/scssBlocks.ts`    | SCSS ブロック分解、`*.module.scss` 列挙                                                      | 契約テスト                                       |
-| `src/test-utils/uiDesignRules.ts` | 検査ルール関数と `GRID_EXEMPT` / `ANDROID_TAP_EXEMPT`                                        | 契約テスト、ルールの単体テスト                   |
-| `src/test-utils/a11y.ts`          | `expectAccessibleControls(container)`: button / input / select / textarea / `role=button     | tab` がアクセシブルネームを持つ                  | コンポーネントの単体テスト・Story の play |
-| `src/test-utils/tapTargets.ts`    | `expectTapTargets(root, minPx)` / `expectAdjacentGap(root, minPx)` / `setPlatform(platform)` | Story の play（Android の 44px・隣接間隔の実測） |
-| `src/test-utils/storyTheme.ts`    | `installThemeTokens()` / `installAppReset()`                                                 | Story（下記の落とし穴）                          |
-| `src/hooks/useRestoreFocus.ts`    | ダイアログのフォーカス復帰                                                                   | ダイアログ                                       |
-| `src/components/StatusMark/`      | `<StatusMark kind="success\|warning\|selected" />`（`✓` / `⚠`、`aria-hidden`）               | 状態を色だけで伝えない                           |
+| ファイル                          | 内容                                                                                          | 使いどころ                                       |
+| --------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `src/test-utils/scssBlocks.ts`    | SCSS ブロック分解、`*.module.scss` 列挙                                                       | 契約テスト                                       |
+| `src/test-utils/uiDesignRules.ts` | 検査ルール関数と `GRID_EXEMPT` / `ANDROID_TAP_EXEMPT`                                         | 契約テスト、ルールの単体テスト                   |
+| `src/test-utils/a11y.ts`          | `expectAccessibleControls(container)`: button / input / select / textarea / `role=button      | tab` がアクセシブルネームを持つ                  | コンポーネントの単体テスト・Story の play |
+| `src/test-utils/tapTargets.ts`    | `expectTapTargets(root, minPx)` / `expectAdjacentGap(root, minPx)` / `setPlatform(platform)`  | Story の play（Android の 44px・隣接間隔の実測） |
+| `src/test-utils/storyTheme.ts`    | `installThemeTokens()` / `installAppReset()`                                                  | Story（下記の落とし穴）                          |
+| `src/components/ModalDialog/`     | ネイティブ `<dialog>` のモーダル共通部品（Tab 折り返し・Esc・初期フォーカス・フォーカス復帰） | モーダルダイアログ（必ずこれを使う）             |
+| `src/styles/_dialog-modal.scss`   | `<dialog>` を `.overlay` にするミキシン `modal-overlay`                                       | モーダルダイアログの `.overlay`                  |
+| `src/hooks/useRestoreFocus.ts`    | ダイアログのフォーカス復帰（`ModalDialog` が呼ぶ）                                            | `ModalDialog` 内                                 |
+| `src/components/StatusMark/`      | `<StatusMark kind="success\|warning\|selected" />`（`✓` / `⚠`、`aria-hidden`）                | 状態を色だけで伝えない                           |
 
 `tapTargets.ts` の使い方（Story の play 内）:
 
@@ -179,23 +227,25 @@ try {
 
 - `:has(input:focus-visible)` を label に使うと、input を隠したトグル・チェックボックスでもリングを出せる（上記）。
 - チェックボックス / ラジオ / トグルの Android 当たり判定は親 label に付ける。`input` 自体には付けない。
-- `StrictMode` と `useRestoreFocus`: 擬似アンマウントで `autoFocus` を打ち消さないよう、戻す条件を絞った（上記）。
+- `StrictMode` と `useRestoreFocus`: 擬似アンマウントで初期フォーカスを打ち消さないよう、戻す条件を絞った（上記）。
 - 契約テストが偽陽性を出さないよう、入力欄判定は要素セレクタ・末尾クラス名（`*Input` / `*Select` / `*Textarea`）に限っている。意図しない一致は `isFormBlock` / `isCheckableCompound` を直す（フィクスチャを先に足す）。
 - 取り消せない操作（アカウント削除・カラム削除など）の確認は `ConfirmDialog` に `variant="danger"` を指定する。確定ボタンが `--mcx-danger-bg` 背景 + `--mcx-danger` の文字・枠・太字になる（新しい色トークンは足さない。初期フォーカスは変えない）。お知らせ（OK だけ）や通常の確認には付けない。
 - **手動確認へ持ち越し（実機）**: TabActionDialog の Android 行間 8px / HelpPopover の Android 44px トリガーが設定行で目立たないか / AccountManager の色パレットが Android 44px で折り返さないか / MobileTabBar の Android でタブが 6.25rem 未満に縮まないこと。
-- **既知の割り切り**: NoAccountsPrompt は `role="region"`（非モーダル。`alertdialog` 化は見送り）/ UpdateDialog・LinkPopupDialog は Esc で閉じる / AccountManager の Esc が重なった ConfirmDialog と同時に閉じる（既存挙動・範囲外）/ WhatsNewDialog の `.notes` はキーボードフォーカス不可（見送り）/ ColumnLayoutTab のセル（`role=button`）内に削除 button がネスト（既存構造）/ PresetsTab の読み込む・削除ボタンのアクセシブルネームが同一 / プリセット削除は確認なし（既存）。
+- **既知の割り切り**: NoAccountsPrompt は `role="region"`（非モーダル。`alertdialog` 化は見送り）/ UpdateDialog・LinkPopupDialog は Esc で閉じる / WhatsNewDialog の `.notes` はキーボードフォーカス不可（見送り）/ ColumnLayoutTab のセル（`role=button`）内に削除 button がネスト（既存構造）/ PresetsTab の読み込む・削除ボタンのアクセシブルネームが同一 / プリセット削除は確認なし（既存）。
 
 ## 11. 不採用案
 
 - CSS カスタムプロパティでのスペーシング: Storybook で未定義になる。
 - Storybook の `preview.tsx` で `index.css` を読み込む: `html,body{overflow:hidden;height:100%}` で Story のレイアウトが崩れる。
 - 固定バー高さの拡大: bounds 連動・契約テスト更新が必要で、要求外。
-- フォーカストラップ / 全ダイアログの `<dialog>` 化: 挙動変更が大きく要求外。
+- 自前の `useFocusTrap` だけで Tab を捕捉する案（`<dialog>` 化しない）: 背後の無効化・重なり順・背景を標準動作に任せたいという判断で、ネイティブ `<dialog>` + 最小の Tab 折り返しを採用した。
+- 標準のモーダル `<dialog>` だけで折り返しを入れない案: WebView2 で最後の要素からの Tab がページ外へ出るため不採用（§7）。
+- 背後への `inert` 属性の手動付与: ネイティブの `showModal()` が担うので不要。
 - `src/App.css`: どこからも import されていない Vite テンプレートの残骸（`outline: none` が残っているが無効）。**触らない**。
 - 未移行ファイルの除外リスト（`PENDING_MODULES`）: 段階移行中だけ使い、全ファイルの移行後に撤去した。常設すると新規ファイルが対象外になる抜け道になる。
 
 ## 12. 関連ファイル
 
 - スキル: `.claude/skills/ui-design-principles/SKILL.md`
-- 既存: `docs/development/ui-scale-notes.md`（rem・Android 全画面ダイアログ）、`src/lib/gridLayout.ts` と `gridLayout.contract.test.ts`、`src/lib/themeContrast.contract.test.ts`、`src/styles/_dialog-fullscreen.scss`
-- 基盤: `src/styles/_tokens.scss`、`src/styles/_mixins.scss`、`src/hooks/useRestoreFocus.ts`、`src/components/StatusMark/`、`src/test-utils/{scssBlocks,uiDesignRules,a11y,tapTargets,storyTheme}.ts`、`src/lib/uiDesign.contract.test.ts`
+- 既存: `docs/development/ui-scale-notes.md`（rem・Android 全画面ダイアログ）、`src/lib/gridLayout.ts` と `gridLayout.contract.test.ts`、`src/lib/themeContrast.contract.test.ts`、`src/styles/_dialog-fullscreen.scss`、`src/styles/_dialog-modal.scss`、`src/components/ModalDialog/`（`ModalDialog.tsx` / `ModalDialog.stories.tsx`）
+- 基盤: `src/styles/_tokens.scss`、`src/styles/_mixins.scss`、`src/hooks/useRestoreFocus.ts`、`src/components/ModalDialog/`、`src/components/StatusMark/`、`src/test-utils/{scssBlocks,uiDesignRules,a11y,tapTargets,storyTheme}.ts`、`src/lib/uiDesign.contract.test.ts`
