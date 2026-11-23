@@ -61,6 +61,12 @@
       "showHelp": "このヘルプを表示"
     }
   },
+  "unsavedChanges": {
+    "title": "未適用の変更があります",
+    "message": "適用していない変更があります。破棄して閉じますか？",
+    "discard": "破棄して閉じる",
+    "back": "戻る"
+  },
   "whatsNew": {
     "title": "アプリが更新されました",
     "version": "バージョン {{version}} の更新内容",

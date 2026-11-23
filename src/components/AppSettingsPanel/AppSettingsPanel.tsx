@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from "react";
+import React, { useCallback, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   currentPlatformName,
@@ -24,6 +24,7 @@ import { useAndroidBackHandler } from "../../hooks/useAndroidBackHandler";
 import { useBackupFlow } from "../../hooks/useBackupFlow";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useRestoreFocus } from "../../hooks/useRestoreFocus";
+import { useUnsavedChangesGuard } from "../../hooks/useUnsavedChangesGuard";
 import { useAppStore } from "../../store/useAppStore";
 import type {
   GlobalSettings,
@@ -31,6 +32,7 @@ import type {
   Account,
   ColumnSettings,
 } from "../../types";
+import { UnsavedChangesDialog } from "../UnsavedChangesDialog/UnsavedChangesDialog";
 import {
   AboutAppSection,
   MaintenanceSections,
@@ -138,7 +140,6 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
   const { t } = useTranslation();
   const isMobile = useAppStore((s) => s.isMobile);
   const { savePreset, deletePreset } = useAppStore();
-  useEscapeKey(onClose);
   useRestoreFocus();
   const titleId = useId();
   const navId = useId();
@@ -168,6 +169,10 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
     () => dirtyCategories(initialDraft, draft),
     [initialDraft, draft],
   );
+  const guard = useUnsavedChangesGuard(dirty.size > 0, onClose);
+  // 確認メッセージ自身が Esc を処理するため、表示中はパネル側の Esc を無効にする
+  const noop = useCallback(() => {}, []);
+  useEscapeKey(guard.confirmOpen ? noop : guard.requestClose);
   const [ngWordsError, setNgWordsError] = useState<string | null>(null);
   const [repostHiddenUserIdsError, setRepostHiddenUserIdsError] = useState<
     string | null
@@ -453,7 +458,7 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
           <button
             type="button"
             className={styles.closeBtn}
-            onClick={onClose}
+            onClick={guard.requestClose}
             aria-label={t("settings:panel.close")}
           >
             ✕
@@ -521,13 +526,19 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
             <button
               type="button"
               className={styles.cancelBtn}
-              onClick={onClose}
+              onClick={guard.requestClose}
             >
               {t("settings:panel.actions.close")}
             </button>
           )}
         </div>
       </div>
+      {guard.confirmOpen && (
+        <UnsavedChangesDialog
+          onDiscard={guard.confirmDiscard}
+          onBack={guard.cancelConfirm}
+        />
+      )}
     </div>
   );
 };

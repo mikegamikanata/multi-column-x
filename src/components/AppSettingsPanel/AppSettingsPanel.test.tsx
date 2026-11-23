@@ -3126,3 +3126,167 @@ describe("AppSettingsPanel 更新確認の結果表示", () => {
     expect(scrollSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("AppSettingsPanel 未適用の変更があるときの確認メッセージ", () => {
+  /** 「表示」カテゴリでテーマをライトに変更する（未適用の変更を作る） */
+  const changeThemeToLight = () => {
+    fireEvent.click(screen.getByRole("checkbox", { name: "テーマを変更する" }));
+    fireEvent.click(screen.getByRole("button", { name: "ライト" }));
+  };
+  const 確認メッセージ = () =>
+    screen.queryByRole("dialog", { name: "未適用の変更があります" });
+  const ヘッダーの閉じる = () => screen.getByText("✕");
+
+  it.each([
+    [
+      "ヘッダーの ✕",
+      () => {
+        fireEvent.click(ヘッダーの閉じる());
+      },
+    ],
+    [
+      "Esc キー",
+      () => {
+        fireEvent.keyDown(document, { key: "Escape" });
+      },
+    ],
+    [
+      "「バックアップ」カテゴリのフッターの「閉じる」",
+      () => {
+        openCategory("バックアップ");
+        fireEvent.click(footer().getByRole("button", { name: "閉じる" }));
+      },
+    ],
+  ])(
+    "アプリ設定で未適用の変更があるときに%sで閉じようとすると確認メッセージが表示される",
+    (_name, close) => {
+      const onClose = vi.fn();
+      render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+      changeThemeToLight();
+
+      close();
+
+      const dialog = 確認メッセージ();
+      expect(dialog).toBeInTheDocument();
+      expect(
+        within(dialog as HTMLElement).getByRole("button", {
+          name: "破棄して閉じる",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog as HTMLElement).getByRole("button", { name: "戻る" }),
+      ).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+    },
+  );
+
+  it("アプリ設定の確認メッセージで破棄して閉じるを選ぶと変更を保存せずに閉じる", () => {
+    const onClose = vi.fn();
+    const onApply = vi.fn();
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        onClose={onClose}
+        onApply={onApply}
+      />,
+    );
+    changeThemeToLight();
+    fireEvent.click(ヘッダーの閉じる());
+
+    fireEvent.click(screen.getByRole("button", { name: "破棄して閉じる" }));
+
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("アプリ設定の確認メッセージで戻るを選ぶと編集中の値を保ったまま設定に戻る", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    changeThemeToLight();
+    fireEvent.click(ヘッダーの閉じる());
+
+    fireEvent.click(screen.getByRole("button", { name: "戻る" }));
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "ライト" }).className).toContain(
+      "scaleBtnActive",
+    );
+    expect(
+      within(screen.getByRole("navigation")).getByRole("button", {
+        name: /^表示.*未適用/,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("確認メッセージの表示中に Esc キーを押すと確認メッセージだけが閉じる", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    changeThemeToLight();
+    fireEvent.click(ヘッダーの閉じる());
+    expect(確認メッセージ()).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("アプリ設定で未適用の変更がないときは確認なしで閉じる", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+
+    fireEvent.click(ヘッダーの閉じる());
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("アプリ設定で値を元に戻したときは確認なしで閉じる", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    changeThemeToLight();
+    // テーマを元の「ダーク」に戻し、「テーマを変更する」も外す
+    fireEvent.click(screen.getByRole("button", { name: "ダーク" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "テーマを変更する" }));
+
+    fireEvent.click(ヘッダーの閉じる());
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("アプリ設定でキャンセルを押したときは確認なしで変更を破棄して閉じる", () => {
+    const onClose = vi.fn();
+    const onApply = vi.fn();
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        onClose={onClose}
+        onApply={onApply}
+      />,
+    );
+    changeThemeToLight();
+
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("モバイルのカテゴリ一覧で未適用の変更があるときに ✕ で閉じようとすると確認メッセージが表示される", () => {
+    mockStoreState.isMobile = true;
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    openCategory("表示");
+    changeThemeToLight();
+    backToList();
+
+    fireEvent.click(ヘッダーの閉じる());
+
+    expect(確認メッセージ()).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});

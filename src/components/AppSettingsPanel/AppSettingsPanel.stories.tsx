@@ -383,6 +383,31 @@ export const ScaleThemeOverrideEnabled: Story = {
   },
 };
 
+export const UnsavedChangesConfirm: Story = {
+  name: "未適用の変更があるときに ✕ で確認メッセージが出て戻れる",
+  args: { onClose: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("checkbox", { name: "テーマを変更する" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "ライト" }));
+    await userEvent.click(canvas.getByText("✕"));
+    const dialog = await canvas.findByRole("dialog", {
+      name: "未適用の変更があります",
+    });
+    await expect(args.onClose).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "戻る" }));
+    await expect(
+      canvas.queryByRole("dialog", { name: "未適用の変更があります" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "ライト" }).className,
+    ).toMatch(/scaleBtnActive/);
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
 export const EnglishLanguage: Story = {
   name: "表示言語: 英語表示で言語選択肢が各言語の表記で並ぶ",
   decorators: [
