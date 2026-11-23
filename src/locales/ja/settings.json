@@ -7,24 +7,70 @@
   "panel": {
     "title": "アプリ設定",
     "close": "閉じる",
-    "tabs": {
-      "general": "一般",
-      "layout": "カラム配置",
-      "presets": "プリセット",
-      "extensions": "拡張機能",
-      "backup": "バックアップ"
-    },
-    "groups": {
-      "display": "表示",
-      "columnDefaults": "新規カラムの既定値",
-      "filter": "閲覧・フィルタ",
-      "media": "メディア",
-      "android": "Android専用",
-      "maintenance": "アプリ・メンテナンス"
-    },
     "actions": {
       "cancel": "キャンセル",
-      "apply": "適用"
+      "apply": "適用",
+      "close": "閉じる",
+      "back": "戻る"
+    },
+    "nav": {
+      "label": "設定のカテゴリ",
+      "groups": {
+        "general": "一般",
+        "columns": "カラム",
+        "dataExtensions": "データ・拡張",
+        "app": "アプリ"
+      }
+    },
+    "categories": {
+      "display": {
+        "label": "表示",
+        "desc": "言語・テーマ・表示サイズ・API残量モニター"
+      },
+      "filter": {
+        "label": "閲覧・フィルタ",
+        "desc": "X公式設定・NGワード・リポスト非表示・広告"
+      },
+      "media": {
+        "label": "メディア",
+        "desc": "動画・ポップアップウィンドウ"
+      },
+      "columnDefaults": {
+        "label": "カラム既定値",
+        "desc": "新しく追加するカラムの初期設定"
+      },
+      "android": {
+        "label": "Android専用",
+        "desc": "ツイート・スワイプ切替・複数カラム表示"
+      },
+      "layout": {
+        "label": "カラム配置",
+        "desc": "列数・並び順・高さ"
+      },
+      "presets": {
+        "label": "プリセット",
+        "desc": "レイアウトの保存と読み込み"
+      },
+      "extensions": {
+        "label": "拡張機能",
+        "desc": "Chrome 拡張機能の追加と管理"
+      },
+      "backup": {
+        "label": "バックアップ",
+        "desc": "書き出しと復元"
+      },
+      "maintenance": {
+        "label": "メンテナンス",
+        "desc": "WebView の再生成・データフォルダの削除"
+      },
+      "about": {
+        "label": "このアプリについて",
+        "desc": "バージョンと更新の確認"
+      }
+    },
+    "status": {
+      "unapplied": "未適用の変更あり",
+      "error": "入力エラーあり"
     }
   },
   "general": {

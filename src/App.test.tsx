@@ -1019,8 +1019,15 @@ describe("App (Linux向け動画再生設定の配線)", () => {
     });
   });
 
-  const openAppSettings = () =>
+  /** アプリ設定を開いて「メディア」カテゴリ（動画再生の設定がある）を表示する */
+  const openAppSettings = () => {
     fireEvent.click(screen.getByTitle("アプリ設定 (Ctrl+,)"));
+    fireEvent.click(
+      within(
+        screen.getByRole("navigation", { name: "設定のカテゴリ" }),
+      ).getByRole("button", { name: /^メディア/ }),
+    );
+  };
 
   it("linux以外ではアプリ設定にハードウェアデコードの項目が表示されない", () => {
     mockPlatform.mockReturnValue("windows");
@@ -1332,7 +1339,11 @@ describe("App (拡張機能の変更後の全カラム再読込)", () => {
   it("拡張機能を追加すると全カラムのページが再読込される", async () => {
     render(<App />);
     fireEvent.click(screen.getByTitle("アプリ設定 (Ctrl+,)"));
-    fireEvent.click(screen.getByRole("tab", { name: "拡張機能" }));
+    fireEvent.click(
+      within(
+        screen.getByRole("navigation", { name: "設定のカテゴリ" }),
+      ).getByRole("button", { name: /^拡張機能/ }),
+    );
     mockInvoke.mockClear();
 
     fireEvent.click(
@@ -1492,6 +1503,11 @@ describe("App (表示言語)", () => {
       render(<App />);
     });
     fireEvent.click(screen.getByTitle("App settings (Ctrl+,)"));
+    fireEvent.click(
+      within(
+        screen.getByRole("navigation", { name: "Settings categories" }),
+      ).getByRole("button", { name: /^Browsing & filters/ }),
+    );
     fireEvent.click(
       screen.getAllByRole("button", { name: "Open official settings" })[0],
     );

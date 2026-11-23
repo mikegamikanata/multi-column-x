@@ -78,8 +78,6 @@
 .form {
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  flex: 1;
 }
 
 .section {
@@ -99,18 +97,6 @@
   display: flex;
   align-items: center;
   gap: t.$space-2;
-}
-
-.group {
-  display: block;
-}
-
-.groupTitle {
-  margin: 0;
-  padding: 0.75rem 1.25rem 0;
-  font-size: t.$font-size-sm;
-  font-weight: 700;
-  color: var(--mcx-text);
 }
 
 // チェックボックスの input 自体は拡大せず、行全体（label）を押せる範囲として Android で 44px 以上にする
@@ -456,31 +442,24 @@
   }
 }
 
-.tabs {
+.headerMain {
   display: flex;
-  border-bottom: 1px solid var(--mcx-border-subtle);
-  flex-shrink: 0;
-  padding: 0 t.$space-1;
-
-  @include m.android-button-gap;
-
-  // 大きな表示サイズでもタブが画面外へはみ出さないよう横スクロールにする
-  :global([data-platform="android"]) & {
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
+  align-items: center;
+  gap: t.$space-2;
+  min-width: 0;
 }
 
-.tab {
-  padding: 0.75rem t.$space-3;
-  font-size: t.$font-size-sm;
+// Android の詳細画面で一覧へ戻る
+.backBtn {
+  background: none;
+  border: none;
+  border-radius: t.$radius-sm;
   color: var(--mcx-text-muted);
   cursor: pointer;
-  border: none;
-  background: none;
-  border-bottom: 0.125rem solid transparent;
-  margin-bottom: -1px;
-  @include m.transition-base(color, border-color, background-color);
+  font-size: t.$font-size-lg;
+  padding: t.$space-1 t.$space-2;
+  line-height: 1;
+  @include m.transition-base(color, background-color);
   @include m.android-tap-target;
 
   &:hover {
@@ -496,24 +475,182 @@
   &:focus-visible {
     @include m.focus-ring;
   }
-
-  // 横スクロールするタブ列内で潰れず折り返さない（overflow-y: hidden による下端の切れも避ける）
-  :global([data-platform="android"]) & {
-    flex-shrink: 0;
-    white-space: nowrap;
-    margin-bottom: 0;
-  }
 }
 
-// 現在のタブは文字色に加えて下線（形）でも示す。aria-selected も同時に付く
-.tabActive {
-  color: var(--mcx-text);
-  border-bottom-color: var(--mcx-accent);
-}
-
-.tabContent {
+.body {
+  display: flex;
   flex: 1;
+  min-height: 0;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+.pageTitle {
+  margin: 0;
+  padding: t.$space-3 1.25rem 0;
+  font-size: t.$font-size-base;
+  font-weight: 700;
+  color: var(--mcx-text);
+  flex-shrink: 0;
+}
+
+// デスクトップのサイドナビ
+.nav {
+  flex: none;
+  width: 11rem;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: t.$space-2;
+  border-right: 1px solid var(--mcx-border-subtle);
+  background: var(--mcx-surface-sunken);
+}
+
+.navGroup {
+  padding-bottom: t.$space-2;
+}
+
+.navGroupTitle {
+  margin: 0;
+  padding: t.$space-2 t.$space-2 t.$space-1;
+  font-size: t.$font-size-xs;
+  font-weight: 600;
+  color: var(--mcx-text-muted);
+}
+
+.navList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: t.$space-2;
+  width: 100%;
+  box-sizing: border-box;
+  padding: t.$space-2;
+  border: none;
+  border-radius: t.$radius-sm;
+  background: none;
+  color: var(--mcx-text-muted);
+  font-size: t.$font-size-sm;
+  text-align: left;
+  cursor: pointer;
+  @include m.transition-base(color, background-color);
+  @include m.android-tap-target;
+
+  &:hover {
+    color: var(--mcx-text-tertiary);
+    background: var(--mcx-surface-hover);
+  }
+
+  &:active {
+    color: var(--mcx-text);
+    background: var(--mcx-surface-muted);
+  }
+
+  &:focus-visible {
+    @include m.focus-ring;
+  }
+}
+
+// 選択中は文字色と太さでも示す（aria-current も同時に付く）
+.navItemActive {
+  color: var(--mcx-text);
+  font-weight: 600;
+  background: var(--mcx-surface-muted);
+}
+
+// 未適用の印（形と非表示テキストでも伝える）
+.statusDirty {
+  color: var(--mcx-accent);
+  font-size: t.$font-size-xs;
+  flex-shrink: 0;
+}
+
+// 入力エラーの印
+.statusError {
+  color: var(--mcx-danger);
+  font-size: t.$font-size-sm;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.visuallyHidden {
+  @include m.visually-hidden;
+}
+
+// Android のカテゴリ一覧
+.categoryList {
+  display: flex;
+  flex-direction: column;
+  padding: 0 t.$space-3 t.$space-3;
+}
+
+.categoryGroup {
+  padding-top: t.$space-2;
+}
+
+.categoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: t.$space-2;
+  width: 100%;
+  box-sizing: border-box;
+  padding: t.$space-2;
+  border: none;
+  border-bottom: 1px solid var(--mcx-border-subtle);
+  background: none;
+  color: var(--mcx-text);
+  text-align: left;
+  cursor: pointer;
+  @include m.transition-base(background-color);
+  @include m.android-tap-target;
+
+  &:hover {
+    background: var(--mcx-surface-hover);
+  }
+
+  &:active {
+    background: var(--mcx-surface-muted);
+  }
+
+  &:focus-visible {
+    @include m.focus-ring;
+  }
+}
+
+.categoryRowText {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-1;
+  min-width: 0;
+}
+
+.categoryRowLabel {
+  display: flex;
+  align-items: center;
+  gap: t.$space-2;
+  font-size: t.$font-size-sm;
+  font-weight: 600;
+}
+
+.categoryRowDesc {
+  font-size: t.$font-size-xs;
+  color: var(--mcx-text-muted);
+}
+
+.categoryRowChevron {
+  color: var(--mcx-text-muted);
+  font-size: t.$font-size-base;
+  flex-shrink: 0;
 }

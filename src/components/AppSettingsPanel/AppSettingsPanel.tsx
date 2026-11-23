@@ -1,4 +1,4 @@
-import React, { useId, useState } from "react";
+import React, { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   currentPlatformName,
@@ -54,15 +54,20 @@ import {
 } from "./LinuxVideoPlaybackSection";
 import { PresetsTab } from "./PresetsTab";
 import {
+  INITIAL_CATEGORY,
+  VALIDATION_ERROR_CATEGORY,
+  dirtyCategories,
+  visibleCategories,
+  type SettingsCategoryId,
+} from "./settingsCategories";
+import { SettingsCategoryList } from "./SettingsCategoryList";
+import { SettingsCategoryNav } from "./SettingsCategoryNav";
+import {
   createSettingsDraft,
   toColumnDefaults,
   toGlobalSettingsPatch,
   type SettingsDraft,
 } from "./settingsDraft";
-import { SettingsGroup } from "./SettingsGroup";
-
-type SettingsTabKey =
-  "general" | "layout" | "presets" | "extensions" | "backup";
 
 interface AppSettingsPanelProps {
   settings: GlobalSettings;
@@ -135,16 +140,27 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
   useEscapeKey(onClose);
   useRestoreFocus();
   const titleId = useId();
-  const tabsId = useId();
-  const [activeTab, setActiveTab] = useState<SettingsTabKey>("general");
+  const navId = useId();
   const extensionsSupported = isExtensionsSupported(
     currentPlatformName(),
     isMobile,
   );
   const backup = useBackupFlow(onReplaceColumnsAndRecreate, onClose);
 
-  const [draft, setDraft] = useState<SettingsDraft>(() =>
+  const categories = visibleCategories({ isMobile, extensionsSupported });
+  const [activeCategory, setActiveCategory] =
+    useState<SettingsCategoryId>(INITIAL_CATEGORY);
+  /** Android の詳細表示中のカテゴリ。null ならカテゴリ一覧 */
+  const [mobileDetail, setMobileDetail] = useState<SettingsCategoryId | null>(
+    null,
+  );
+  const [initialDraft] = useState<SettingsDraft>(() =>
     createSettingsDraft(settings),
+  );
+  const [draft, setDraft] = useState<SettingsDraft>(initialDraft);
+  const dirty = useMemo(
+    () => dirtyCategories(initialDraft, draft),
+    [initialDraft, draft],
   );
   const [ngWordsError, setNgWordsError] = useState<string | null>(null);
   const [repostHiddenUserIdsError, setRepostHiddenUserIdsError] = useState<
@@ -186,11 +202,21 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const hasValidationError =
+    ngWordsError !== null || repostHiddenUserIdsError !== null;
+  const errorCategory = hasValidationError ? VALIDATION_ERROR_CATEGORY : null;
+
+  /** 入力エラーがあるときはエラーのあるカテゴリへ切り替える */
+  const showValidationErrorCategory = () => {
+    setActiveCategory(VALIDATION_ERROR_CATEGORY);
+    if (isMobile) setMobileDetail(VALIDATION_ERROR_CATEGORY);
+  };
+
+  const handleApply = () => {
     const ngWords = parseAndValidateWordLines(draft.globalNgWordsText, t);
     if (ngWords.kind === "invalid") {
       setNgWordsError(ngWords.error);
+      showValidationErrorCategory();
       return;
     }
     setNgWordsError(null);
@@ -200,6 +226,7 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
     );
     if (repostHiddenUserIds.kind === "invalid") {
       setRepostHiddenUserIdsError(repostHiddenUserIds.error);
+      showValidationErrorCategory();
       return;
     }
     setRepostHiddenUserIdsError(null);
@@ -216,24 +243,182 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
     onApplyColumnDefaults(toColumnDefaults(draft));
   };
 
-  const tabId = (key: SettingsTabKey) => `${tabsId}-tab-${key}`;
-  const panelId = `${tabsId}-panel`;
-  const renderTab = (key: SettingsTabKey, label: string) => {
-    const selected = activeTab === key;
-    return (
-      <button
-        type="button"
-        role="tab"
-        id={tabId(key)}
-        aria-selected={selected}
-        aria-controls={selected ? panelId : undefined}
-        className={`${styles.tab} ${selected ? styles.tabActive : ""}`}
-        onClick={() => setActiveTab(key)}
+  const navItemId = (id: SettingsCategoryId) => `${navId}-nav-${id}`;
+  const panelId = `${navId}-panel`;
+
+  /** 一覧（Android）なら null。それ以外は表示中のカテゴリ */
+  const shownCategory = isMobile ? mobileDetail : activeCategory;
+  const shownDef = categories.find((c) => c.id === shownCategory);
+
+  const renderCategory = (id: SettingsCategoryId): React.ReactNode => {
+    switch (id) {
+      case "display":
+        return (
+          <>
+            <DisplaySettingsSection draft={draft} set={set} />
+            <ApiRateLimitSettingsSection draft={draft} set={set} />
+          </>
+        );
+      case "filter":
+        return (
+          <>
+            <OfficialSettingsSection
+              onOpenOfficialSettings={onOpenOfficialSettings}
+            />
+            <FilterSettingsSections
+              draft={draft}
+              set={set}
+              ngWordsError={ngWordsError}
+              repostHiddenUserIdsError={repostHiddenUserIdsError}
+            />
+          </>
+        );
+      case "media":
+        return (
+          <>
+            <VideoSettingsSection draft={draft} set={set} />
+            {!isMobile && <PopupSettingsSection draft={draft} set={set} />}
+            <LinuxVideoPlaybackSection
+              draft={draft}
+              set={set}
+              isLinux={isLinux && !isMobile}
+              startupHardwareVideoDecodeEnabled={
+                startupHardwareVideoDecodeEnabled ??
+                settings.hardwareVideoDecodeEnabled
+              }
+              h264={h264Setup}
+            />
+          </>
+        );
+      case "columnDefaults":
+        return (
+          <ColumnDefaultsSections
+            draft={draft}
+            set={set}
+            onApplyToAllColumns={handleApplyColumnDefaults}
+          />
+        );
+      case "android":
+        return <AndroidSettingsSections draft={draft} set={set} />;
+      case "layout":
+        return (
+          <ColumnLayoutTab
+            columns={columns}
+            accounts={accounts}
+            onApply={(updatedColumns) => {
+              onApplyLayout(updatedColumns);
+              onClose();
+            }}
+            onCancel={onClose}
+            isMobile={isMobile}
+          />
+        );
+      case "presets":
+        return (
+          <PresetsTab
+            presets={settings.presets ?? []}
+            onSave={(name) => savePreset(name)}
+            onLoad={(presetId) => {
+              // WebView の作り直し完了を待ってから閉じる。dialogOpenRef が
+              // 開いている間に作り直させることで、退避状態を維持したまま
+              // プリセットのカラムを構築し、ダイアログを閉じた瞬間に
+              // App 側の anyDialogOpen effect が通常座標へ再表示する。
+              void onLoadPreset(presetId).then(() => onClose());
+            }}
+            onDelete={(presetId) => deletePreset(presetId)}
+          />
+        );
+      case "extensions":
+        return (
+          <ExtensionsTab
+            accountId={extensionPageAccountId}
+            onExtensionsChanged={onExtensionsChanged}
+            listExtensions={listExtensions}
+            detectChromeExtensions={detectChromeExtensions}
+            pickFolder={pickExtensionFolder}
+            addFromFolder={addExtensionFromFolder}
+            addChrome={addChromeExtension}
+            setEnabled={setExtensionEnabled}
+            remove={removeExtension}
+            openPage={openExtensionPage}
+          />
+        );
+      case "backup":
+        return (
+          <BackupTab
+            accounts={backup.accounts}
+            step={backup.step}
+            content={backup.content}
+            mapping={backup.mapping}
+            busy={backup.busy}
+            saveBlocked={backup.saveBlocked}
+            message={backup.message}
+            onExport={() => void backup.exportToFile()}
+            onPickFile={() => void backup.pickFile()}
+            onChangeMapping={backup.changeMapping}
+            onCancel={backup.cancel}
+            onProceedToConfirm={backup.proceedToConfirm}
+            onBackToMapping={backup.backToMapping}
+            onExecute={() => void backup.execute()}
+          />
+        );
+      case "maintenance":
+        return (
+          <MaintenanceSections
+            onReloadAllWebviews={() => {
+              onReloadAllWebviews();
+              onClose();
+            }}
+            pendingDataDirectoryDeletionCount={
+              pendingDataDirectoryDeletionCount
+            }
+            retryingDataDirectoryDeletion={retryingDataDirectoryDeletion}
+            dataDirectoryDeletionRetryResult={dataDirectoryDeletionRetryResult}
+            dataDirectoryDeletionRemainingCount={
+              dataDirectoryDeletionRemainingCount
+            }
+            onRetryDataDirectoryDeletion={handleRetryDataDirectoryDeletion}
+          />
+        );
+      case "about":
+        return (
+          <AboutAppSection
+            appVersion={appVersion}
+            updateChecking={updateChecking}
+            updateManualResult={updateManualResult}
+            onCheckUpdate={onCheckUpdate}
+          />
+        );
+    }
+  };
+
+  const renderPage = () => {
+    if (!shownDef) return null;
+    const body = renderCategory(shownDef.id);
+    return shownDef.mode === "draft" ? (
+      <form
+        className={styles.form}
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleApply();
+        }}
       >
-        {label}
-      </button>
+        {body}
+      </form>
+    ) : (
+      body
     );
   };
+
+  // 下書き対象のカテゴリ、または Android の一覧（未適用の変更・エラーがあるとき）だけ「キャンセル / 適用」を出す
+  const showApplyFooter = shownDef
+    ? shownDef.mode === "draft"
+    : isMobile && (dirty.size > 0 || hasValidationError);
+
+  const mobileDetailDef = isMobile ? shownDef : undefined;
+  const headerTitle = mobileDetailDef
+    ? t(`settings:panel.categories.${mobileDetailDef.id}.label`)
+    : t("settings:panel.title");
 
   return (
     <div className={styles.overlay}>
@@ -244,9 +429,21 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
         aria-labelledby={titleId}
       >
         <div className={styles.header}>
-          <h2 id={titleId} className={styles.title}>
-            {t("settings:panel.title")}
-          </h2>
+          <div className={styles.headerMain}>
+            {mobileDetailDef && (
+              <button
+                type="button"
+                className={styles.backBtn}
+                onClick={() => setMobileDetail(null)}
+                aria-label={t("settings:panel.actions.back")}
+              >
+                ‹
+              </button>
+            )}
+            <h2 id={titleId} className={styles.title}>
+              {headerTitle}
+            </h2>
+          </div>
           <button
             type="button"
             className={styles.closeBtn}
@@ -257,184 +454,73 @@ export const AppSettingsPanel: React.FC<AppSettingsPanelProps> = ({
           </button>
         </div>
 
-        <div className={styles.tabs} role="tablist">
-          {renderTab("general", t("settings:panel.tabs.general"))}
-          {renderTab("layout", t("settings:panel.tabs.layout"))}
-          {!isMobile && renderTab("presets", t("settings:panel.tabs.presets"))}
-          {extensionsSupported &&
-            renderTab("extensions", t("settings:panel.tabs.extensions"))}
-          {renderTab("backup", t("settings:panel.tabs.backup"))}
-        </div>
-
-        <div
-          className={styles.tabContent}
-          role="tabpanel"
-          id={panelId}
-          aria-labelledby={tabId(activeTab)}
-        >
-          {activeTab === "general" && (
-            <form
-              id="app-settings-form"
-              onSubmit={handleSubmit}
-              className={styles.form}
+        {isMobile ? (
+          <div className={styles.content}>
+            {shownDef ? (
+              renderPage()
+            ) : (
+              <SettingsCategoryList
+                categories={categories}
+                dirty={dirty}
+                errorCategory={errorCategory}
+                onOpen={setMobileDetail}
+              />
+            )}
+          </div>
+        ) : (
+          <div className={styles.body}>
+            <SettingsCategoryNav
+              categories={categories}
+              current={activeCategory}
+              dirty={dirty}
+              errorCategory={errorCategory}
+              itemId={navItemId}
+              onSelect={setActiveCategory}
+            />
+            <div
+              className={styles.content}
+              id={panelId}
+              role="region"
+              aria-labelledby={navItemId(activeCategory)}
             >
-              <SettingsGroup title={t("settings:panel.groups.display")}>
-                <DisplaySettingsSection draft={draft} set={set} />
-                <ApiRateLimitSettingsSection draft={draft} set={set} />
-              </SettingsGroup>
-
-              <SettingsGroup title={t("settings:panel.groups.columnDefaults")}>
-                <ColumnDefaultsSections
-                  draft={draft}
-                  set={set}
-                  onApplyToAllColumns={handleApplyColumnDefaults}
-                />
-              </SettingsGroup>
-
-              <SettingsGroup title={t("settings:panel.groups.filter")}>
-                <FilterSettingsSections
-                  draft={draft}
-                  set={set}
-                  ngWordsError={ngWordsError}
-                  repostHiddenUserIdsError={repostHiddenUserIdsError}
-                />
-              </SettingsGroup>
-
-              <SettingsGroup title={t("settings:panel.groups.media")}>
-                <VideoSettingsSection draft={draft} set={set} />
-                {!isMobile && <PopupSettingsSection draft={draft} set={set} />}
-                <LinuxVideoPlaybackSection
-                  draft={draft}
-                  set={set}
-                  isLinux={isLinux && !isMobile}
-                  startupHardwareVideoDecodeEnabled={
-                    startupHardwareVideoDecodeEnabled ??
-                    settings.hardwareVideoDecodeEnabled
-                  }
-                  h264={h264Setup}
-                />
-              </SettingsGroup>
-
-              {isMobile && (
-                <SettingsGroup title={t("settings:panel.groups.android")}>
-                  <AndroidSettingsSections draft={draft} set={set} />
-                </SettingsGroup>
+              {shownDef && (
+                <h3 className={styles.pageTitle}>
+                  {t(`settings:panel.categories.${shownDef.id}.label`)}
+                </h3>
               )}
+              {renderPage()}
+            </div>
+          </div>
+        )}
 
-              <SettingsGroup title={t("settings:panel.groups.maintenance")}>
-                <OfficialSettingsSection
-                  onOpenOfficialSettings={onOpenOfficialSettings}
-                />
-                <MaintenanceSections
-                  onReloadAllWebviews={() => {
-                    onReloadAllWebviews();
-                    onClose();
-                  }}
-                  pendingDataDirectoryDeletionCount={
-                    pendingDataDirectoryDeletionCount
-                  }
-                  retryingDataDirectoryDeletion={retryingDataDirectoryDeletion}
-                  dataDirectoryDeletionRetryResult={
-                    dataDirectoryDeletionRetryResult
-                  }
-                  dataDirectoryDeletionRemainingCount={
-                    dataDirectoryDeletionRemainingCount
-                  }
-                  onRetryDataDirectoryDeletion={
-                    handleRetryDataDirectoryDeletion
-                  }
-                />
-                <AboutAppSection
-                  appVersion={appVersion}
-                  updateChecking={updateChecking}
-                  updateManualResult={updateManualResult}
-                  onCheckUpdate={onCheckUpdate}
-                />
-              </SettingsGroup>
-            </form>
-          )}
-
-          {activeTab === "layout" && (
-            <ColumnLayoutTab
-              columns={columns}
-              accounts={accounts}
-              onApply={(updatedColumns) => {
-                onApplyLayout(updatedColumns);
-                onClose();
-              }}
-              onCancel={onClose}
-              isMobile={isMobile}
-            />
-          )}
-
-          {!isMobile && activeTab === "presets" && (
-            <PresetsTab
-              presets={settings.presets ?? []}
-              onSave={(name) => savePreset(name)}
-              onLoad={(id) => {
-                // WebView の作り直し完了を待ってから閉じる。dialogOpenRef が
-                // 開いている間に作り直させることで、退避状態を維持したまま
-                // プリセットのカラムを構築し、ダイアログを閉じた瞬間に
-                // App 側の anyDialogOpen effect が通常座標へ再表示する。
-                void onLoadPreset(id).then(() => onClose());
-              }}
-              onDelete={(id) => deletePreset(id)}
-            />
-          )}
-
-          {extensionsSupported && activeTab === "extensions" && (
-            <ExtensionsTab
-              accountId={extensionPageAccountId}
-              onExtensionsChanged={onExtensionsChanged}
-              listExtensions={listExtensions}
-              detectChromeExtensions={detectChromeExtensions}
-              pickFolder={pickExtensionFolder}
-              addFromFolder={addExtensionFromFolder}
-              addChrome={addChromeExtension}
-              setEnabled={setExtensionEnabled}
-              remove={removeExtension}
-              openPage={openExtensionPage}
-            />
-          )}
-
-          {activeTab === "backup" && (
-            <BackupTab
-              accounts={backup.accounts}
-              step={backup.step}
-              content={backup.content}
-              mapping={backup.mapping}
-              busy={backup.busy}
-              saveBlocked={backup.saveBlocked}
-              message={backup.message}
-              onExport={() => void backup.exportToFile()}
-              onPickFile={() => void backup.pickFile()}
-              onChangeMapping={backup.changeMapping}
-              onCancel={backup.cancel}
-              onProceedToConfirm={backup.proceedToConfirm}
-              onBackToMapping={backup.backToMapping}
-              onExecute={() => void backup.execute()}
-            />
-          )}
-        </div>
-
-        {activeTab === "general" && (
-          <div className={styles.actions}>
+        <div className={styles.actions}>
+          {showApplyFooter ? (
+            <>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={onClose}
+              >
+                {t("settings:panel.actions.cancel")}
+              </button>
+              <button
+                type="button"
+                className={styles.applyBtn}
+                onClick={handleApply}
+              >
+                {t("settings:panel.actions.apply")}
+              </button>
+            </>
+          ) : (
             <button
               type="button"
               className={styles.cancelBtn}
               onClick={onClose}
             >
-              {t("settings:panel.actions.cancel")}
+              {t("settings:panel.actions.close")}
             </button>
-            <button
-              type="submit"
-              form="app-settings-form"
-              className={styles.applyBtn}
-            >
-              {t("settings:panel.actions.apply")}
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

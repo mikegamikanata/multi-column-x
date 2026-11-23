@@ -158,6 +158,32 @@ beforeEach(() => {
   mockPlatform.mockReturnValue("windows");
 });
 
+/** サイドナビ（デスクトップ）またはカテゴリ一覧（モバイル）のカテゴリ項目。名前は印の文言で末尾が変わるため前方一致で引く */
+const categoryItem = (label: string) => {
+  const scope = mockStoreState.isMobile
+    ? screen
+    : within(screen.getByRole("navigation"));
+  return scope.getByRole("button", { name: new RegExp(`^${label}`) });
+};
+
+/** カテゴリを開く（デスクトップはサイドナビ、モバイルは一覧から詳細へ） */
+const openCategory = (label: string) => {
+  fireEvent.click(categoryItem(label));
+};
+
+/** モバイルの詳細画面からカテゴリ一覧へ戻る */
+const backToList = () => {
+  fireEvent.click(screen.getByRole("button", { name: /^(戻る|Back)$/ }));
+};
+
+/** フッター（キャンセル / 適用 / 閉じる が並ぶ領域） */
+const footer = () => {
+  const buttons = screen.getAllByRole("button", {
+    name: /^(キャンセル|閉じる)$/,
+  });
+  return within(buttons[buttons.length - 1].parentElement as HTMLElement);
+};
+
 describe("AppSettingsPanel", () => {
   it("EscキーでonCloseが呼ばれる", () => {
     const onClose = vi.fn();
@@ -170,6 +196,7 @@ describe("AppSettingsPanel", () => {
 describe("AppSettingsPanel 公式設定セクション", () => {
   it("「公式設定を開く」ボタンが表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
     expect(
       screen.getByRole("button", { name: "公式設定を開く" }),
     ).toBeInTheDocument();
@@ -183,6 +210,7 @@ describe("AppSettingsPanel 公式設定セクション", () => {
         onOpenOfficialSettings={onOpenOfficialSettings}
       />,
     );
+    openCategory("閲覧・フィルタ");
     fireEvent.click(screen.getByRole("button", { name: "公式設定を開く" }));
     expect(onOpenOfficialSettings).toHaveBeenCalled();
   });
@@ -191,11 +219,13 @@ describe("AppSettingsPanel 公式設定セクション", () => {
 describe("AppSettingsPanel グローバルNGワード", () => {
   it("グローバルNGワードセクションが表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
     expect(screen.getByText("グローバルNGワード")).toBeInTheDocument();
   });
 
   it("グローバルNGワード入力エリアが表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
     expect(
       screen.getByPlaceholderText(
         "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
@@ -209,6 +239,7 @@ describe("AppSettingsPanel グローバルNGワード", () => {
       ngWords: ["グローバルスパム", "宣伝"],
     };
     render(<AppSettingsPanel {...defaultProps} settings={settings} />);
+    openCategory("閲覧・フィルタ");
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
     ) as HTMLTextAreaElement;
@@ -218,6 +249,7 @@ describe("AppSettingsPanel グローバルNGワード", () => {
   it("適用するとngWordsが配列としてonApplyに渡される", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("閲覧・フィルタ");
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
     );
@@ -231,6 +263,7 @@ describe("AppSettingsPanel グローバルNGワード", () => {
   it("空行はngWordsに含めない", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("閲覧・フィルタ");
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
     );
@@ -244,6 +277,7 @@ describe("AppSettingsPanel グローバルNGワード", () => {
   it("NGワードの前後の空白を除いてngWordsに含める", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("閲覧・フィルタ");
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
     );
@@ -256,6 +290,7 @@ describe("AppSettingsPanel グローバルNGワード", () => {
 
   it("NGワードの書き方ヘルプポップオーバーが表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
     expect(
       screen.getByRole("button", { name: "NGワードの書き方" }),
     ).toBeInTheDocument();
@@ -271,6 +306,7 @@ describe("AppSettingsPanel グローバルNGワード", () => {
         onClose={onClose}
       />,
     );
+    openCategory("閲覧・フィルタ");
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
     );
@@ -292,6 +328,7 @@ describe("AppSettingsPanel グローバルNGワード", () => {
         onClose={onClose}
       />,
     );
+    openCategory("閲覧・フィルタ");
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
     );
@@ -319,6 +356,7 @@ describe("AppSettingsPanel グローバルNGワード", () => {
         onClose={onClose}
       />,
     );
+    openCategory("閲覧・フィルタ");
     const textarea = screen.getByPlaceholderText(
       "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
     );
@@ -343,6 +381,7 @@ describe("AppSettingsPanel リポストを非表示にするユーザー", () =>
       repostHiddenUserIds: ["HAJIME_2001", "abc"],
     };
     render(<AppSettingsPanel {...defaultProps} settings={settings} />);
+    openCategory("閲覧・フィルタ");
     expect((getTextarea() as HTMLTextAreaElement).value).toBe(
       "HAJIME_2001\nabc",
     );
@@ -354,11 +393,13 @@ describe("AppSettingsPanel リポストを非表示にするユーザー", () =>
       repostHiddenUserIds: undefined,
     } as unknown as GlobalSettings;
     render(<AppSettingsPanel {...defaultProps} settings={settings} />);
+    openCategory("閲覧・フィルタ");
     expect((getTextarea() as HTMLTextAreaElement).value).toBe("");
   });
 
   it("説明文が表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
     expect(
       screen.getByText(
         "1行に1ユーザーID（@以降）。指定ユーザーがリポストした投稿を非表示にします",
@@ -369,6 +410,7 @@ describe("AppSettingsPanel リポストを非表示にするユーザー", () =>
   it("入力は1行1IDで、空行・前後空白・先頭の@・重複は無視して正規化された一覧がonApplyに渡される", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("閲覧・フィルタ");
     fireEvent.change(getTextarea(), {
       target: { value: "  @user_a  \n\nuser_b\nUSER_A\n@user_b" },
     });
@@ -388,6 +430,7 @@ describe("AppSettingsPanel リポストを非表示にするユーザー", () =>
         onClose={onClose}
       />,
     );
+    openCategory("閲覧・フィルタ");
     fireEvent.change(getTextarea(), {
       target: { value: "valid_id\nbad-id!" },
     });
@@ -411,6 +454,7 @@ describe("AppSettingsPanel リポストを非表示にするユーザー", () =>
         onClose={onClose}
       />,
     );
+    openCategory("閲覧・フィルタ");
     fireEvent.change(getTextarea(), { target: { value: "bad-id!" } });
     fireEvent.click(screen.getByRole("button", { name: "適用" }));
     fireEvent.change(getTextarea(), { target: { value: "good_id" } });
@@ -427,6 +471,7 @@ describe("AppSettingsPanel リポストを非表示にするユーザー", () =>
   it("16文字以上のIDは不正として保存できない", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("閲覧・フィルタ");
     fireEvent.change(getTextarea(), {
       target: { value: "this_id_is_way_too_long" },
     });
@@ -443,6 +488,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
   it("スワイプ領域の有効トグルを切り替えるとonApplyに反映される", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("Android専用");
     const checkbox = screen.getByRole("checkbox", {
       name: "スワイプでカラム切替を有効化",
     });
@@ -456,6 +502,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
   it("広い画面で複数カラム表示トグルを切り替えるとonApplyに反映される", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("Android専用");
     const checkbox = screen.getByRole("checkbox", {
       name: "広い画面で複数カラム表示（タブレット・横向き）",
     });
@@ -468,6 +515,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
 
   it("設定画面で複数カラム表示がONのときだけ列数を選べる", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("Android専用");
     const select = screen.getByRole("combobox", { name: "同時表示する列数" });
     expect(
       Array.from((select as HTMLSelectElement).options).map((o) => o.value),
@@ -486,6 +534,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
   it("設定画面で列数を変更すると設定として保存される", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("Android専用");
     fireEvent.change(
       screen.getByRole("combobox", { name: "同時表示する列数" }),
       {
@@ -501,6 +550,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
   it("スワイプ領域の高さは16〜56にクランプされる", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("Android専用");
     const input = screen.getByRole("spinbutton", {
       name: "スワイプ領域の高さ(px)",
     });
@@ -514,6 +564,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
   it("スワイプ領域の高さに下限未満の値を入力すると16にクランプされる", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("Android専用");
     const input = screen.getByRole("spinbutton", {
       name: "スワイプ領域の高さ(px)",
     });
@@ -526,6 +577,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
 
   it("高さ入力を空にしても即座に補正されず入力中の値を保持できる", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("Android専用");
     const input = screen.getByRole("spinbutton", {
       name: "スワイプ領域の高さ(px)",
     }) as HTMLInputElement;
@@ -537,6 +589,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
 
   it("高さ入力からフォーカスが外れると有効範囲へ補正される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("Android専用");
     const input = screen.getByRole("spinbutton", {
       name: "スワイプ領域の高さ(px)",
     }) as HTMLInputElement;
@@ -548,6 +601,7 @@ describe("AppSettingsPanel スワイプ切替設定", () => {
   it("スワイプ領域の透過度スライダーを操作すると適用時にmobileSwipeAreaOpacityが反映される", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("Android専用");
     const slider = screen.getByRole("slider", {
       name: /スワイプ領域の透過度/,
     });
@@ -564,7 +618,7 @@ describe("AppSettingsPanel モバイルのカラム並び替え", () => {
     mockStoreState.isMobile = true;
   });
 
-  it("isMobile=true でもカラム配置タブが表示される", () => {
+  it("isMobile=true でもカラム配置カテゴリが一覧に表示される", () => {
     render(
       <AppSettingsPanel
         {...defaultProps}
@@ -572,10 +626,10 @@ describe("AppSettingsPanel モバイルのカラム並び替え", () => {
         accounts={mockAccounts}
       />,
     );
-    expect(screen.getByRole("tab", { name: "カラム配置" })).toBeInTheDocument();
+    expect(categoryItem("カラム配置")).toBeInTheDocument();
   });
 
-  it("isMobile=true でカラム配置タブを開くと表示順序セクションが表示される", () => {
+  it("isMobile=true でカラム配置カテゴリを開くと表示順序セクションが表示される", () => {
     render(
       <AppSettingsPanel
         {...defaultProps}
@@ -583,11 +637,11 @@ describe("AppSettingsPanel モバイルのカラム並び替え", () => {
         accounts={mockAccounts}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: "カラム配置" }));
+    openCategory("カラム配置");
     expect(screen.getByText("表示順序")).toBeInTheDocument();
   });
 
-  it("isMobile=true のカラム配置タブではグリッドエディタが非表示", () => {
+  it("isMobile=true のカラム配置カテゴリではグリッドエディタが非表示", () => {
     render(
       <AppSettingsPanel
         {...defaultProps}
@@ -595,7 +649,7 @@ describe("AppSettingsPanel モバイルのカラム並び替え", () => {
         accounts={mockAccounts}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: "カラム配置" }));
+    openCategory("カラム配置");
     // 列数入力（グリッドエディタ）が表示されない
     expect(screen.queryByText("列数:")).not.toBeInTheDocument();
   });
@@ -604,6 +658,7 @@ describe("AppSettingsPanel モバイルのカラム並び替え", () => {
 describe("AppSettingsPanel ポップアップウィンドウ", () => {
   it("画像・動画をポップアップで開くトグルが表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("メディア");
     expect(
       screen.getByRole("checkbox", {
         name: "画像をポップアップウィンドウで開く",
@@ -623,6 +678,7 @@ describe("AppSettingsPanel ポップアップウィンドウ", () => {
       videoPopupEnabled: true,
     };
     render(<AppSettingsPanel {...defaultProps} settings={settings} />);
+    openCategory("メディア");
     expect(
       screen.getByRole("checkbox", {
         name: "画像をポップアップウィンドウで開く",
@@ -638,6 +694,7 @@ describe("AppSettingsPanel ポップアップウィンドウ", () => {
   it("画像ポップアップトグルを切り替えて適用するとonApplyに反映される", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("メディア");
     fireEvent.click(
       screen.getByRole("checkbox", {
         name: "画像をポップアップウィンドウで開く",
@@ -652,6 +709,7 @@ describe("AppSettingsPanel ポップアップウィンドウ", () => {
   it("動画ポップアップトグルを切り替えて適用するとonApplyに反映される", () => {
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("メディア");
     fireEvent.click(
       screen.getByRole("checkbox", {
         name: "動画をポップアップウィンドウで開く",
@@ -664,9 +722,10 @@ describe("AppSettingsPanel ポップアップウィンドウ", () => {
   });
 });
 
-describe("AppSettingsPanel カラムデフォルト - 表示", () => {
+describe("AppSettingsPanel カラム既定値 - 表示", () => {
   it("ヘッダーを非表示にするチェックボックスが表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("カラム既定値");
     expect(
       screen.getByRole("checkbox", { name: "ヘッダーを非表示にする" }),
     ).toBeInTheDocument();
@@ -674,6 +733,7 @@ describe("AppSettingsPanel カラムデフォルト - 表示", () => {
 
   it("投稿欄を非表示にするチェックボックスが表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("カラム既定値");
     expect(
       screen.getByRole("checkbox", { name: "投稿欄を非表示にする" }),
     ).toBeInTheDocument();
@@ -682,6 +742,7 @@ describe("AppSettingsPanel カラムデフォルト - 表示", () => {
   it("defaultHideHeaderEnabledがfalseの場合カスタムメニューボタンのチェックボックスは表示されない", () => {
     const settings = { ...baseGlobalSettings, defaultHideHeaderEnabled: false };
     render(<AppSettingsPanel {...defaultProps} settings={settings} />);
+    openCategory("カラム既定値");
     expect(
       screen.queryByRole("checkbox", {
         name: "カスタムメニューボタンを表示する",
@@ -692,6 +753,7 @@ describe("AppSettingsPanel カラムデフォルト - 表示", () => {
   it("defaultHideHeaderEnabledがtrueの場合カスタムメニューボタンのチェックボックスが表示される", () => {
     const settings = { ...baseGlobalSettings, defaultHideHeaderEnabled: true };
     render(<AppSettingsPanel {...defaultProps} settings={settings} />);
+    openCategory("カラム既定値");
     expect(
       screen.getByRole("checkbox", {
         name: "カスタムメニューボタンを表示する",
@@ -713,6 +775,7 @@ describe("AppSettingsPanel カラムデフォルト - 表示", () => {
         onApply={onApply}
       />,
     );
+    openCategory("カラム既定値");
     fireEvent.click(
       screen.getByRole("checkbox", { name: "ヘッダーを非表示にする" }),
     );
@@ -739,6 +802,7 @@ describe("AppSettingsPanel カラムデフォルト - 表示", () => {
         onApply={onApply}
       />,
     );
+    openCategory("カラム既定値");
     fireEvent.click(
       screen.getByRole("checkbox", { name: "投稿欄を非表示にする" }),
     );
@@ -765,6 +829,7 @@ describe("AppSettingsPanel カラムデフォルト - 表示", () => {
         onApply={onApply}
       />,
     );
+    openCategory("カラム既定値");
     fireEvent.click(
       screen.getByRole("checkbox", { name: "ヘッダーを非表示にする" }),
     );
@@ -788,6 +853,7 @@ describe("AppSettingsPanel カラムデフォルト - 表示", () => {
         onApplyColumnDefaults={onApplyColumnDefaults}
       />,
     );
+    openCategory("カラム既定値");
     fireEvent.click(
       screen.getByRole("button", { name: "既存の全カラムに適用" }),
     );
@@ -983,7 +1049,7 @@ describe("AppSettingsPanel プリセット", () => {
         onClose={onClose}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: "プリセット" }));
+    openCategory("プリセット");
     fireEvent.click(screen.getByRole("button", { name: "読み込む" }));
     expect(onLoadPreset).toHaveBeenCalledWith("preset-1");
     // ストアの loadPreset を直接呼ばず、onLoadPreset 経由のみで読み込むこと
@@ -1075,6 +1141,7 @@ describe("AppSettingsPanel 設定パッチの全項目反映", () => {
         onApplyColumnDefaults={onApplyColumnDefaults}
       />,
     );
+    openCategory("カラム既定値");
     fireEvent.click(
       screen.getByRole("button", { name: "既存の全カラムに適用" }),
     );
@@ -1097,6 +1164,7 @@ describe("AppSettingsPanel 設定パッチの全項目反映", () => {
 
   it("既存の全カラムに適用ボタンはカスタムCSSセクションの中に無い", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("カラム既定値");
     const cssSection = screen
       .getByRole("heading", { level: 3, name: "カスタム CSS" })
       .closest("section") as HTMLElement;
@@ -1119,6 +1187,7 @@ describe("AppSettingsPanel 削除保留データフォルダの再実行", () =>
         pendingDataDirectoryDeletionCount={0}
       />,
     );
+    openCategory("メンテナンス");
     expect(
       screen.queryByRole("button", { name: "データフォルダの削除を再実行" }),
     ).not.toBeInTheDocument();
@@ -1131,6 +1200,7 @@ describe("AppSettingsPanel 削除保留データフォルダの再実行", () =>
         pendingDataDirectoryDeletionCount={1}
       />,
     );
+    openCategory("メンテナンス");
     expect(screen.getByText(/1件/)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "データフォルダの削除を再実行" }),
@@ -1148,6 +1218,7 @@ describe("AppSettingsPanel 削除保留データフォルダの再実行", () =>
         onRetryDataDirectoryDeletion={onRetryDataDirectoryDeletion}
       />,
     );
+    openCategory("メンテナンス");
     fireEvent.click(
       screen.getByRole("button", { name: "データフォルダの削除を再実行" }),
     );
@@ -1168,6 +1239,7 @@ describe("AppSettingsPanel 削除保留データフォルダの再実行", () =>
         onRetryDataDirectoryDeletion={onRetryDataDirectoryDeletion}
       />,
     );
+    openCategory("メンテナンス");
     fireEvent.click(
       screen.getByRole("button", { name: "データフォルダの削除を再実行" }),
     );
@@ -1176,7 +1248,7 @@ describe("AppSettingsPanel 削除保留データフォルダの再実行", () =>
     ).toBeInTheDocument();
   });
 
-  it("一般タブの「適用」で送られるpatchにpendingDataDirectoryDeletionsは含まれない（保存で巻き戻らないことの回帰確認）", () => {
+  it("「適用」で送られるpatchにpendingDataDirectoryDeletionsは含まれない（保存で巻き戻らないことの回帰確認）", () => {
     const onApply = vi.fn();
     render(
       <AppSettingsPanel
@@ -1192,7 +1264,7 @@ describe("AppSettingsPanel 削除保留データフォルダの再実行", () =>
   });
 });
 
-describe("AppSettingsPanel カラムデフォルトの写真閲覧後スクロール位置復元と画像縮小の連動", () => {
+describe("AppSettingsPanel カラム既定値の写真閲覧後スクロール位置復元と画像縮小の連動", () => {
   const label = "写真閲覧後のスクロール位置を復元する";
   const renderWith = (overrides: Partial<GlobalSettings>) => {
     const onApply = vi.fn();
@@ -1203,6 +1275,7 @@ describe("AppSettingsPanel カラムデフォルトの写真閲覧後スクロ�
         onApply={onApply}
       />,
     );
+    openCategory("カラム既定値");
     return onApply;
   };
   const toggleSmallImage = () =>
@@ -1271,12 +1344,12 @@ describe("AppSettingsPanel カラムデフォルトの写真閲覧後スクロ�
   });
 });
 
-describe("AppSettingsPanel バックアップタブ", () => {
-  it("デスクトップでもバックアップタブが表示され、開くと作成と復元の操作が出る", () => {
+describe("AppSettingsPanel バックアップカテゴリ", () => {
+  it("デスクトップでもバックアップカテゴリが表示され、開くと作成と復元の操作が出る", () => {
     mockStoreState.isMobile = false;
     render(<AppSettingsPanel {...defaultProps} />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "バックアップ" }));
+    openCategory("バックアップ");
 
     expect(
       screen.getByRole("button", { name: "バックアップを書き出す" }),
@@ -1286,13 +1359,11 @@ describe("AppSettingsPanel バックアップタブ", () => {
     ).toBeInTheDocument();
   });
 
-  it("isMobile=true（Android）でもバックアップタブが表示される", () => {
+  it("isMobile=true（Android）でもバックアップカテゴリが一覧に表示される", () => {
     mockStoreState.isMobile = true;
     render(<AppSettingsPanel {...defaultProps} />);
 
-    expect(
-      screen.getByRole("tab", { name: "バックアップ" }),
-    ).toBeInTheDocument();
+    expect(categoryItem("バックアップ")).toBeInTheDocument();
   });
 });
 
@@ -1325,6 +1396,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         h264Setup={h264Base}
       />,
     );
+    openCategory("メディア");
     fireEvent.click(screen.getByRole("button", { name: "H.264 を有効化" }));
     expect(h264Base.onEnable).toHaveBeenCalledTimes(1);
 
@@ -1350,6 +1422,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         h264Setup={{ ...h264Base, h264Available: true }}
       />,
     );
+    openCategory("メディア");
     expect(screen.getByText("H.264: 有効化済み")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "H.264 を有効化" }),
@@ -1364,6 +1437,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         h264Setup={{ ...h264Base, downloadApplicable: false }}
       />,
     );
+    openCategory("メディア");
     expect(screen.queryByText(/H\.264/)).not.toBeInTheDocument();
     expect(
       screen.getByRole("checkbox", {
@@ -1380,6 +1454,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         h264Setup={h264Base}
       />,
     );
+    openCategory("メディア");
     expect(screen.queryByText(/H\.264/)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("checkbox", {
@@ -1391,6 +1466,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
   it("モバイルではLinux向け動画再生設定が表示されない", () => {
     mockStoreState.isMobile = true;
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("メディア");
     expect(
       screen.queryByRole("checkbox", {
         name: "ハードウェアデコードを使う（VA-API）",
@@ -1406,6 +1482,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         startupHardwareVideoDecodeEnabled
       />,
     );
+    openCategory("メディア");
     expect(
       screen.queryByText("再起動後に反映されます"),
     ).not.toBeInTheDocument();
@@ -1433,6 +1510,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         startupHardwareVideoDecodeEnabled
       />,
     );
+    openCategory("メディア");
     expect(screen.getByText("再起動後に反映されます")).toBeInTheDocument();
   });
 
@@ -1446,6 +1524,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         startupHardwareVideoDecodeEnabled
       />,
     );
+    openCategory("メディア");
     fireEvent.click(
       screen.getByRole("checkbox", {
         name: "ハードウェアデコードを使う（VA-API）",
@@ -1472,6 +1551,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         }}
       />,
     );
+    openCategory("メディア");
     expect(screen.getByText(/再起動後に反映されます/)).toBeInTheDocument();
     expect(screen.queryByText("H.264: 有効化済み")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "今すぐ再起動" }));
@@ -1494,6 +1574,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         }}
       />,
     );
+    openCategory("メディア");
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("AppImage が見つからない");
     expect(alert).toHaveTextContent("/opt/app.AppImage");
@@ -1515,6 +1596,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         }}
       />,
     );
+    openCategory("メディア");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -1530,6 +1612,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         }}
       />,
     );
+    openCategory("メディア");
     expect(
       screen.getByText("ネットワークに接続できません"),
     ).toBeInTheDocument();
@@ -1549,6 +1632,7 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
         }}
       />,
     );
+    openCategory("メディア");
     expect(
       screen.getByText(
         "この環境（aarch64）には対応していません。H.264 コーデックの自動取得は x86_64 のみ対応です",
@@ -1570,236 +1654,255 @@ describe("AppSettingsPanel Linux向け動画再生設定", () => {
   });
 });
 
-const グループ見出し一覧 = () =>
-  screen
-    .getAllByRole("heading", { level: 2 })
-    .map((h) => h.textContent)
-    .filter((t) => t !== "アプリ設定");
-
-const グループ要素 = (title: string) => {
-  const heading = screen.getByRole("heading", { level: 2, name: title });
-  return heading.parentElement as HTMLElement;
+/** 表示中のカテゴリのセクション見出し（デスクトップのページ見出しは除く） */
+const sectionHeadings = () => {
+  if (mockStoreState.isMobile) {
+    return screen
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent ?? "");
+  }
+  return within(screen.getByRole("region"))
+    .getAllByRole("heading", { level: 3 })
+    .slice(1)
+    .map((h) => h.textContent ?? "");
 };
 
-describe("AppSettingsPanel 一般タブのグループ構成", () => {
-  it("一般タブのグループが依存関係順に並ぶ（デスクトップ）", () => {
+const navButtonLabels = (list: HTMLElement) =>
+  within(list)
+    .getAllByRole("button")
+    .map((b) => b.querySelector("span")?.textContent ?? "");
+
+describe("AppSettingsPanel カテゴリ構成", () => {
+  it("デスクトップのアプリ設定ではサイドナビにカテゴリが分類ごとに並ぶ", () => {
     render(<AppSettingsPanel {...defaultProps} />);
-    expect(グループ見出し一覧()).toEqual([
-      "表示",
-      "新規カラムの既定値",
-      "閲覧・フィルタ",
-      "メディア",
-      "アプリ・メンテナンス",
+    const nav = within(screen.getByRole("navigation"));
+    expect(
+      nav.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+    ).toEqual(["一般", "カラム", "データ・拡張", "アプリ"]);
+    expect(nav.getAllByRole("list").map((l) => navButtonLabels(l))).toEqual([
+      ["表示", "閲覧・フィルタ", "メディア", "カラム既定値"],
+      ["カラム配置", "プリセット"],
+      ["拡張機能", "バックアップ"],
+      ["メンテナンス", "このアプリについて"],
     ]);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
-  it("一般タブのグループが依存関係順に並び、モバイルではメディアとアプリ・メンテナンスの間にAndroid専用が入る", () => {
+  it("モバイルのアプリ設定ではAndroid専用が表示されプリセットと拡張機能が表示されない", () => {
     mockStoreState.isMobile = true;
     render(<AppSettingsPanel {...defaultProps} />);
-    expect(グループ見出し一覧()).toEqual([
-      "表示",
-      "新規カラムの既定値",
-      "閲覧・フィルタ",
-      "メディア",
-      "Android専用",
-      "アプリ・メンテナンス",
-    ]);
-  });
-
-  it("表示言語が日本語のとき表示グループ内の欄の見出しがテーマと表示サイズになる", () => {
-    render(<AppSettingsPanel {...defaultProps} />);
+    const lists = screen.getAllByRole("list");
     expect(
-      within(グループ要素("表示")).getAllByRole("heading", { level: 3 })[0]
-        .textContent,
-    ).toBe("テーマと表示サイズ");
-  });
-
-  it("表示言語が英語のとき表示グループ内の欄の見出しがTheme & sizeになる", async () => {
-    render(<AppSettingsPanel {...defaultProps} />);
-    await act(() => i18n.changeLanguage("en"));
-    try {
-      expect(
-        within(グループ要素("Display")).getAllByRole("heading", {
-          level: 3,
-        })[0].textContent,
-      ).toBe("Theme & size");
-    } finally {
-      await act(() => i18n.changeLanguage("ja"));
-    }
-  });
-
-  it.each([
-    ["ja", "表示"],
-    ["en", "Display"],
-  ])(
-    "表示言語が%sのときグループ見出しと表示欄の見出しが異なる文言になる",
-    async (lng, groupTitle) => {
-      render(<AppSettingsPanel {...defaultProps} />);
-      await act(() => i18n.changeLanguage(lng));
-      try {
-        const group = グループ要素(groupTitle);
-        const h2 = screen.getByRole("heading", {
-          level: 2,
-          name: groupTitle,
-        });
-        const h3 = within(group).getAllByRole("heading", { level: 3 })[0];
-        expect(h3.textContent).not.toBe(h2.textContent);
-        expect(i18n.t("settings:display.title", { lng })).not.toBe(
-          i18n.t("settings:panel.groups.display", { lng }),
-        );
-      } finally {
-        await act(() => i18n.changeLanguage("ja"));
-      }
-    },
-  );
-
-  it("閲覧・フィルタグループにNGワード・リポスト非表示ユーザー・広告が含まれ、API残量モニターは含まれない", () => {
-    render(<AppSettingsPanel {...defaultProps} />);
-    const group = グループ要素("閲覧・フィルタ");
-    for (const name of [
-      /グローバルNGワード/,
-      /リポストを非表示にするユーザー/,
-      /広告/,
-    ]) {
-      expect(
-        within(group).getByRole("heading", { level: 3, name }),
-      ).toBeInTheDocument();
-    }
+      within(lists[0]).getByRole("button", { name: /^Android専用/ }),
+    ).toBeInTheDocument();
     expect(
-      within(group).queryByRole("heading", {
-        level: 3,
-        name: /API残量モニター/,
-      }),
+      screen.queryByRole("button", { name: /^プリセット/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^拡張機能/ }),
     ).not.toBeInTheDocument();
   });
 
-  it("デスクトップではポップアップ設定がメディアグループに表示される", () => {
-    render(<AppSettingsPanel {...defaultProps} />);
-    const group = グループ要素("メディア");
-    for (const name of [
-      "Escキーで閉じる",
-      "画像をポップアップウィンドウで開く",
-      "動画をポップアップウィンドウで開く",
-    ]) {
-      expect(within(group).getByRole("checkbox", { name })).toBeInTheDocument();
-    }
-  });
-
-  it("モバイルではポップアップ設定が表示されない", () => {
-    mockStoreState.isMobile = true;
-    render(<AppSettingsPanel {...defaultProps} />);
-    for (const name of [
-      "Escキーで閉じる",
-      "画像をポップアップウィンドウで開く",
-      "動画をポップアップウィンドウで開く",
-    ]) {
-      expect(screen.queryByRole("checkbox", { name })).not.toBeInTheDocument();
-    }
-  });
-
-  it("Linuxデスクトップでは動画再生（Linux）がメディアグループに表示される", () => {
-    render(<AppSettingsPanel {...defaultProps} isLinux />);
-    const group = グループ要素("メディア");
-    expect(
-      within(group).getByRole("checkbox", {
-        name: "ハードウェアデコードを使う（VA-API）",
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it.each(["Windows", "macOS"])(
-    "Linux以外のデスクトップ（%s）では動画再生（Linux）が表示されない",
-    () => {
-      render(<AppSettingsPanel {...defaultProps} isLinux={false} />);
-      expect(screen.queryByText(/動画再生（Linux）/)).not.toBeInTheDocument();
+  it.each([
+    ["macOS", "macos"],
+    ["Linux", "linux"],
+  ])(
+    "Windows以外のデスクトップ（%s）では拡張機能カテゴリが表示されない",
+    (_os, platformName) => {
+      mockPlatform.mockReturnValue(platformName);
+      render(<AppSettingsPanel {...defaultProps} />);
+      const nav = within(screen.getByRole("navigation"));
       expect(
-        screen.queryByRole("checkbox", {
-          name: "ハードウェアデコードを使う（VA-API）",
-        }),
+        nav.queryByRole("button", { name: /^拡張機能/ }),
       ).not.toBeInTheDocument();
+      const dataGroup = nav.getAllByRole("list")[2];
+      expect(navButtonLabels(dataGroup)).toEqual(["バックアップ"]);
     },
   );
 
-  it("モバイルでは動画再生（Linux）が表示されない", () => {
+  it("表示カテゴリに表示言語・テーマと表示サイズ・API残量モニターが含まれる", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("表示");
+    expect(screen.getByRole("group", { name: "表示言語" })).toBeInTheDocument();
+    expect(sectionHeadings()).toEqual([
+      "テーマと表示サイズ",
+      "API残量モニター",
+    ]);
+  });
+
+  it("閲覧・フィルタカテゴリの先頭にX公式設定が表示される", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
+    const headings = sectionHeadings();
+    expect(headings).toHaveLength(4);
+    expect(headings[0]).toBe("X公式設定");
+    expect(headings[1]).toContain("グローバルNGワード");
+    expect(headings[2]).toContain("リポストを非表示にするユーザー");
+    expect(headings[3]).toBe("広告");
+    expect(headings.join()).not.toContain("API残量モニター");
+  });
+
+  it("デスクトップのメディアカテゴリに動画とポップアップウィンドウが表示される", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("メディア");
+    expect(sectionHeadings()).toEqual(["動画", "ポップアップウィンドウ"]);
+  });
+
+  it("Linuxデスクトップのメディアカテゴリには動画再生(Linux)も表示される", () => {
+    mockPlatform.mockReturnValue("linux");
+    render(<AppSettingsPanel {...defaultProps} isLinux />);
+    openCategory("メディア");
+    expect(sectionHeadings()).toEqual([
+      "動画",
+      "ポップアップウィンドウ",
+      "動画再生（Linux）",
+    ]);
+  });
+
+  it("モバイルのメディアカテゴリにはポップアップウィンドウが表示されない", () => {
     mockStoreState.isMobile = true;
     render(<AppSettingsPanel {...defaultProps} isLinux />);
-    expect(screen.queryByText(/動画再生（Linux）/)).not.toBeInTheDocument();
+    openCategory("メディア");
+    expect(sectionHeadings()).toEqual(["動画"]);
   });
 
-  it("モバイルではAndroid専用グループにツイート（Android）とスワイプ切替が表示される", () => {
-    mockStoreState.isMobile = true;
+  it("カラム既定値カテゴリの見出しがカラム設定のセクション名と同じになる", () => {
     render(<AppSettingsPanel {...defaultProps} />);
-    const group = グループ要素("Android専用");
-    expect(
-      within(group).getByRole("heading", {
-        level: 3,
-        name: /ツイート（Android）/,
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(group).getByRole("heading", { level: 3, name: /スワイプ切替/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(group).getByRole("checkbox", {
-        name: "広い画面で複数カラム表示（タブレット・横向き）",
-      }),
-    ).toBeInTheDocument();
+    openCategory("カラム既定値");
+    expect(sectionHeadings()).toEqual([
+      "自動更新",
+      "表示",
+      "画像",
+      "画像ブラー",
+      "カスタム CSS",
+    ]);
+    expect(screen.queryByText(/カラムデフォルト - /)).not.toBeInTheDocument();
   });
 
-  it("デスクトップではAndroid専用グループが見出しごと表示されない", () => {
+  it("既存の全カラムに適用ボタンがカラム既定値カテゴリの上部に対象を明記して表示される", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("カラム既定値");
+    const button = screen.getByRole("button", { name: "既存の全カラムに適用" });
+    const firstHeading = screen.getByRole("heading", {
+      level: 3,
+      name: "自動更新",
+    });
     expect(
-      screen.queryByRole("heading", { name: "Android専用" }),
+      button.compareDocumentPosition(firstHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/自動更新・表示・画像・画像ブラー・カスタム CSS/),
+    ).toBeInTheDocument();
+    const cssSection = screen
+      .getByRole("heading", { level: 3, name: "カスタム CSS" })
+      .closest("section") as HTMLElement;
+    expect(
+      within(cssSection).queryByRole("button", {
+        name: "既存の全カラムに適用",
+      }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/ツイート（Android）/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/スワイプ切替/)).not.toBeInTheDocument();
   });
 
-  it.each([
-    ["デスクトップ", false],
-    ["モバイル", true],
-  ])(
-    "全環境（%s）で動画の自動再生停止・表示・新規カラムの既定値が表示される",
-    (_name, isMobile) => {
-      mockStoreState.isMobile = isMobile;
-      render(<AppSettingsPanel {...defaultProps} />);
-      expect(
-        within(グループ要素("メディア")).getByRole("checkbox", {
-          name: "動画の自動再生を停止する",
-        }),
-      ).toBeInTheDocument();
-      expect(
-        within(グループ要素("表示")).getAllByRole("heading", { level: 3 })
-          .length,
-      ).toBeGreaterThan(0);
-      expect(
-        within(グループ要素("新規カラムの既定値")).getAllByRole("heading", {
-          level: 3,
-        }).length,
-      ).toBeGreaterThan(0);
-    },
-  );
+  it("既存の全カラムに適用を押すと編集中の既定値がすべて既存カラムに適用される", () => {
+    const onApplyColumnDefaults = vi.fn();
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        onApplyColumnDefaults={onApplyColumnDefaults}
+      />,
+    );
+    openCategory("カラム既定値");
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: "更新間隔（秒）" }),
+      {
+        target: { value: "120" },
+      },
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "カスタム CSS" }), {
+      target: { value: ".edited{}" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "既存の全カラムに適用" }),
+    );
+    expect(onApplyColumnDefaults).toHaveBeenCalledTimes(1);
+    expect(onApplyColumnDefaults).toHaveBeenCalledWith({
+      autoReloadEnabled: true,
+      autoReloadInterval: 120,
+      showCountdown: true,
+      hideHeaderEnabled: true,
+      hideTweetInputEnabled: true,
+      showCustomMenu: false,
+      scrollPosRestoreEnabled: false,
+      customCSS: ".edited{}",
+      smallImageEnabled: false,
+      smallImageWidth: "50%",
+      blurImageEnabled: false,
+      blurImageAmount: "10px",
+    });
+  });
 
-  it.each([
-    ["デスクトップ", false],
-    ["モバイル", true],
-  ])(
-    "全環境（%s）でアプリ・メンテナンスに公式設定・WebView・アプリ情報が表示される",
-    (_name, isMobile) => {
-      mockStoreState.isMobile = isMobile;
-      render(<AppSettingsPanel {...defaultProps} />);
-      const group = グループ要素("アプリ・メンテナンス");
+  it("メンテナンスカテゴリにWebView再生成が表示されバージョン情報と公式設定は表示されない", () => {
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        pendingDataDirectoryDeletionCount={0}
+      />,
+    );
+    openCategory("メンテナンス");
+    expect(sectionHeadings()).toEqual(["WebView"]);
+    expect(
+      screen.queryByRole("heading", { name: "アプリ情報" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "X公式設定" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("削除できなかったデータフォルダがあるときメンテナンスカテゴリにデータフォルダの削除が表示される", () => {
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        pendingDataDirectoryDeletionCount={2}
+      />,
+    );
+    openCategory("メンテナンス");
+    expect(sectionHeadings()).toEqual(["WebView", "データフォルダの削除"]);
+    expect(
+      screen.getByText("削除できなかったデータフォルダが2件あります"),
+    ).toBeInTheDocument();
+  });
+
+  it("このアプリについてカテゴリに現在のバージョンと更新を確認が表示される", () => {
+    render(<AppSettingsPanel {...defaultProps} appVersion="1.18.0" />);
+    openCategory("このアプリについて");
+    expect(screen.getByText("現在のバージョン: 1.18.0")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "更新を確認" }),
+    ).toBeInTheDocument();
+  });
+
+  it("このアプリについてで更新を確認すると結果が同じカテゴリに表示される", () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    try {
+      const { rerender } = render(<AppSettingsPanel {...defaultProps} />);
+      openCategory("このアプリについて");
+      rerender(
+        <AppSettingsPanel {...defaultProps} updateManualResult="none" />,
+      );
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "最新のバージョンです",
+      );
       expect(
-        within(group).getByRole("button", { name: "公式設定を開く" }),
+        screen.getByRole("heading", { level: 3, name: "アプリ情報" }),
       ).toBeInTheDocument();
-      expect(
-        within(group).getByRole("heading", { level: 3, name: "WebView" }),
-      ).toBeInTheDocument();
-      expect(
-        within(group).getByRole("heading", { level: 3, name: "アプリ情報" }),
-      ).toBeInTheDocument();
-    },
-  );
+    } finally {
+      scrollSpy.mockRestore();
+    }
+  });
 
   it("モバイルで非表示のポップアップ関連設定値も適用時のpatchに保存内容のまま含まれる", () => {
     mockStoreState.isMobile = true;
@@ -1816,7 +1919,8 @@ describe("AppSettingsPanel 一般タブのグループ構成", () => {
         onApply={onApply}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "適用" }));
+    openCategory("メディア");
+    fireEvent.click(footer().getByRole("button", { name: "適用" }));
     expect(onApply).toHaveBeenCalledWith(
       expect.objectContaining({
         popupEscCloseEnabled: false,
@@ -1827,11 +1931,372 @@ describe("AppSettingsPanel 一般タブのグループ構成", () => {
   });
 });
 
-describe("AppSettingsPanel 拡張機能タブ", () => {
+const テーマをライトに変更する = () => {
+  fireEvent.click(screen.getByRole("checkbox", { name: "テーマを変更する" }));
+  fireEvent.click(screen.getByRole("button", { name: "ライト" }));
+};
+
+describe("AppSettingsPanel 切り替えと初期表示", () => {
+  it("デスクトップでアプリ設定を開くと毎回表示カテゴリが選ばれている", () => {
+    const first = render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("バックアップ");
+    expect(categoryItem("バックアップ")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    first.unmount();
+
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(categoryItem("表示")).toHaveAttribute("aria-current", "page");
+    expect(categoryItem("バックアップ")).not.toHaveAttribute("aria-current");
+  });
+
+  it("サイドナビでカテゴリを選ぶとそのカテゴリのページに切り替わる", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(
+      screen.getByRole("checkbox", { name: "テーマを変更する" }),
+    ).toBeInTheDocument();
+
+    openCategory("メディア");
+
+    expect(
+      screen.getByRole("checkbox", { name: "動画の自動再生を停止する" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "テーマを変更する" }),
+    ).not.toBeInTheDocument();
+    expect(categoryItem("メディア")).toHaveAttribute("aria-current", "page");
+    expect(categoryItem("表示")).not.toHaveAttribute("aria-current");
+  });
+
+  it("カテゴリを切り替えても編集中の値は保持される", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    テーマをライトに変更する();
+
+    openCategory("メディア");
+    openCategory("表示");
+
+    expect(screen.getByRole("button", { name: "ライト" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("サイドナビはキーボードでカテゴリを移動できる", async () => {
+    const user = userEvent.setup();
+    render(<AppSettingsPanel {...defaultProps} />);
+    categoryItem("表示").focus();
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(categoryItem("閲覧・フィルタ")).toHaveFocus();
+    expect(categoryItem("閲覧・フィルタ")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      screen.getByRole("heading", { level: 3, name: "X公式設定" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("AppSettingsPanel 適用範囲", () => {
+  it.each(["表示", "閲覧・フィルタ", "メディア", "カラム既定値"])(
+    "下書き対象のカテゴリ（%s）ではフッターにキャンセルと適用が表示される",
+    (category) => {
+      render(<AppSettingsPanel {...defaultProps} />);
+      openCategory(category);
+      expect(
+        footer().getByRole("button", { name: "キャンセル" }),
+      ).toBeInTheDocument();
+      expect(
+        footer().getByRole("button", { name: "適用" }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it.each(["カラム配置", "バックアップ", "メンテナンス", "このアプリについて"])(
+    "下書き対象外のカテゴリ（%s）ではフッターに閉じるだけが表示される",
+    (category) => {
+      render(
+        <AppSettingsPanel
+          {...defaultProps}
+          columns={mockColumns}
+          accounts={mockAccounts}
+        />,
+      );
+      openCategory(category);
+      expect(
+        footer().getByRole("button", { name: "閉じる" }),
+      ).toBeInTheDocument();
+      expect(footer().getAllByRole("button")).toHaveLength(1);
+      expect(
+        footer().queryByRole("button", { name: "適用" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("複数カテゴリで編集した値は1回の適用でまとめて保存される", () => {
+    const onApply = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        settings={{ ...baseGlobalSettings, videoAutoPlayStopEnabled: false }}
+        onApply={onApply}
+        onClose={onClose}
+      />,
+    );
+    テーマをライトに変更する();
+    openCategory("メディア");
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "動画の自動再生を停止する" }),
+    );
+
+    fireEvent.click(footer().getByRole("button", { name: "適用" }));
+
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        theme: "light",
+        videoAutoPlayStopEnabled: true,
+      }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("未適用の変更があるカテゴリにはサイドナビに印が付く", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(categoryItem("表示")).not.toHaveAccessibleName(/未適用の変更あり/);
+
+    テーマをライトに変更する();
+
+    expect(categoryItem("表示")).toHaveAccessibleName(/未適用の変更あり/);
+    expect(categoryItem("メディア")).not.toHaveAccessibleName(
+      /未適用の変更あり/,
+    );
+  });
+
+  it("値を元に戻すと未適用の印が消える", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    テーマをライトに変更する();
+    expect(categoryItem("表示")).toHaveAccessibleName(/未適用の変更あり/);
+
+    fireEvent.click(screen.getByRole("button", { name: "ダーク" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "テーマを変更する" }));
+
+    expect(categoryItem("表示")).not.toHaveAccessibleName(/未適用の変更あり/);
+  });
+
+  it("キャンセルを押すと編集中の値を破棄してアプリ設定が閉じる", () => {
+    const onApply = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        onApply={onApply}
+        onClose={onClose}
+      />,
+    );
+    テーマをライトに変更する();
+
+    fireEvent.click(footer().getByRole("button", { name: "キャンセル" }));
+
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("カラム配置カテゴリではページ内の適用で配置が反映される", () => {
+    const onApplyLayout = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        columns={mockColumns}
+        accounts={mockAccounts}
+        onApplyLayout={onApplyLayout}
+        onClose={onClose}
+      />,
+    );
+    openCategory("カラム配置");
+    fireEvent.change(screen.getByRole("spinbutton"), {
+      target: { value: "2" },
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("region")).getByRole("button", { name: "適用" }),
+    );
+
+    expect(onApplyLayout).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("AppSettingsPanel 入力エラー", () => {
+  const ngWordsInput = () =>
+    screen.getByPlaceholderText(
+      "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
+    );
+  const repostInput = () =>
+    screen.getByRole("textbox", { name: "リポストを非表示にするユーザー" });
+
+  it("別カテゴリにNGワードの入力エラーがあると適用時に閲覧・フィルタへ切り替わる", () => {
+    const onApply = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        onApply={onApply}
+        onClose={onClose}
+      />,
+    );
+    openCategory("閲覧・フィルタ");
+    fireEvent.change(ngWordsInput(), { target: { value: "/[[/" } });
+    openCategory("表示");
+
+    fireEvent.click(footer().getByRole("button", { name: "適用" }));
+
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(categoryItem("閲覧・フィルタ")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByText("正規表現が不正です: /[[/")).toBeInTheDocument();
+    expect(categoryItem("閲覧・フィルタ")).toHaveAccessibleName(
+      /入力エラーあり/,
+    );
+  });
+
+  it("リポスト非表示ユーザーの入力エラーでも閲覧・フィルタへ切り替わる", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
+    fireEvent.change(repostInput(), { target: { value: "bad-id!" } });
+    openCategory("メディア");
+
+    fireEvent.click(footer().getByRole("button", { name: "適用" }));
+
+    expect(categoryItem("閲覧・フィルタ")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      screen.getByText(/`bad-id!` はXのユーザーIDとして正しくありません/),
+    ).toBeInTheDocument();
+  });
+
+  it("入力エラーを直して適用するとエラーの印が消えて保存される", () => {
+    const onApply = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <AppSettingsPanel
+        {...defaultProps}
+        onApply={onApply}
+        onClose={onClose}
+      />,
+    );
+    openCategory("閲覧・フィルタ");
+    fireEvent.change(ngWordsInput(), { target: { value: "/[[/" } });
+    fireEvent.click(footer().getByRole("button", { name: "適用" }));
+    expect(categoryItem("閲覧・フィルタ")).toHaveAccessibleName(
+      /入力エラーあり/,
+    );
+
+    fireEvent.change(ngWordsInput(), { target: { value: "spam" } });
+    fireEvent.click(footer().getByRole("button", { name: "適用" }));
+
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ ngWords: ["spam"] }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("AppSettingsPanel Androidの2階層", () => {
+  beforeEach(() => {
+    mockStoreState.isMobile = true;
+  });
+
+  it("モバイルでアプリ設定を開くとカテゴリ一覧が表示される", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+    ).toEqual(["一般", "カラム", "データ・拡張", "アプリ"]);
+    expect(categoryItem("メディア")).toHaveAccessibleName(
+      /動画・ポップアップウィンドウ/,
+    );
+    expect(categoryItem("表示")).toHaveAccessibleName(
+      /言語・テーマ・表示サイズ・API残量モニター/,
+    );
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+  });
+
+  it("モバイルでカテゴリを選ぶと詳細画面に切り替わり戻るで一覧に戻れる", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+
+    openCategory("メディア");
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "メディア" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "戻る" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "動画の自動再生を停止する" }),
+    ).toBeInTheDocument();
+
+    backToList();
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "アプリ設定" }),
+    ).toBeInTheDocument();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
+  it("モバイルのカテゴリ一覧で未適用の変更があるときは一覧にも印と適用が表示される", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(
+      footer().queryByRole("button", { name: "適用" }),
+    ).not.toBeInTheDocument();
+
+    openCategory("表示");
+    テーマをライトに変更する();
+    backToList();
+
+    expect(categoryItem("表示")).toHaveAccessibleName(/未適用の変更あり/);
+    expect(
+      footer().getByRole("button", { name: "キャンセル" }),
+    ).toBeInTheDocument();
+    expect(footer().getByRole("button", { name: "適用" })).toBeInTheDocument();
+  });
+
+  it("モバイルで入力エラーがあると閲覧・フィルタの詳細画面に切り替わる", () => {
+    const onApply = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("閲覧・フィルタ");
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        "1行に1ワードで入力（全カラムに適用・/正規表現/flags 形式も指定可）",
+      ),
+      { target: { value: "/[[/" } },
+    );
+    backToList();
+
+    fireEvent.click(footer().getByRole("button", { name: "適用" }));
+
+    expect(onApply).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "閲覧・フィルタ" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("正規表現が不正です: /[[/")).toBeInTheDocument();
+  });
+});
+
+describe("AppSettingsPanel 拡張機能カテゴリ", () => {
   it("Windowsでは設定画面に拡張機能の管理が表示される", async () => {
     render(<AppSettingsPanel {...defaultProps} />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "拡張機能" }));
+    openCategory("拡張機能");
 
     expect(
       await screen.findByRole("button", { name: "フォルダを指定して追加" }),
@@ -1852,13 +2317,15 @@ describe("AppSettingsPanel 拡張機能タブ", () => {
 
       render(<AppSettingsPanel {...defaultProps} />);
 
+      const scope = isMobile ? screen : within(screen.getByRole("navigation"));
       expect(
-        screen.queryByRole("tab", { name: "拡張機能" }),
+        scope.queryByRole("button", { name: /^拡張機能/ }),
       ).not.toBeInTheDocument();
+      expect(categoryItem("バックアップ")).toBeInTheDocument();
     },
   );
 
-  it("拡張機能タブの変更成功がonExtensionsChangedで通知される", async () => {
+  it("拡張機能カテゴリの変更成功がonExtensionsChangedで通知される", async () => {
     const onExtensionsChanged = vi.fn();
     vi.mocked(extensionsService.pickExtensionFolder).mockResolvedValue(
       "C:/ext",
@@ -1872,7 +2339,7 @@ describe("AppSettingsPanel 拡張機能タブ", () => {
         onExtensionsChanged={onExtensionsChanged}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: "拡張機能" }));
+    openCategory("拡張機能");
 
     fireEvent.click(
       await screen.findByRole("button", { name: "フォルダを指定して追加" }),
@@ -1988,7 +2455,7 @@ describe("AppSettingsPanel 英語表示", () => {
     await i18n.changeLanguage("en");
   });
 
-  it("表示言語が英語のとき一般タブに日本語の文言が表示されない", async () => {
+  it("表示言語が英語のとき各カテゴリに日本語の文言が表示されない", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <AppSettingsPanel
@@ -2002,10 +2469,16 @@ describe("AppSettingsPanel 英語表示", () => {
         startupHardwareVideoDecodeEnabled
       />,
     );
+    openCategory("Browsing & filters");
     await user.click(
       screen.getByRole("button", { name: "How to write muted words" }),
     );
+    expectNoJapaneseOutsideLanguagePicker();
+    expect(screen.getByText("Global muted words")).toBeInTheDocument();
+    openCategory("Media");
     await user.click(screen.getByRole("checkbox", { name: /VA-API/ }));
+    expectNoJapaneseOutsideLanguagePicker();
+    openCategory("Display");
     await user.click(
       screen.getByRole("checkbox", {
         name: "Change the app UI display size",
@@ -2013,7 +2486,15 @@ describe("AppSettingsPanel 英語表示", () => {
     );
     expectNoJapaneseOutsideLanguagePicker();
     expect(screen.getByText("App settings")).toBeInTheDocument();
-    expect(screen.getByText("Global muted words")).toBeInTheDocument();
+    for (const category of [
+      "Column defaults",
+      "Maintenance",
+      "About",
+      "Backup",
+    ]) {
+      openCategory(category);
+      expectNoJapaneseOutsideLanguagePicker();
+    }
 
     // 状態の違う文言も確認する
     for (const props of [
@@ -2029,7 +2510,10 @@ describe("AppSettingsPanel 英語表示", () => {
           {...props}
         />,
       );
-      expectNoJapaneseOutsideLanguagePicker();
+      for (const category of ["Maintenance", "About"]) {
+        openCategory(category);
+        expectNoJapaneseOutsideLanguagePicker();
+      }
     }
     for (const h264 of [
       { ...h264Idle, downloadState: "downloading" as const },
@@ -2037,6 +2521,7 @@ describe("AppSettingsPanel 英語表示", () => {
       { ...h264Idle, h264Available: true },
     ]) {
       rerender(<AppSettingsPanel {...defaultProps} isLinux h264Setup={h264} />);
+      openCategory("Media");
       expectNoJapaneseOutsideLanguagePicker();
     }
   });
@@ -2051,6 +2536,7 @@ describe("AppSettingsPanel 英語表示", () => {
         onRetryDataDirectoryDeletion={onRetry}
       />,
     );
+    openCategory("Maintenance");
     expect(
       screen.getByText("1 data folder could not be deleted"),
     ).toBeInTheDocument();
@@ -2074,9 +2560,8 @@ describe("AppSettingsPanel 英語表示", () => {
     ).toBeInTheDocument();
   });
 
-  it("表示言語が英語のときモバイルの一般タブとカラム配置タブに日本語の文言が表示されない", async () => {
+  it("表示言語が英語のときモバイルのカテゴリ一覧と詳細に日本語の文言が表示されない", async () => {
     mockStoreState.isMobile = true;
-    const user = userEvent.setup();
     render(
       <AppSettingsPanel
         {...defaultProps}
@@ -2084,14 +2569,17 @@ describe("AppSettingsPanel 英語表示", () => {
         columns={layoutColumns}
       />,
     );
-    expect(screen.getByText("Android only")).toBeInTheDocument();
+    expect(screen.getByText("Android")).toBeInTheDocument();
     expectNoJapaneseOutsideLanguagePicker();
-    await user.click(screen.getByRole("tab", { name: "Column layout" }));
+    openCategory("Android");
+    expectNoJapaneseOutsideLanguagePicker();
+    backToList();
+    openCategory("Column layout");
     expect(screen.getByText("Display order")).toBeInTheDocument();
     expectNoJapaneseOutsideLanguagePicker();
   });
 
-  it("表示言語が英語のときカラム配置タブに日本語の文言が表示されない", async () => {
+  it("表示言語が英語のときカラム配置カテゴリに日本語の文言が表示されない", async () => {
     const user = userEvent.setup();
     render(
       <AppSettingsPanel
@@ -2100,7 +2588,7 @@ describe("AppSettingsPanel 英語表示", () => {
         columns={layoutColumns}
       />,
     );
-    await user.click(screen.getByRole("tab", { name: "Column layout" }));
+    openCategory("Column layout");
     expectNoJapaneseOutsideLanguagePicker();
 
     // 空きセルを選ぶと配置待ちの案内が出る
@@ -2122,10 +2610,9 @@ describe("AppSettingsPanel 英語表示", () => {
     expectNoJapaneseOutsideLanguagePicker();
   });
 
-  it("表示言語が英語のときプリセットタブに日本語の文言が表示されない", async () => {
-    const user = userEvent.setup();
+  it("表示言語が英語のときプリセットカテゴリに日本語の文言が表示されない", async () => {
     const { rerender } = render(<AppSettingsPanel {...defaultProps} />);
-    await user.click(screen.getByRole("tab", { name: "Presets" }));
+    openCategory("Presets");
     expect(screen.getByText("No saved presets")).toBeInTheDocument();
     expectNoJapaneseOutsideLanguagePicker();
 
@@ -2145,7 +2632,6 @@ describe("AppSettingsPanel 英語表示", () => {
 
 describe("AppSettingsPanel 表示言語の動的な切り替え", () => {
   it("画面を開いたまま言語を適用すると開いている画面の文言が切り替わる", async () => {
-    const user = userEvent.setup();
     render(<AppSettingsPanel {...defaultProps} />);
     expect(screen.getByText("アプリ設定")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "適用" })).toBeInTheDocument();
@@ -2158,8 +2644,8 @@ describe("AppSettingsPanel 表示言語の動的な切り替え", () => {
     expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
     expect(screen.queryByText("アプリ設定")).not.toBeInTheDocument();
 
-    // 開いたまま別タブへ移動しても英語のまま
-    await user.click(screen.getByRole("tab", { name: "Presets" }));
+    // 開いたまま別カテゴリへ移動しても英語のまま
+    openCategory("Presets");
     expect(screen.getByText("No saved presets")).toBeInTheDocument();
   });
 
@@ -2167,6 +2653,7 @@ describe("AppSettingsPanel 表示言語の動的な切り替え", () => {
     await i18n.changeLanguage("en");
     const onApply = vi.fn();
     render(<AppSettingsPanel {...defaultProps} onApply={onApply} />);
+    openCategory("Browsing & filters");
     fireEvent.change(
       screen.getByPlaceholderText(
         "One word per line (applies to all columns; /regex/flags is also accepted)",
@@ -2217,7 +2704,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
     );
   });
 
-  it("一般タブのすべての入力欄とボタンにアクセシブルネームがある", () => {
+  it("下書き対象の各カテゴリのすべての入力欄とボタンにアクセシブルネームがある", () => {
     const { container } = render(
       <AppSettingsPanel
         {...defaultProps}
@@ -2226,54 +2713,83 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
         pendingDataDirectoryDeletionCount={1}
       />,
     );
-    expectAccessibleControls(container);
+    for (const category of [
+      "表示",
+      "閲覧・フィルタ",
+      "メディア",
+      "カラム既定値",
+      "メンテナンス",
+      "このアプリについて",
+    ]) {
+      openCategory(category);
+      expectAccessibleControls(container);
+    }
   });
 
-  it("モバイルの一般タブでもすべての入力欄とボタンにアクセシブルネームがある", () => {
+  it("モバイルの一覧と各詳細でもすべての入力欄とボタンにアクセシブルネームがある", () => {
     mockStoreState.isMobile = true;
     const { container } = render(<AppSettingsPanel {...defaultProps} />);
     expectAccessibleControls(container);
+    for (const category of [
+      "表示",
+      "閲覧・フィルタ",
+      "メディア",
+      "カラム既定値",
+      "Android専用",
+    ]) {
+      openCategory(category);
+      expectAccessibleControls(container);
+      backToList();
+    }
   });
 
-  it("カラムデフォルトのカスタムCSSとグローバルNGワードの入力欄に名前が付く", () => {
+  it("カラム既定値のカスタムCSSとグローバルNGワードの入力欄に名前が付く", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("閲覧・フィルタ");
     expect(
       screen.getByRole("textbox", { name: "グローバルNGワード" }),
     ).toBeInTheDocument();
+    openCategory("カラム既定値");
     expect(
       screen.getByRole("textbox", { name: "カスタム CSS" }),
     ).toBeInTheDocument();
   });
 
-  it("選択中のタブだけが selected になり、切り替えると移る", async () => {
+  it("選択中のカテゴリだけが現在のページとして示され、切り替えると移る", async () => {
     const user = userEvent.setup();
     render(<AppSettingsPanel {...defaultProps} />);
-    expect(screen.getAllByRole("tab", { selected: true })).toHaveLength(1);
-    expect(screen.getByRole("tab", { selected: true })).toHaveAccessibleName(
-      "一般",
-    );
+    const nav = within(screen.getByRole("navigation"));
+    const current = () =>
+      nav
+        .getAllByRole("button")
+        .filter((b) => b.getAttribute("aria-current") === "page");
+    expect(current()).toHaveLength(1);
+    expect(current()[0]).toHaveAccessibleName("表示");
 
-    await user.click(screen.getByRole("tab", { name: "カラム配置" }));
+    await user.click(categoryItem("カラム配置"));
 
-    expect(screen.getAllByRole("tab", { selected: true })).toHaveLength(1);
-    expect(screen.getByRole("tab", { selected: true })).toHaveAccessibleName(
-      "カラム配置",
-    );
+    expect(current()).toHaveLength(1);
+    expect(current()[0]).toHaveAccessibleName("カラム配置");
   });
 
-  it("タブパネルは選択中のタブで名前が付き、タブから参照される", async () => {
+  it("ページ本文は選択中のカテゴリで名前が付き、サイドナビの項目から参照される", async () => {
     const user = userEvent.setup();
     render(<AppSettingsPanel {...defaultProps} />);
-    expect(screen.getByRole("tablist")).toBeInTheDocument();
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("一般");
-    expect(screen.getByRole("tab", { name: "一般" })).toHaveAttribute(
-      "aria-controls",
-      screen.getByRole("tabpanel").id,
-    );
+    expect(
+      screen.getByRole("navigation", { name: "設定のカテゴリ" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region")).toHaveAccessibleName("表示");
+    expect(categoryItem("表示").id).not.toBe("");
 
-    await user.click(screen.getByRole("tab", { name: "カラム配置" }));
+    await user.click(categoryItem("カラム配置"));
 
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("カラム配置");
+    expect(screen.getByRole("region")).toHaveAccessibleName("カラム配置");
+  });
+
+  it("サイドナビの選択中の項目だけがタブ移動の対象になる", () => {
+    render(<AppSettingsPanel {...defaultProps} />);
+    expect(categoryItem("表示")).toHaveAttribute("tabindex", "0");
+    expect(categoryItem("閲覧・フィルタ")).toHaveAttribute("tabindex", "-1");
   });
 
   it("閉じたあと開く前にフォーカスしていた要素へフォーカスが戻る", () => {
@@ -2357,6 +2873,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
         onCheckUpdate={onCheckUpdate}
       />,
     );
+    openCategory("このアプリについて");
     const button = screen.getByRole("button", { name: "確認中..." });
     expect(button).toBeDisabled();
 
@@ -2373,6 +2890,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
 
     it("更新が最新のときは成功の記号が付く", () => {
       render(<AppSettingsPanel {...defaultProps} updateManualResult="none" />);
+      openCategory("このアプリについて");
       expect(markOf("最新のバージョンです")).toHaveAttribute(
         "data-kind",
         "success",
@@ -2381,6 +2899,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
 
     it("更新確認に失敗したときは警告の記号が付く", () => {
       render(<AppSettingsPanel {...defaultProps} updateManualResult="error" />);
+      openCategory("このアプリについて");
       expect(markOf("更新の確認に失敗しました")).toHaveAttribute(
         "data-kind",
         "warning",
@@ -2394,6 +2913,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
           pendingDataDirectoryDeletionCount={1}
         />,
       );
+      openCategory("メンテナンス");
       fireEvent.click(
         screen.getByRole("button", { name: "データフォルダの削除を再実行" }),
       );
@@ -2414,6 +2934,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
             .mockResolvedValue({ remaining: 1 })}
         />,
       );
+      openCategory("メンテナンス");
       fireEvent.click(
         screen.getByRole("button", { name: "データフォルダの削除を再実行" }),
       );
@@ -2427,6 +2948,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
       render(
         <AppSettingsPanel {...defaultProps} isLinux h264Setup={h264Failed} />,
       );
+      openCategory("メディア");
       const alert = screen.getByRole("alert");
       expect(
         alert.querySelector('[aria-hidden="true"][data-kind="warning"]'),
@@ -2435,6 +2957,7 @@ describe("AppSettingsPanel デザイン原則（アクセシビリティ）", ()
 
     it("不正な入力のエラーには警告の記号が付く", () => {
       render(<AppSettingsPanel {...defaultProps} />);
+      openCategory("閲覧・フィルタ");
       fireEvent.change(
         screen.getByRole("textbox", {
           name: "リポストを非表示にするユーザー",
@@ -2467,6 +2990,7 @@ describe("AppSettingsPanel 更新確認の結果表示", () => {
     "更新確認の結果が表示されると結果の位置までスクロールする（%s）",
     (result) => {
       const { rerender } = render(<AppSettingsPanel {...defaultProps} />);
+      openCategory("このアプリについて");
       expect(scrollSpy).not.toHaveBeenCalled();
 
       rerender(
@@ -2488,12 +3012,14 @@ describe("AppSettingsPanel 更新確認の結果表示", () => {
       render(
         <AppSettingsPanel {...defaultProps} updateManualResult={result} />,
       );
+      openCategory("このアプリについて");
       expect(screen.getByRole("status")).toHaveTextContent(text);
     },
   );
 
   it("更新確認の結果が出る前は結果の読み上げ領域もスクロールも無い", () => {
     render(<AppSettingsPanel {...defaultProps} />);
+    openCategory("このアプリについて");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(scrollSpy).not.toHaveBeenCalled();
   });
@@ -2502,6 +3028,7 @@ describe("AppSettingsPanel 更新確認の結果表示", () => {
     const { rerender } = render(
       <AppSettingsPanel {...defaultProps} updateManualResult="none" />,
     );
+    openCategory("このアプリについて");
     scrollSpy.mockClear();
 
     rerender(
