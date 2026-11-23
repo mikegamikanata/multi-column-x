@@ -23,6 +23,7 @@ pub struct InitScriptParams<'a> {
     pub blur_image_enabled: bool,
     pub blur_image_amount: &'a str,
     pub hide_ad_enabled: bool,
+    pub hide_grok_button_enabled: bool,
     pub api_rate_limit_monitor_enabled: bool,
     pub image_popup_enabled: bool,
     pub video_popup_enabled: bool,
@@ -82,7 +83,7 @@ fn json_array(values: &[String]) -> String {
 /// キーの順序・区切り・空白は既存の出力と完全に同一にすること。
 fn config_script(params: &InitScriptParams) -> String {
     let effective_show_custom_menu = params.hide_header_enabled && params.show_custom_menu;
-    let entries: [(&str, String); 21] = [
+    let entries: [(&str, String); 22] = [
         ("hideHeaderEnabled", params.hide_header_enabled.to_string()),
         (
             "hideTweetInputEnabled",
@@ -125,6 +126,10 @@ fn config_script(params: &InitScriptParams) -> String {
             "mobileSwipeAreaOffset",
             params.mobile_swipe_area_offset.to_string(),
         ),
+        (
+            "hideGrokButtonEnabled",
+            params.hide_grok_button_enabled.to_string(),
+        ),
     ];
     let body = entries
         .iter()
@@ -162,6 +167,7 @@ fn script_parts(params: &InitScriptParams) -> Vec<Cow<'static, str>> {
     let small_image = include_str!("small_image.js");
     let blur_image = include_str!("blur_image.js");
     let hide_ad = include_str!("hide_ad.js");
+    let hide_grok_button = include_str!("hide_grok_button.js");
     let ng_word = include_str!("ng_word.js");
     let image_popup = include_if(!params.is_mobile, include_str!("image_popup.js"));
     // 表示サイズは x.com 自身の設定 (IndexedDB device:rweb:settings.scale) で管理するため
@@ -210,6 +216,7 @@ fn script_parts(params: &InitScriptParams) -> Vec<Cow<'static, str>> {
         Cow::Borrowed(small_image),
         Cow::Borrowed(blur_image),
         Cow::Borrowed(hide_ad),
+        Cow::Borrowed(hide_grok_button),
         Cow::Borrowed(ng_word),
         Cow::Borrowed(custom_css_js),
         Cow::Borrowed(image_popup),
@@ -297,6 +304,7 @@ mod tests {
             blur_image_enabled: false,
             blur_image_amount: "10px",
             hide_ad_enabled: false,
+            hide_grok_button_enabled: false,
             api_rate_limit_monitor_enabled: true,
             image_popup_enabled: true,
             video_popup_enabled: true,
@@ -425,6 +433,24 @@ mod tests {
         assert!(script.contains("showCustomMenu: true"));
         assert!(script.contains("smallImageEnabled: false"));
         assert!(script.contains("hideAdEnabled: false"));
+    }
+
+    #[test]
+    fn 設定がonのカラムの起動スクリプトに非表示の指定が含まれる() {
+        let mut params = default_params();
+        params.hide_grok_button_enabled = true;
+        let script = build_init_script(&params);
+        assert!(script.contains("hideGrokButtonEnabled: true"));
+        assert!(script.contains("multi-column-x-hide-grok-button"));
+    }
+
+    #[test]
+    fn 設定がoffのカラムの起動スクリプトではgrokボタンの非表示が無効である() {
+        let mut params = default_params();
+        params.hide_grok_button_enabled = false;
+        let script = build_init_script(&params);
+        assert!(script.contains("hideGrokButtonEnabled: false"));
+        assert!(!script.contains("hideGrokButtonEnabled: true"));
     }
 
     #[test]

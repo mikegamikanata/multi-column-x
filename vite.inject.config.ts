@@ -23,6 +23,7 @@ const plainEntries = [
   "mediaviewer_autoplay",
   "small_image",
   "hide_ad",
+  "hide_grok_button",
   "keyboard_shortcut",
   "ng_word",
   "blur_image",

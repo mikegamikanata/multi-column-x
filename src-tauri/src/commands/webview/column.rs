@@ -118,7 +118,23 @@ fn resolve_mobile_swipe_area_offset(
 fn build_column_init_script(app: &AppHandle, column: &ColumnData, is_mobile: bool) -> String {
     let global_settings = load_global_settings(app);
     let script_settings = column_script_settings_from(&global_settings);
-    build_init_script(&InitScriptParams {
+    let language = crate::commands::ui_language::current_ui_lang(app).as_code();
+    build_init_script(&column_init_script_params(
+        column,
+        is_mobile,
+        &script_settings,
+        language,
+    ))
+}
+
+/// カラム個別設定と全体設定（`ColumnScriptSettings`）から init script のパラメータを組み立てる純粋関数。
+fn column_init_script_params<'a>(
+    column: &'a ColumnData,
+    is_mobile: bool,
+    script_settings: &'a crate::commands::settings_store::ColumnScriptSettings,
+    language: &'a str,
+) -> InitScriptParams<'a> {
+    InitScriptParams {
         is_mobile,
         hide_header_enabled: column.settings.hide_header_enabled,
         hide_tweet_input_enabled: effective_hide_tweet_input_enabled(column),
@@ -130,6 +146,7 @@ fn build_column_init_script(app: &AppHandle, column: &ColumnData, is_mobile: boo
         blur_image_enabled: column.settings.blur_image_enabled,
         blur_image_amount: &column.settings.blur_image_amount,
         hide_ad_enabled: script_settings.hide_ad_enabled,
+        hide_grok_button_enabled: script_settings.hide_grok_button_enabled,
         api_rate_limit_monitor_enabled: script_settings.api_rate_limit_monitor_enabled,
         image_popup_enabled: script_settings.image_popup_enabled,
         video_popup_enabled: script_settings.video_popup_enabled,
@@ -146,9 +163,9 @@ fn build_column_init_script(app: &AppHandle, column: &ColumnData, is_mobile: boo
         minimal_injection: column.page_type == "external",
         return_to_last_read_included: is_return_to_last_read_target(column),
         return_to_last_read_enabled: column.settings.return_to_last_read_enabled,
-        mobile_swipe_area_offset: resolve_mobile_swipe_area_offset(is_mobile, &script_settings),
-        language: crate::commands::ui_language::current_ui_lang(app).as_code(),
-    })
+        mobile_swipe_area_offset: resolve_mobile_swipe_area_offset(is_mobile, script_settings),
+        language,
+    }
 }
 
 /// column_id がファイルパスとして安全か（パス区切り文字・親ディレクトリ参照を含まないか）を判定する。
@@ -1080,6 +1097,7 @@ mod tests {
         crate::commands::settings_store::ColumnScriptSettings {
             video_auto_play_stop_enabled: false,
             hide_ad_enabled: false,
+            hide_grok_button_enabled: false,
             api_rate_limit_monitor_enabled: false,
             image_popup_enabled: false,
             video_popup_enabled: false,
@@ -1088,6 +1106,24 @@ mod tests {
             mobile_swipe_area_enabled,
             mobile_swipe_area_height,
         }
+    }
+
+    #[test]
+    fn 全体設定のgrokボタン非表示がonのとき起動スクリプトの設定へ伝わる() {
+        let mut settings = script_settings(true, 28);
+        settings.hide_grok_button_enabled = true;
+        let home = column("home");
+        let params = column_init_script_params(&home, false, &settings, "ja");
+        assert!(params.hide_grok_button_enabled);
+    }
+
+    #[test]
+    fn 全体設定のgrokボタン非表示がoffのとき起動スクリプトの設定でも無効になる() {
+        let mut settings = script_settings(true, 28);
+        settings.hide_grok_button_enabled = false;
+        let home = column("home");
+        let params = column_init_script_params(&home, false, &settings, "ja");
+        assert!(!params.hide_grok_button_enabled);
     }
 
     #[test]

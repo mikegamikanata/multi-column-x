@@ -153,6 +153,7 @@ pub(crate) fn load_popup_esc_close_enabled(app: &AppHandle) -> bool {
 pub(crate) struct ColumnScriptSettings {
     pub(crate) video_auto_play_stop_enabled: bool,
     pub(crate) hide_ad_enabled: bool,
+    pub(crate) hide_grok_button_enabled: bool,
     pub(crate) api_rate_limit_monitor_enabled: bool,
     pub(crate) image_popup_enabled: bool,
     pub(crate) video_popup_enabled: bool,
@@ -173,6 +174,11 @@ pub(crate) fn column_script_settings_from(global: &serde_json::Value) -> ColumnS
             defaults.video_auto_play_stop_enabled,
         ),
         hide_ad_enabled: bool_flag(global, "hideAdEnabled", defaults.hide_ad_enabled),
+        hide_grok_button_enabled: bool_flag(
+            global,
+            "hideGrokButtonEnabled",
+            defaults.hide_grok_button_enabled,
+        ),
         api_rate_limit_monitor_enabled: bool_flag(
             global,
             "apiRateLimitMonitorEnabled",
@@ -321,6 +327,7 @@ mod tests {
         let settings = serde_json::json!({
             "videoAutoPlayStopEnabled": true,
             "hideAdEnabled": true,
+            "hideGrokButtonEnabled": true,
             "apiRateLimitMonitorEnabled": false,
             "imagePopupEnabled": false,
             "videoPopupEnabled": false,
@@ -334,6 +341,7 @@ mod tests {
             ColumnScriptSettings {
                 video_auto_play_stop_enabled: true,
                 hide_ad_enabled: true,
+                hide_grok_button_enabled: true,
                 api_rate_limit_monitor_enabled: false,
                 image_popup_enabled: false,
                 video_popup_enabled: false,
@@ -353,6 +361,7 @@ mod tests {
             ColumnScriptSettings {
                 video_auto_play_stop_enabled: true,
                 hide_ad_enabled: true,
+                hide_grok_button_enabled: false,
                 api_rate_limit_monitor_enabled: true,
                 image_popup_enabled: true,
                 video_popup_enabled: true,
@@ -362,6 +371,21 @@ mod tests {
                 mobile_swipe_area_height: 28,
             }
         );
+    }
+
+    #[test]
+    fn hidegrokbuttonenabledのキーが無いときはfalseになる() {
+        let settings = serde_json::json!({});
+        assert!(!column_script_settings_from(&settings).hide_grok_button_enabled);
+    }
+
+    #[test]
+    fn hidegrokbuttonenabledに設定した値がカラム起動スクリプト用の設定へ伝わる() {
+        let on = serde_json::json!({ "hideGrokButtonEnabled": true });
+        assert!(column_script_settings_from(&on).hide_grok_button_enabled);
+
+        let off = serde_json::json!({ "hideGrokButtonEnabled": false });
+        assert!(!column_script_settings_from(&off).hide_grok_button_enabled);
     }
 
     #[test]

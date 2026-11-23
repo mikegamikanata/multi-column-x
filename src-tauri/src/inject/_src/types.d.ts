@@ -40,6 +40,7 @@ declare global {
     blurImageEnabled: boolean;
     blurImageAmount: string;
     hideAdEnabled: boolean;
+    hideGrokButtonEnabled?: boolean;
     apiRateLimitMonitorEnabled?: boolean;
     imagePopupEnabled?: boolean;
     videoPopupEnabled?: boolean;
