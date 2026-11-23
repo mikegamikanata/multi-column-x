@@ -30,6 +30,8 @@ The five categories "Display", "Browsing & filters", "Media", "Column defaults",
 
 If a muted-words or hidden-repost-users field has an input error, the settings cannot be applied, and the view switches to "Browsing & filters" and shows the error.
 
+If you try to close with **✕** in the header, the Esc key, or **"Close"** while there are unapplied changes, a confirmation "You have unapplied changes" appears. **"Discard and close"** throws the changes away and closes; **"Back"** returns to the settings with your edits intact. **"Cancel"** discards the changes and closes without asking.
+
 For the other categories (Column layout, Presets, Extensions, Backup, Maintenance, About), the only button at the bottom is **"Close"**. Column layout is applied with the **"Apply"** button on the page itself; the others take effect as soon as you use them.
 
 On Android, a list of categories (grouped, with a short description for each) is shown first, and tapping a category opens its detail screen. On a detail screen, you can go back to the list with the back button in the header or with the device's back gesture or button (your edits are kept).

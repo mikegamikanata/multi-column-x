@@ -114,6 +114,7 @@ The settings are split into the following four tabs (it always opens on "Basic")
 
 - External-site columns have few settings, so no tabs are shown; the column settings and custom CSS appear on a single page.
 - If a muted-words field or similar has an input error and the settings cannot be applied, the view switches to the "Filters" tab and the tab is marked with an error indicator.
+- If you try to close with **✕** in the header or the Esc key while there are unapplied changes, a confirmation appears (**"Discard and close"** / **"Back"**). **"Cancel"** discards the changes and closes without asking.
 - Use **"Reload"** at the bottom to reload the column right away.
 - Changes take effect when you click **"Apply"**.
 
