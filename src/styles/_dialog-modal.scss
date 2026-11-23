@@ -1,0 +1,23 @@
+// ネイティブ <dialog> を、従来の「全画面の暗い背景 div（.overlay）」として使うための UA 既定の打ち消し。
+// 各ダイアログの .overlay の先頭で @include し、position / background / display:flex 等は各 SCSS が従来どおり書く。
+@mixin modal-overlay {
+  margin: 0;
+  padding: 0;
+  border: none;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  box-sizing: border-box;
+  color: inherit;
+
+  // display:flex を書く .overlay が、閉じている <dialog> を表示してしまわないようにする
+  &:not([open]) {
+    display: none;
+  }
+
+  // 暗い背景は .overlay 自身の background が担うので、既定の ::backdrop は透明にして二重掛けを防ぐ
+  &::backdrop {
+    background: transparent;
+  }
+}
