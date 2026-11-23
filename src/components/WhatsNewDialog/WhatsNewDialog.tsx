@@ -1,7 +1,6 @@
 import React, { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { useEscapeKey } from "@/hooks/useEscapeKey";
-import { useRestoreFocus } from "@/hooks/useRestoreFocus";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import type { WhatsNewEntry } from "@/lib/githubRelease";
 import { RELEASES_PAGE_URL } from "@/lib/githubRelease";
 import styles from "./WhatsNewDialog.module.scss";
@@ -68,17 +67,14 @@ export const WhatsNewDialog: React.FC<Props> = ({
   onClose,
 }) => {
   const { t } = useTranslation();
-  useEscapeKey(onClose);
-  useRestoreFocus();
   const titleId = useId();
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      onEscape={onClose}
+    >
+      <div className={styles.dialog}>
         <h2 id={titleId} className={styles.title}>
           {t("dialogs:whatsNew.title")}
         </h2>
@@ -111,11 +107,16 @@ export const WhatsNewDialog: React.FC<Props> = ({
           </a>
         </p>
         <div className={styles.actions}>
-          <button type="button" className={styles.closeBtn} onClick={onClose}>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            data-autofocus
+            onClick={onClose}
+          >
             {t("dialogs:whatsNew.close")}
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 };

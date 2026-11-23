@@ -1,8 +1,7 @@
-import React, { useCallback, useId } from "react";
+import React, { useCallback, useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import type { AppTFunction } from "@/i18n/types";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
 import type { AppUpdate, UpdateProgress } from "../../services/updater";
 import styles from "./UpdateDialog.module.scss";
 
@@ -58,22 +57,25 @@ export const UpdateDialog: React.FC<Props> = ({
   onLater,
 }) => {
   const { t } = useTranslation();
-  useRestoreFocus();
   const titleId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
   // 更新中は「後で」が無効なので、Esc でも閉じない
   const handleEscape = useCallback(() => {
     if (!installing) onLater();
   }, [installing, onLater]);
-  useEscapeKey(handleEscape);
+  // インストールを始めると両ボタンが disabled になりフォーカスが body へ落ちるので、ダイアログ本体へ戻す
+  useEffect(() => {
+    if (installing) dialogRef.current?.focus();
+  }, [installing]);
   const status = progress ? describeProgress(progress, t) : null;
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
+    <ModalDialog
+      ref={dialogRef}
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      onEscape={handleEscape}
+    >
+      <div className={styles.dialog}>
         <h2 id={titleId} className={styles.title}>
           {t("dialogs:update.title")}
         </h2>
@@ -130,6 +132,7 @@ export const UpdateDialog: React.FC<Props> = ({
           <button
             type="button"
             className={styles.installBtn}
+            data-autofocus
             onClick={onInstall}
             disabled={installing}
           >
@@ -139,6 +142,6 @@ export const UpdateDialog: React.FC<Props> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 };

@@ -190,18 +190,64 @@ describe("UpdateDialog", () => {
       ).toHaveAttribute("aria-modal", "true");
     });
 
+    it("更新ダイアログ(インストール前)を開くと更新するボタンにフォーカスが当たる", () => {
+      renderDialog();
+      expect(screen.getByRole("button", { name: "更新する" })).toHaveFocus();
+    });
+
+    it("更新のインストール中はダイアログ本体にフォーカスが当たる", () => {
+      renderDialog({ installing: true });
+      expect(screen.getByRole("dialog")).toHaveFocus();
+    });
+
+    it("インストールが始まるとボタンから外れたフォーカスがダイアログ本体に移る", () => {
+      const props = { update, onInstall: vi.fn(), onLater: vi.fn() };
+      const { rerender } = render(
+        <UpdateDialog {...props} installing={false} />,
+      );
+      expect(screen.getByRole("button", { name: "更新する" })).toHaveFocus();
+
+      rerender(<UpdateDialog {...props} installing={true} />);
+
+      expect(screen.getByRole("dialog")).toHaveFocus();
+    });
+
     it("Escapeで後でと同じく閉じる", () => {
       const onLater = vi.fn();
       renderDialog({ onLater });
-      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
       expect(onLater).toHaveBeenCalledOnce();
     });
 
-    it("更新中はEscapeを押しても閉じない", () => {
+    it("ネイティブの閉じる要求(cancel)でも後でと同じく閉じる", () => {
+      const onLater = vi.fn();
+      renderDialog({ onLater });
+      fireEvent(
+        screen.getByRole("dialog"),
+        new Event("cancel", { cancelable: true }),
+      );
+      expect(onLater).toHaveBeenCalledOnce();
+    });
+
+    it("更新のインストール中はEscapeを押してもダイアログが閉じない", () => {
       const onLater = vi.fn();
       renderDialog({ installing: true, onLater });
-      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
       expect(onLater).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog")).toHaveAttribute("open");
+    });
+
+    it("更新のインストール中はネイティブの閉じる要求(cancel)でも閉じない", () => {
+      const onLater = vi.fn();
+      renderDialog({ installing: true, onLater });
+      const dialog = screen.getByRole("dialog");
+      const notPrevented = fireEvent(
+        dialog,
+        new Event("cancel", { cancelable: true }),
+      );
+      expect(onLater).not.toHaveBeenCalled();
+      expect(notPrevented).toBe(false);
+      expect(dialog).toHaveAttribute("open");
     });
 
     it("すべてのボタンと進捗バーにアクセシブルネームがある", () => {
@@ -226,7 +272,7 @@ describe("UpdateDialog", () => {
       opener.focus();
 
       const { unmount } = renderDialog();
-      screen.getByRole("button", { name: "後で" }).focus();
+      expect(screen.getByRole("button", { name: "更新する" })).toHaveFocus();
       unmount();
 
       expect(opener).toHaveFocus();

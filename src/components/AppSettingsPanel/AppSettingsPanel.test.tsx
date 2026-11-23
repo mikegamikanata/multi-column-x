@@ -3322,7 +3322,7 @@ describe("AppSettingsPanel 未適用の変更があるときの確認メッセ�
     fireEvent.click(ヘッダーの閉じる());
     expect(確認メッセージ()).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
 
     expect(確認メッセージ()).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();

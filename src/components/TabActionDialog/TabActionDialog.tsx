@@ -1,8 +1,8 @@
-import React, { useEffect, useId } from "react";
+import React, { useId } from "react";
 import { useTranslation } from "react-i18next";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import CloseIcon from "../../assets/icons/close.svg?react";
 import SettingsIcon from "../../assets/icons/settings.svg?react";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
 import styles from "./TabActionDialog.module.scss";
 
 interface Props {
@@ -21,34 +21,22 @@ export const TabActionDialog: React.FC<Props> = ({
   onClose,
 }) => {
   const { t } = useTranslation();
-  useRestoreFocus();
   const labelId = useId();
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
 
   return (
-    <div
+    <ModalDialog
       className={styles.overlay}
+      aria-labelledby={labelId}
+      onEscape={onClose}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      role="presentation"
     >
-      <div
-        className={styles.sheet}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={labelId}
-      >
+      <div className={styles.sheet}>
         <p id={labelId} className={styles.label}>
           {columnLabel}
         </p>
-        <button className={styles.actionBtn} onClick={onReload}>
+        <button className={styles.actionBtn} data-autofocus onClick={onReload}>
           <span aria-hidden="true">⟳</span>
           {t("dialogs:tabAction.reload")}
         </button>
@@ -77,6 +65,6 @@ export const TabActionDialog: React.FC<Props> = ({
           {t("dialogs:tabAction.cancel")}
         </button>
       </div>
-    </div>
+    </ModalDialog>
   );
 };

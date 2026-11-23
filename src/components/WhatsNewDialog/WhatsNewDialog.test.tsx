@@ -180,10 +180,25 @@ describe("WhatsNewDialog", () => {
       ).toHaveAttribute("aria-modal", "true");
     });
 
+    it("更新後の更新内容を開くと閉じるボタンにフォーカスが当たる", () => {
+      renderDialog();
+      expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
+    });
+
     it("Escapeで閉じる", () => {
       const onClose = vi.fn();
       renderDialog({ onClose });
-      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+      expect(onClose).toHaveBeenCalledOnce();
+    });
+
+    it("ネイティブの閉じる要求(cancel)でも閉じる操作になる", () => {
+      const onClose = vi.fn();
+      renderDialog({ onClose });
+      fireEvent(
+        screen.getByRole("dialog"),
+        new Event("cancel", { cancelable: true }),
+      );
       expect(onClose).toHaveBeenCalledOnce();
     });
 
@@ -200,7 +215,7 @@ describe("WhatsNewDialog", () => {
       opener.focus();
 
       const { unmount } = renderDialog();
-      screen.getByRole("button", { name: "閉じる" }).focus();
+      expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
       unmount();
 
       expect(opener).toHaveFocus();

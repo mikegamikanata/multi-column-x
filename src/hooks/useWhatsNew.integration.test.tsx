@@ -264,7 +264,7 @@ describe("更新後ダイアログの結合（useWhatsNew + githubRelease + What
     render(<Harness />);
     await screen.findByRole("dialog");
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

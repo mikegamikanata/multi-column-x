@@ -1,7 +1,6 @@
 import React, { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import styles from "./ConfirmDialog.module.scss";
 
 interface ConfirmDialogProps {
@@ -27,20 +26,19 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   variant = "default",
 }) => {
   const { t } = useTranslation();
-  useEscapeKey(onCancel);
-  useRestoreFocus();
   const titleId = useId();
   const messageId = useId();
+  // 取り消せない操作の確認では、誤って確定しないようキャンセル側を初期フォーカスにする
+  const focusCancel = variant === "danger" && !singleButton;
 
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? titleId : messageId}
-        aria-describedby={title ? messageId : undefined}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={title ? titleId : messageId}
+      aria-describedby={title ? messageId : undefined}
+      onEscape={onCancel}
+    >
+      <div className={styles.dialog}>
         {title && (
           <h2 id={titleId} className={styles.title}>
             {title}
@@ -55,6 +53,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             <button
               type="button"
               className={styles.cancelBtn}
+              data-autofocus={focusCancel ? "" : undefined}
               onClick={onCancel}
             >
               {cancelLabel ?? t("dialogs:confirm.cancel")}
@@ -65,12 +64,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             className={
               variant === "danger" ? styles.dangerBtn : styles.confirmBtn
             }
+            data-autofocus={focusCancel ? undefined : ""}
             onClick={onConfirm}
           >
             {confirmLabel ?? t("dialogs:confirm.ok")}
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 };
