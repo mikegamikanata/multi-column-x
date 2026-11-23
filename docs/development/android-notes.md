@@ -6,6 +6,7 @@ Android 対応（アカウント追加、モバイルタブバー、APK 自己�
 
 - `src-tauri/gen/android/` 配下（app モジュール全体） — 単体テスト実行方法
 - `src-tauri/gen/android/app/src/main/java/com/natsuyasai/multicolumnx/MainActivity.kt` / `src-tauri/gen/android/app/proguard-rules.pro` — ProGuard keep ルール同期
+- `src-tauri/gen/android/app/src/main/java/com/natsuyasai/multicolumnx/MainActivity.kt` / `MainPageBack.kt` — 端末の戻る操作
 - `src-tauri/gen/android/app/src/main/java/com/natsuyasai/multicolumnx/BackupFileSelector.kt` / `MultiColumnXBackupAgent.kt` — 端末引き継ぎ（Auto Backup）対応
 
 ## Android の単体テスト実行
@@ -29,6 +30,13 @@ gitignore 対象の Android 生成ファイル（`src-tauri/gen/android/tauri.se
 - メソッドを削除 → keep ルールからそのエントリを削除
 
 デバッグビルドでは R8 が無効なため症状が出ず、リリースビルドで初めてクラッシュする。変更後はリリースビルドで動作確認すること。
+
+## 端末の戻る操作（メイン画面への問い合わせ）
+
+`MainActivity.handleOnBackPressed` の処理順は、①ポップアップが開いていれば最前面を閉じる → ②メイン WebView に `window.__mcxHandleBack()` を `evaluateJavascript` で問い合わせ、画面側（アプリ設定の詳細画面など）が処理したら終了 → ③アクティブカラムの履歴を戻る → ④バックグラウンドへ（`moveTaskToBack`）。
+
+- メイン WebView の参照は、自動生成ファイル `WryActivity.kt`（編集不可）を触らず、`MainActivity` の `onWebViewCreate` オーバーライドで受け取っている。ProGuard の keep ルールの変更は不要（Rust から文字列指定で呼ぶメソッドではないため）。
+- 判定ロジックは `MainPageBack.kt`（純粋関数）に切り出して JVM 単体テストしている。画面側の登録方法（`useAndroidBackHandler`）を含む詳細は `settings-panel-navigation-notes.md` を参照。
 
 ## アカウント追加（別 Activity 方式）
 

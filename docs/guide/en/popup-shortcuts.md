@@ -10,7 +10,7 @@ These features open content in a separate window.
 - **Compose window** — Use the **Post** (pencil icon) button in the toolbar (`Ctrl+T`) to open the post composer in a separate window.
 - **Switching accounts inside a popup** — Use the toolbar at the top of the popup to switch the account being shown on the spot.
 - **Downloading videos (desktop)** — In a popup that is showing a video, a **"Download video"** button appears in the toolbar at the top. Play the video, then click it to choose where to save the file and download it (progress is shown in the toolbar).
-- **Distributing X's official settings** — In the settings screen opened with "Open official settings" in the app settings, use the **"Apply to columns"** button in the toolbar to apply the settings to the columns of your other accounts ([App settings](./settings#app-maintenance)).
+- **Distributing X's official settings** — In the settings screen opened with "Open official settings" in the app settings, use the **"Apply to columns"** button in the toolbar to apply the settings to the columns of your other accounts ([App settings](./settings#browsing-filters)).
 
 Popups can be closed with the Esc key (you can toggle this under "Popup windows" in the app settings).
 

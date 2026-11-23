@@ -3,7 +3,7 @@
 You can check for and apply new versions from within the app.
 
 - **Automatic check at startup** — The app checks for a new version when it starts.
-- **Manual check** — You can check at any time with the **"Check for updates"** button under App settings (`Ctrl+,`) → "General" → "About the app".
+- **Manual check** — You can check at any time with the **"Check for updates"** button under App settings (`Ctrl+,`) → "About".
 
 When a new version is available, the **"A new version is available"** dialog appears.
 
