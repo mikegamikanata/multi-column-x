@@ -1491,3 +1491,155 @@ describe("SettingsPanel タブ分割", () => {
     expect(screen.getByText("正規表現が不正です: /[/")).toBeInTheDocument();
   });
 });
+
+describe("SettingsPanel 未適用の変更があるときの確認メッセージ", () => {
+  const autoReloadColumn: Column = {
+    ...mockColumn,
+    settings: { ...baseSettings, autoReloadEnabled: true },
+  };
+  const 確認メッセージ = () =>
+    screen.queryByRole("dialog", { name: "未適用の変更があります" });
+  const ヘッダーの閉じる = () => screen.getByText("✕");
+  const 自動更新間隔を変更する = (value: string) =>
+    fireEvent.change(screen.getByRole("spinbutton", { name: /更新間隔/ }), {
+      target: { value },
+    });
+
+  it.each<[string, () => void, () => void]>([
+    [
+      "「基本」タブで自動更新間隔を変更した状態でヘッダーの ✕",
+      () => 自動更新間隔を変更する("120"),
+      () => fireEvent.click(ヘッダーの閉じる()),
+    ],
+    [
+      "「基本」タブで表示名を変更した状態で Esc キー",
+      () =>
+        fireEvent.change(screen.getByRole("textbox", { name: "表示名" }), {
+          target: { value: "仕事用" },
+        }),
+      () => fireEvent.keyDown(document, { key: "Escape" }),
+    ],
+    [
+      "「フィルタ」タブでNGワードを入力した状態でヘッダーの ✕",
+      () => {
+        openTab("フィルタ");
+        fireEvent.change(
+          screen.getByPlaceholderText(
+            "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
+          ),
+          { target: { value: "スパム" } },
+        );
+      },
+      () => fireEvent.click(ヘッダーの閉じる()),
+    ],
+  ])(
+    "カラム設定で未適用の変更があるときに閉じようとすると確認メッセージが表示される（%s）",
+    (_name, change, close) => {
+      const onClose = vi.fn();
+      render(
+        <SettingsPanel
+          {...defaultProps}
+          column={autoReloadColumn}
+          onClose={onClose}
+        />,
+      );
+      change();
+
+      close();
+
+      expect(確認メッセージ()).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+    },
+  );
+
+  it("カラム設定の確認メッセージで破棄して閉じるを選ぶと変更を保存せずに閉じる", () => {
+    const onClose = vi.fn();
+    const onApply = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+        onApply={onApply}
+      />,
+    );
+    自動更新間隔を変更する("120");
+    fireEvent.click(ヘッダーの閉じる());
+
+    fireEvent.click(screen.getByRole("button", { name: "破棄して閉じる" }));
+
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("カラム設定の確認メッセージで戻るを選ぶと編集中の値を保ったまま設定に戻る", () => {
+    const onClose = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+      />,
+    );
+    自動更新間隔を変更する("120");
+    fireEvent.click(ヘッダーの閉じる());
+
+    fireEvent.click(screen.getByRole("button", { name: "戻る" }));
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("spinbutton", { name: /更新間隔/ })).toHaveValue(
+      120,
+    );
+  });
+
+  it("カラム設定の確認メッセージの表示中に Esc キーを押すと確認メッセージだけが閉じる", () => {
+    const onClose = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+      />,
+    );
+    自動更新間隔を変更する("120");
+    fireEvent.click(ヘッダーの閉じる());
+    expect(確認メッセージ()).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("カラム設定で未適用の変更がないときは確認なしで閉じる", () => {
+    const onClose = vi.fn();
+    render(<SettingsPanel {...defaultProps} onClose={onClose} />);
+
+    fireEvent.click(ヘッダーの閉じる());
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("カラム設定でキャンセルを押したときは確認なしで変更を破棄して閉じる", () => {
+    const onClose = vi.fn();
+    const onApply = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+        onApply={onApply}
+      />,
+    );
+    自動更新間隔を変更する("120");
+
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(確認メッセージ()).not.toBeInTheDocument();
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

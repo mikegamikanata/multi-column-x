@@ -5,12 +5,18 @@ import { isAutoReloadSupported } from "@/lib/autoReloadTarget";
 import { nextColumnSettingsOnSmallImageChange } from "@/lib/scrollRestoreSetting";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useRestoreFocus } from "../../hooks/useRestoreFocus";
+import { useUnsavedChangesGuard } from "../../hooks/useUnsavedChangesGuard";
 import {
   COLUMN_LABEL_MAX_LENGTH,
   normalizeColumnLabel,
   type Column,
   type ColumnSettings,
 } from "../../types";
+import { UnsavedChangesDialog } from "../UnsavedChangesDialog/UnsavedChangesDialog";
+import {
+  hasColumnSettingsChanges,
+  type ColumnSettingsFormState,
+} from "./columnSettingsChanges";
 import {
   columnSettingsTabs,
   INITIAL_COLUMN_SETTINGS_TAB,
@@ -57,7 +63,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isMobile,
 }) => {
   const { t } = useTranslation();
-  useEscapeKey(onClose);
   useRestoreFocus();
   const titleId = useId();
 
@@ -79,16 +84,39 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     elementId: tabElementId,
   });
 
-  const [settings, setSettings] = useState<ColumnSettings>({
-    ...column.settings,
-  });
-  const [width, setWidth] = useState<number>(column.width);
-  const [labelText, setLabelText] = useState<string>(column.label ?? "");
-  const [lineListTexts, setLineListTexts] = useState<LineListTexts>({
-    ngWords: (column.settings.ngWords ?? []).join("\n"),
-    repostHiddenUserIds: (column.settings.repostHiddenUserIds ?? []).join("\n"),
-    whitelistWords: (column.settings.whitelistWords ?? []).join("\n"),
-  });
+  // マウント時の値を1回だけ保持し、未適用の変更の判定に使う
+  const [initialForm] = useState<ColumnSettingsFormState>(() => ({
+    settings: { ...column.settings },
+    width: column.width,
+    labelText: column.label ?? "",
+    lineListTexts: {
+      ngWords: (column.settings.ngWords ?? []).join("\n"),
+      repostHiddenUserIds: (column.settings.repostHiddenUserIds ?? []).join(
+        "\n",
+      ),
+      whitelistWords: (column.settings.whitelistWords ?? []).join("\n"),
+    },
+  }));
+  const [settings, setSettings] = useState<ColumnSettings>(
+    initialForm.settings,
+  );
+  const [width, setWidth] = useState<number>(initialForm.width);
+  const [labelText, setLabelText] = useState<string>(initialForm.labelText);
+  const [lineListTexts, setLineListTexts] = useState<LineListTexts>(
+    initialForm.lineListTexts,
+  );
+  const guard = useUnsavedChangesGuard(
+    hasColumnSettingsChanges(initialForm, {
+      settings,
+      width,
+      labelText,
+      lineListTexts,
+    }),
+    onClose,
+  );
+  // 確認メッセージ自身が Esc を処理するため、表示中はパネル側の Esc を無効にする
+  const noop = useCallback(() => {}, []);
+  useEscapeKey(guard.confirmOpen ? noop : guard.requestClose);
   const [lineListErrors, setLineListErrors] = useState<LineListErrors>({
     ngWords: null,
     repostHiddenUserIds: null,
@@ -250,7 +278,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <button
             type="button"
             className={styles.closeBtn}
-            onClick={onClose}
+            onClick={guard.requestClose}
             aria-label={t("columnSettings:close")}
           >
             ✕
@@ -338,6 +366,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
         </form>
       </div>
+      {guard.confirmOpen && (
+        <UnsavedChangesDialog
+          onDiscard={guard.confirmDiscard}
+          onBack={guard.cancelConfirm}
+        />
+      )}
     </div>
   );
 };

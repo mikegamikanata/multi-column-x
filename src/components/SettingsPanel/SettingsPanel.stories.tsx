@@ -208,6 +208,28 @@ export const WithDisplayName: Story = {
   },
 };
 
+export const UnsavedChangesConfirm: Story = {
+  name: "未適用の変更があるときに ✕ で確認メッセージが出て戻れる",
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const displayNameInput = canvas.getByRole("textbox", { name: "表示名" });
+    await userEvent.type(displayNameInput, "仕事用");
+    await userEvent.click(canvas.getByText("✕"));
+    const dialog = await canvas.findByRole("dialog", {
+      name: "未適用の変更があります",
+    });
+    await expect(args.onClose).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "戻る" }));
+    await expect(
+      canvas.queryByRole("dialog", { name: "未適用の変更があります" }),
+    ).not.toBeInTheDocument();
+    await expect(canvas.getByRole("textbox", { name: "表示名" })).toHaveValue(
+      "仕事用",
+    );
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
 export const ExternalColumn: Story = {
   name: "外部URLカラム",
   args: {
