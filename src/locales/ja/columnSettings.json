@@ -66,5 +66,13 @@
     "reload": "再読み込み",
     "cancel": "キャンセル",
     "apply": "適用"
+  },
+  "tabs": {
+    "label": "カラム設定の分類",
+    "basic": "基本",
+    "view": "表示",
+    "filter": "フィルタ",
+    "css": "カスタム CSS",
+    "hasError": "入力エラーあり"
   }
 }

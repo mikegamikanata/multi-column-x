@@ -75,6 +75,63 @@
   }
 }
 
+.tabs {
+  display: flex;
+  flex-shrink: 0;
+  overflow-x: auto;
+  padding: 0 t.$space-2;
+  border-bottom: 1px solid var(--mcx-border-subtle);
+
+  @include m.android-button-gap;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-1;
+  flex-shrink: 0;
+  padding: t.$space-2 t.$space-3;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--mcx-text-muted);
+  font-size: t.$font-size-sm;
+  white-space: nowrap;
+  cursor: pointer;
+  @include m.transition-base(color, background-color, border-color);
+  @include m.android-tap-target;
+
+  &:hover {
+    color: var(--mcx-text-tertiary);
+    background: var(--mcx-surface-hover);
+  }
+
+  &:active {
+    color: var(--mcx-text);
+    background: var(--mcx-surface-muted);
+  }
+
+  &:focus-visible {
+    @include m.focus-ring;
+  }
+}
+
+// 選択中は下線と文字色・太さで示す（aria-selected も同時に付く）
+.tabActive {
+  color: var(--mcx-text);
+  font-weight: 600;
+  border-bottom-color: var(--mcx-accent);
+}
+
+// 入力エラーの印（形と非表示テキストでも伝える）
+.tabError {
+  color: var(--mcx-danger);
+  font-weight: 700;
+}
+
+.visuallyHidden {
+  @include m.visually-hidden;
+}
 .form {
   display: flex;
   flex-direction: column;

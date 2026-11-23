@@ -88,6 +88,13 @@ function AndroidRoot({
   return <>{children}</>;
 }
 
+// 指定した名前のタブを選ぶ（タブ名はエラー印の付与で末尾が変わることがあるため前方一致）
+async function openTab(canvas: ReturnType<typeof within>, name: string) {
+  await userEvent.click(
+    canvas.getByRole("tab", { name: new RegExp(`^${name}`) }),
+  );
+}
+
 function queryPanel(canvasElement: HTMLElement): HTMLElement {
   const panel = canvasElement.querySelector<HTMLElement>('[class*="panel"]');
   if (!panel) throw new Error("panel 要素が見つかりません");
@@ -155,7 +162,8 @@ export const Default: Story = {
     await userEvent.click(
       canvas.getByRole("checkbox", { name: "新着をデスクトップ通知する" }),
     );
-    // NGワードを入力して適用すると配列として onApply に渡される
+    // NGワードを入力して適用すると配列として onApply に渡される（タブをまたいでも値は保持される）
+    await openTab(canvas, "フィルタ");
     const textarea = canvas.getByPlaceholderText(
       "1行に1ワードで入力（/正規表現/flags 形式も指定可）",
     );
@@ -212,7 +220,8 @@ export const ExternalColumn: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("カラム設定")).toBeInTheDocument();
-    // externalカラムではカスタムCSS以外の設定項目は表示されない
+    // externalカラムではタブを出さず、カラムとカスタムCSSだけを1ページで表示する
+    await expect(canvas.queryByRole("tablist")).not.toBeInTheDocument();
     await expect(canvas.queryByText("自動更新")).not.toBeInTheDocument();
     await expect(canvas.queryByText("表示")).not.toBeInTheDocument();
     await expect(canvas.queryByText("画像")).not.toBeInTheDocument();
@@ -222,6 +231,37 @@ export const ExternalColumn: Story = {
     // カラム幅とカスタムCSSは表示される
     await expect(canvas.getByText("カラム")).toBeInTheDocument();
     await expect(canvas.getByText("カスタム CSS")).toBeInTheDocument();
+  },
+};
+
+export const ExternalColumnWithoutTabs: Story = {
+  name: "外部サイトカラム（タブなし）",
+  args: {
+    column: {
+      ...column,
+      pageType: "external",
+      customUrl: "https://example.com",
+    },
+  },
+  decorators: [
+    (Story) => (
+      <ThemeRoot theme="dark">
+        <Story />
+      </ThemeRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("tab")).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "カラム" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "カスタム CSS" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("heading", { name: "自動更新" }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -239,6 +279,7 @@ export const WhitelistEnabled: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await openTab(canvas, "フィルタ");
     await expect(
       canvas.getByRole("checkbox", { name: "ホワイトリストを有効にする" }),
     ).toBeChecked();
@@ -254,16 +295,51 @@ export const InvalidRepostHiddenUserId: Story = {
   name: "不正なユーザーIDを入力して適用するとエラーが表示される",
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openTab(canvas, "フィルタ");
     const textarea = canvas.getByRole("textbox", {
       name: "リポストを非表示にするユーザー",
     });
     await userEvent.clear(textarea);
     await userEvent.type(textarea, "valid_id{Enter}bad-id!");
+    // 別のタブへ移ってから適用しても、エラーのあるフィルタタブへ戻る
+    await openTab(canvas, "基本");
     await userEvent.click(canvas.getByRole("button", { name: "適用" }));
     await expect(
       canvas.getByText(
         "`bad-id!` はXのユーザーIDとして正しくありません（英数字とアンダースコアの1〜15文字）",
       ),
+    ).toBeInTheDocument();
+    await expect(args.onApply).not.toHaveBeenCalled();
+  },
+};
+
+export const InvalidInputSwitchesToFilterTab: Story = {
+  name: "入力エラーでフィルタタブへ切り替わる",
+  decorators: [
+    (Story) => (
+      <ThemeRoot theme="dark">
+        <Story />
+      </ThemeRoot>
+    ),
+  ],
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await openTab(canvas, "フィルタ");
+    await userEvent.type(
+      canvas.getByRole("textbox", { name: "NGワード" }),
+      "/[[/",
+    );
+    await openTab(canvas, "基本");
+    await expect(canvas.getByRole("tab", { name: "基本" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "適用" }));
+    await expect(
+      canvas.getByRole("tab", { name: "フィルタ 入力エラーあり" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      canvas.getByText("正規表現が不正です: /[/"),
     ).toBeInTheDocument();
     await expect(args.onApply).not.toHaveBeenCalled();
   },
@@ -279,6 +355,7 @@ export const WithRepostHiddenUserIds: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openTab(canvas, "フィルタ");
     const textarea = canvas.getByRole("textbox", {
       name: "リポストを非表示にするユーザー",
     }) as HTMLTextAreaElement;
@@ -298,6 +375,7 @@ export const ReturnToLastReadToggle: Story = {
   name: "前回の境目へ戻るボタンの表示設定（ホームカラム）",
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await openTab(canvas, "表示");
     const checkbox = canvas.getByRole("checkbox", {
       name: "更新後に前回の続きへ戻るボタンを表示する",
     });
@@ -325,6 +403,7 @@ export const ReturnToLastReadHiddenForNonHomeColumn: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await openTab(canvas, "表示");
     await expect(
       canvas.queryByRole("checkbox", {
         name: "更新後に前回の続きへ戻るボタンを表示する",
@@ -398,11 +477,15 @@ export const AndroidTapTargets: Story = {
     const restorePlatform = setPlatform("android");
     const restoreViewport = await narrowViewport(360, 640);
     try {
-      await expectTapTargets(canvasElement, 44);
-      await expectAdjacentGap(canvasElement, 8);
-      // 狭い画面でも横にはみ出さない（フッターのボタン列は折り返す）
-      const root = document.documentElement;
-      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      const canvas = within(canvasElement);
+      for (const tab of ["基本", "表示", "フィルタ", "カスタム CSS"]) {
+        await openTab(canvas, tab);
+        await expectTapTargets(canvasElement, 44);
+        await expectAdjacentGap(canvasElement, 8);
+        // 狭い画面でも横にはみ出さない（フッターのボタン列は折り返す）
+        const root = document.documentElement;
+        await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      }
     } finally {
       await restoreViewport();
       restorePlatform();
