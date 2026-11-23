@@ -23,6 +23,7 @@ Linux ではカラムが独立 `WebviewWindow`（親クリップが効かない�
 - ウィンドウは**常に論理 X 座標 `>= 0` に配置**する。Linux WM が負座標をクランプするため、「負の `screen_x` でスクリーン左端クリップ」方式は機能しない（左端カラムが全幅のまま居座るデグレードになる）。
 - 左右対称の**幅クリップ**（はみ出し分だけ幅を縮める）。完全に画面外は `hide()`。起動時は `visible(false)` 作成 → 全カラム作成後に `recalculateAllBounds` で配置してから `show()`（誤座標可視化での WebKit 空白カラム対策）。
 - 非表示→表示時は `show()` 後に位置・幅を当て直す（`linux_column_window_ops`）。再配置は `serializeLatest` で直列化し、古い位置指定が新しい位置指定を追い越さないようにする（横スクロール後に 1 カラムだけ古い位置に残る事象の対策）。`is_visible()` はイベントループ処理済みの状態を返すため、直前の `hide()` / `show()` が未処理だとずれうるが、当て直しが 1 回増減するだけで悪化はしない。
+- 位置と幅は `set_position` / `set_size`（tao の move / resize 要求）を別々に使わず、メインスレッドで `gtk_window.resize` → `gtk_window.move_` → `GdkWindow::move_resize` の順に適用する（`linux_column_geometry` で整数化）。別々に送ると GTK3 が move だけ先に送り、旧幅のまま Mutter に画面内へ補正される。調査時は `xwininfo -root -tree` で実ウィンドウ位置を確認でき、Python GTK3（`GDK_BACKEND=x11`）で画面右端へ「移動＋縮小」するだけで再現する。
 
 **この挙動は過去にインライン実装・テスト無しで複数回デグレードしている。変更する場合は必ず `linux_column_layout` のテスト（example＋プロパティ `x_offset>=0`＋左右の「全幅で居座らない」回帰テスト）で先に仕様を表現すること。テストは実装をなぞらず仕様をエンコードする（過去、実装に追従してテストが壊れていた案があった）。**
 
