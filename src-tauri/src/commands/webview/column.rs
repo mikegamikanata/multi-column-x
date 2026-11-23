@@ -14,9 +14,11 @@ use std::path::{Path, PathBuf};
 use tauri::Emitter;
 #[cfg(all(desktop, not(target_os = "linux")))]
 use tauri::WebviewBuilder;
-use tauri::{AppHandle, Manager};
 #[cfg(desktop)]
-use tauri::{LogicalPosition, LogicalSize, WebviewUrl};
+use tauri::WebviewUrl;
+use tauri::{AppHandle, Manager};
+#[cfg(all(desktop, not(target_os = "linux")))]
+use tauri::{LogicalPosition, LogicalSize};
 
 fn webview_label(column_id: &str) -> String {
     format!("{}{}", labels::COLUMN_PREFIX, column_id)
@@ -576,25 +578,39 @@ pub async fn resize_column_webview(
         let was_visible = webview_window.is_visible().unwrap_or(false);
         let (x_offset, vis_width) = layout.unwrap_or((0.0, 1.0));
         let screen_x = inner_pos.x as f64 / scale + x_offset;
-        for op in linux_column_window_ops(layout.is_some(), was_visible) {
-            match op {
-                LinuxColumnWindowOp::Hide => {
-                    let _ = webview_window.hide();
+        let geometry = linux_column_geometry(screen_x, screen_y, vis_width, bounds.height);
+        let ops = linux_column_window_ops(layout.is_some(), was_visible);
+        // tao の hide / show 要求（チャネル経由）と main-thread クロージャの実行順序は保証されない
+        // ため、Hide / SetBounds / Show をすべて同じクロージャ内で GTK を直接操作して順に行う。
+        let ww = webview_window.clone();
+        webview_window
+            .run_on_main_thread(move || {
+                use gtk::prelude::*;
+                let Ok(gtk_window) = ww.gtk_window() else {
+                    return;
+                };
+                for op in ops {
+                    match op {
+                        LinuxColumnWindowOp::Hide => gtk_window.hide(),
+                        // show 前に reposition してフラッシュ回避（既存コメント方針を踏襲）
+                        LinuxColumnWindowOp::SetBounds => {
+                            let g = geometry;
+                            // GTK3 は move を即時送信し resize をアイドル時まで遅らせるため、別々に
+                            // 送ると移動時点の旧幅で WM（Mutter）が画面内へ位置を補正してしまう。
+                            // GTK 側の要求サイズ・位置も更新したうえで、GdkWindow へ位置と幅を
+                            // 1 回でまとめて送る。
+                            gtk_window.resize(g.width, g.height);
+                            gtk_window.move_(g.x, g.y);
+                            if let Some(gdk_window) = gtk_window.window() {
+                                gdk_window.move_resize(g.x, g.y, g.width, g.height);
+                            }
+                        }
+                        // tao の show と同じ
+                        LinuxColumnWindowOp::Show => gtk_window.show_all(),
+                    }
                 }
-                // show 前に reposition してフラッシュ回避（既存コメント方針を踏襲）
-                LinuxColumnWindowOp::SetBounds => {
-                    webview_window
-                        .set_position(LogicalPosition::new(screen_x, screen_y))
-                        .map_err(|e| e.to_string())?;
-                    webview_window
-                        .set_size(LogicalSize::new(vis_width, bounds.height.max(1.0)))
-                        .map_err(|e| e.to_string())?;
-                }
-                LinuxColumnWindowOp::Show => {
-                    let _ = webview_window.show();
-                }
-            }
-        }
+            })
+            .map_err(|e| e.to_string())?;
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -713,6 +729,32 @@ fn linux_column_window_ops(
         (false, _) => &[Hide],
         (true, true) => &[SetBounds, Show],
         (true, false) => &[SetBounds, Show, SetBounds],
+    }
+}
+
+/// Linux カラムウィンドウへ適用する位置・サイズ（GTK の論理ピクセル、整数）。
+#[cfg(target_os = "linux")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LinuxColumnGeometry {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+/// 配置計算の結果（論理ピクセル、f64）を GTK へ渡す整数へ丸める。幅と高さは最小 1。
+#[cfg(target_os = "linux")]
+fn linux_column_geometry(
+    screen_x: f64,
+    screen_y: f64,
+    width: f64,
+    height: f64,
+) -> LinuxColumnGeometry {
+    LinuxColumnGeometry {
+        x: screen_x.round() as i32,
+        y: screen_y.round() as i32,
+        width: (width.round() as i32).max(1),
+        height: (height.round() as i32).max(1),
     }
 }
 
@@ -1207,6 +1249,41 @@ mod tests {
     mod linux_layout {
         use super::super::linux_column_layout;
         use super::super::{linux_column_window_ops, LinuxColumnWindowOp};
+
+        use super::super::{linux_column_geometry, LinuxColumnGeometry};
+
+        #[test]
+        fn 位置と幅は配置計算の結果を整数に丸めた値になる() {
+            assert_eq!(
+                linux_column_geometry(1750.4, 137.6, 170.5, 1050.0),
+                LinuxColumnGeometry {
+                    x: 1750,
+                    y: 138,
+                    width: 171,
+                    height: 1050
+                }
+            );
+        }
+
+        #[test]
+        fn 幅と高さは1未満にならない() {
+            let g = linux_column_geometry(0.0, 0.0, 0.2, 0.0);
+            assert_eq!((g.width, g.height), (1, 1));
+        }
+
+        #[test]
+        fn 表示中のカラムの位置と幅は1回の指定でまとめて適用する() {
+            let source = include_str!("column.rs");
+            let body = source
+                .split("\n#[cfg(test)]\nmod tests {")
+                .next()
+                .and_then(|s| s.split("pub async fn resize_column_webview").nth(1))
+                .and_then(|s| s.split("#[cfg(not(target_os = \"linux\"))]").next())
+                .expect("resize_column_webview の Linux 分岐が見つからない");
+            assert!(body.contains("move_resize("));
+            assert!(!body.contains("set_position("));
+            assert!(!body.contains("set_size("));
+        }
 
         #[test]
         fn 画面外で非表示だったカラムが画面内に戻るときは表示後に位置と幅を当て直す() {
