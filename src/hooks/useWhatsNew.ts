@@ -1,12 +1,13 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { STORAGE_KEYS } from "../constants/ipc";
-import { fetchReleaseNotes } from "../lib/githubRelease";
-import { logError } from "../lib/log";
-import { isNewerVersion } from "../lib/version";
+import { STORAGE_KEYS } from "@/constants/ipc";
+import type { WhatsNewSelection } from "@/lib/githubRelease";
+import { fetchWhatsNewSelection } from "@/lib/githubRelease";
+import { logError } from "@/lib/log";
+import { isNewerVersion } from "@/lib/version";
 
 export function useWhatsNew(ready: boolean = true) {
-  const [notes, setNotes] = useState<string | null>(null);
+  const [selection, setSelection] = useState<WhatsNewSelection | null>(null);
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -27,9 +28,9 @@ export function useWhatsNew(ready: boolean = true) {
         }
 
         if (lastSeen !== null && isNewerVersion(current, lastSeen)) {
-          const releaseNotes = await fetchReleaseNotes(current);
-          if (releaseNotes) {
-            setNotes(releaseNotes);
+          const fetched = await fetchWhatsNewSelection(lastSeen, current);
+          if (fetched && fetched.entries.length > 0) {
+            setSelection(fetched);
           }
         }
       } catch (e) {
@@ -45,8 +46,8 @@ export function useWhatsNew(ready: boolean = true) {
   }, [ready]);
 
   const dismiss = useCallback(() => {
-    setNotes(null);
+    setSelection(null);
   }, []);
 
-  return { notes, dismiss };
+  return { selection, dismiss };
 }

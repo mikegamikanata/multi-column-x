@@ -53,19 +53,6 @@ export function parseLatestRelease(json: unknown): LatestRelease | null {
   };
 }
 
-/** 指定バージョンのリリースノート(body)を取得する。無ければ null。 */
-export async function fetchReleaseNotes(
-  version: string,
-): Promise<string | null> {
-  const normalized = version.replace(/^v/i, "");
-  const res = await fetch(`${releasesApiBase()}/tags/v${normalized}`, {
-    headers: { Accept: "application/vnd.github+json" },
-  });
-  if (!res.ok) return null;
-  const json = (await res.json()) as { body?: string };
-  return json.body || null;
-}
-
 export interface WhatsNewEntry {
   version: string;
   notes: string;

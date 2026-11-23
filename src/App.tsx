@@ -10,7 +10,9 @@ import React, {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { columnDisplayName } from "@/components/TopBar/columnDisplay";
+import { logError } from "@/lib/log";
 import { isExternalColumn } from "@/services/externalColumn";
+import { openReleasePage } from "@/services/releasePage";
 import { getColumnLabel } from "@/types";
 import type { Column } from "@/types";
 import styles from "./App.module.scss";
@@ -185,6 +187,9 @@ const App: React.FC = () => {
   );
   const updater = useAppUpdater(isMobile, columnsRestored);
   const whatsNew = useWhatsNew(columnsRestored);
+  const handleOpenReleasePage = useCallback(() => {
+    openReleasePage().catch(logError("App:openReleasePage"));
+  }, []);
   const h264Setup = useH264Setup(columnsRestored);
   // 設定画面の Linux 向け動画再生セクションの表示条件
   const isLinux = useMemo(() => {
@@ -265,7 +270,7 @@ const App: React.FC = () => {
   const anyDialogOpen =
     dialogOpen ||
     !!updater.available ||
-    !!whatsNew.notes ||
+    !!whatsNew.selection ||
     h264Setup.isDialogOpen ||
     !!pendingAccountName ||
     !!pendingRemoval ||
@@ -776,10 +781,11 @@ const App: React.FC = () => {
         />
       )}
 
-      {whatsNew.notes && (
+      {whatsNew.selection && (
         <WhatsNewDialog
-          version={appVersion}
-          notes={whatsNew.notes}
+          entries={whatsNew.selection.entries}
+          hasMore={whatsNew.selection.hasMore}
+          onOpenReleasePage={handleOpenReleasePage}
           onClose={whatsNew.dismiss}
         />
       )}

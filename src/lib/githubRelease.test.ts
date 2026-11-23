@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchLatestRelease,
-  fetchReleaseNotes,
   fetchWhatsNewSelection,
   parseDigestSha256,
   parseLatestRelease,
@@ -88,76 +87,6 @@ describe("parseLatestRelease", () => {
   });
 });
 
-describe("fetchReleaseNotes", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("正常: bodyを返し、リクエストURLにv{version}が含まれる", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ body: "## What's New\n- バグ修正" }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
-
-    const result = await fetchReleaseNotes("1.2.0");
-
-    expect(result).toBe("## What's New\n- バグ修正");
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
-    expect(calledUrl).toContain("tags/v1.2.0");
-  });
-
-  it("versionがv始まりでもURLがvv二重にならない", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ body: "notes" }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
-
-    await fetchReleaseNotes("v1.2.0");
-
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
-    expect(calledUrl).not.toContain("vv");
-    expect(calledUrl).toContain("tags/v1.2.0");
-  });
-
-  it("res.okがfalseのときnullを返す", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
-
-    const result = await fetchReleaseNotes("1.2.0");
-
-    expect(result).toBeNull();
-  });
-
-  it("bodyが空文字のときnullを返す", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ body: "" }),
-      }),
-    );
-
-    const result = await fetchReleaseNotes("1.2.0");
-
-    expect(result).toBeNull();
-  });
-
-  it("bodyが未定義のときnullを返す", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({}),
-      }),
-    );
-
-    const result = await fetchReleaseNotes("1.2.0");
-
-    expect(result).toBeNull();
-  });
-});
-
 describe("parseDigestSha256", () => {
   it("sha256プレフィックス付き64桁hexを小文字で返す", () => {
     expect(parseDigestSha256(`sha256:${VALID_SHA256}`)).toBe(VALID_SHA256);
@@ -209,7 +138,7 @@ describe("リリース情報の取得先", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
     await fetchLatestRelease();
-    await fetchReleaseNotes("1.2.0");
+    await fetchWhatsNewSelection("0.0.0", "1.2.0");
     return mockFetch.mock.calls.map((c) => c[0] as string);
   }
 
@@ -217,7 +146,7 @@ describe("リリース情報の取得先", () => {
     vi.stubEnv("VITE_UPDATER_RELEASE_API_BASE", "http://localhost:8787");
     expect(await fetchedUrls()).toEqual([
       "http://localhost:8787/repos/natsuyasai/multi-column-x/releases/latest",
-      "http://localhost:8787/repos/natsuyasai/multi-column-x/releases/tags/v1.2.0",
+      "http://localhost:8787/repos/natsuyasai/multi-column-x/releases?per_page=30",
     ]);
   });
 
@@ -225,32 +154,8 @@ describe("リリース情報の取得先", () => {
     vi.stubEnv("VITE_UPDATER_RELEASE_API_BASE", "");
     expect(await fetchedUrls()).toEqual([
       "https://api.github.com/repos/natsuyasai/multi-column-x/releases/latest",
-      "https://api.github.com/repos/natsuyasai/multi-column-x/releases/tags/v1.2.0",
-    ]);
-  });
-
-  async function fetchedWhatsNewUrl(): Promise<string> {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => [],
-    });
-    vi.stubGlobal("fetch", mockFetch);
-    await fetchWhatsNewSelection("0.8.0", "0.9.1");
-    return mockFetch.mock.calls[0][0] as string;
-  }
-
-  it("試験ビルド指定のとき更新内容の一覧の取得先がローカル配信サーバーになる", async () => {
-    vi.stubEnv("VITE_UPDATER_RELEASE_API_BASE", "http://localhost:8787");
-    expect(await fetchedWhatsNewUrl()).toBe(
-      "http://localhost:8787/repos/natsuyasai/multi-column-x/releases?per_page=30",
-    );
-  });
-
-  it("試験ビルド指定が無いとき更新内容の一覧の取得先はGitHubのままである", async () => {
-    vi.stubEnv("VITE_UPDATER_RELEASE_API_BASE", "");
-    expect(await fetchedWhatsNewUrl()).toBe(
       "https://api.github.com/repos/natsuyasai/multi-column-x/releases?per_page=30",
-    );
+    ]);
   });
 });
 

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { WhatsNewDialog } from "@/components/WhatsNewDialog/WhatsNewDialog";
+import type { WhatsNewEntry } from "@/lib/githubRelease";
 import { installThemeTokens } from "@/test-utils/storyTheme";
 import {
   expectAdjacentGap,
@@ -23,6 +24,22 @@ const LONG_NOTES = `### 新機能
 - 特定の環境でクラッシュする問題を修正しました
 - 画像が正しく表示されない問題を修正しました
 - ログイン状態が失われる問題を修正しました`;
+
+const SHORT_NOTES = `### 修正
+- 不具合を修正しました
+- パフォーマンスを改善しました`;
+
+const ONE_ENTRY: WhatsNewEntry[] = [{ version: "0.2.0", notes: SHORT_NOTES }];
+
+const THREE_ENTRIES: WhatsNewEntry[] = [
+  { version: "0.2.0", notes: LONG_NOTES },
+  { version: "0.1.2", notes: SHORT_NOTES },
+  { version: "0.1.1", notes: "### 修正\n- 軽微な表示崩れを修正しました" },
+];
+
+const RELEASES_LINK_NAME = "リリースページで過去の変更内容を確認する";
+const MORE_NOTE =
+  "これより前のバージョンの変更内容は、リリースページで確認できます。";
 
 // アプリは documentElement の data-theme でテーマを切り替えるため、Story でもそれに合わせる
 function ThemeRoot({
@@ -115,8 +132,9 @@ const meta: Meta<typeof WhatsNewDialog> = {
     },
   ],
   args: {
-    version: "0.2.0",
-    notes: LONG_NOTES,
+    entries: THREE_ENTRIES,
+    hasMore: false,
+    onOpenReleasePage: fn(),
     onClose: fn(),
   },
 };
@@ -124,27 +142,81 @@ const meta: Meta<typeof WhatsNewDialog> = {
 export default meta;
 type Story = StoryObj<typeof WhatsNewDialog>;
 
-export const Default: Story = {
-  name: "デフォルト",
+export const OneEntry: Story = {
+  name: "1件",
+  args: { entries: ONE_ENTRY },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { level: 3, name: "バージョン 0.2.0" }),
+    ).toBeInTheDocument();
+    // 3件以下のときは省略の注記を出さない
+    await expect(canvas.queryByText(MORE_NOTE)).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: RELEASES_LINK_NAME }),
+    ).toBeInTheDocument();
+  },
+};
+
+export const ThreeEntries: Story = {
+  name: "3件",
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await expect(
       canvas.getByRole("heading", { name: "アプリが更新されました" }),
     ).toBeInTheDocument();
-    await expect(
-      canvas.getByText("バージョン 0.2.0 の更新内容"),
-    ).toBeInTheDocument();
+    // 新しい順に並ぶ
+    const versions = canvas
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent);
+    await expect(versions).toEqual([
+      "バージョン 0.2.0",
+      "バージョン 0.1.2",
+      "バージョン 0.1.1",
+    ]);
+    await expect(canvas.queryByText(MORE_NOTE)).not.toBeInTheDocument();
+    // リンクを押すとリリースページを開く要求が出るが、ダイアログは閉じない
+    const link = canvas.getByRole("link", { name: RELEASES_LINK_NAME });
+    await userEvent.click(link);
+    await expect(args.onOpenReleasePage).toHaveBeenCalledTimes(1);
+    await expect(args.onClose).not.toHaveBeenCalled();
     // 「閉じる」で onClose が呼ばれる
     await userEvent.click(canvas.getByRole("button", { name: "閉じる" }));
     await expect(args.onClose).toHaveBeenCalled();
   },
 };
 
-export const WithoutVersion: Story = {
-  name: "バージョンなし",
+export const MoreThanThreeEntries: Story = {
+  name: "4件以上（注記あり）",
+  args: { hasMore: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(MORE_NOTE)).toBeInTheDocument();
+    // 注記があってもリンクは表示される
+    await expect(
+      canvas.getByRole("link", { name: RELEASES_LINK_NAME }),
+    ).toBeInTheDocument();
+  },
+};
+
+export const LongNotes: Story = {
+  name: "長い本文",
   args: {
-    version: undefined,
-    notes: "・不具合を修正しました\n・パフォーマンスを改善しました",
+    entries: [
+      { version: "0.2.0", notes: LONG_NOTES },
+      { version: "0.1.2", notes: LONG_NOTES },
+      { version: "0.1.1", notes: LONG_NOTES },
+    ],
+    hasMore: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // 本文が長くても注記・リンク・閉じるはスクロール領域の外にあり、常に操作できる
+    await expect(canvas.getByText(MORE_NOTE)).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: RELEASES_LINK_NAME }),
+    ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "閉じる" })).toBeVisible();
   },
 };
 
@@ -264,8 +336,11 @@ export const AndroidStickyHeaderSpansPanelWidth: Story = {
       // 固定ヘッダーの幅・位置が panel の padding 引数と一致していれば、画面の左右端まで届く
       await expect(headerRect.left).toBe(panelRect.left);
       await expect(headerRect.right).toBe(panel.clientWidth + panelRect.left);
-      // 本文（バージョン表記）の先頭がヘッダーの下に隠れていない
-      const version = canvas.getByText("バージョン 0.2.0 の更新内容");
+      // 本文（バージョン見出し）の先頭がヘッダーの下に隠れていない
+      const version = canvas.getByRole("heading", {
+        level: 3,
+        name: "バージョン 0.2.0",
+      });
       await expect(version.getBoundingClientRect().top).toBeGreaterThanOrEqual(
         headerRect.bottom - 1,
       );
