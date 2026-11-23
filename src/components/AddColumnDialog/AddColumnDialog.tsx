@@ -1,7 +1,6 @@
 import React, { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import type { Account, Column, GlobalSettings, PageType } from "../../types";
 import {
   COLUMN_LABEL_MAX_LENGTH,
@@ -26,8 +25,6 @@ export const AddColumnDialog: React.FC<AddColumnDialogProps> = ({
   onCancel,
 }) => {
   const { t } = useTranslation();
-  useEscapeKey(onCancel);
-  useRestoreFocus();
   const uid = useId();
   const fieldId = (name: string) => `${uid}-${name}`;
 
@@ -90,14 +87,12 @@ export const AddColumnDialog: React.FC<AddColumnDialogProps> = ({
   };
 
   return (
-    <div className={styles.overlay}>
-      <form
-        className={styles.dialog}
-        onSubmit={handleSubmit}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={fieldId("title")}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={fieldId("title")}
+      onEscape={onCancel}
+    >
+      <form className={styles.dialog} onSubmit={handleSubmit}>
         <h2 id={fieldId("title")} className={styles.title}>
           {t("columns:addDialog.title")}
         </h2>
@@ -110,6 +105,7 @@ export const AddColumnDialog: React.FC<AddColumnDialogProps> = ({
             <select
               id={fieldId("account")}
               className={styles.select}
+              data-autofocus=""
               value={accountId}
               onChange={(e) => setAccountId(e.target.value)}
             >
@@ -249,6 +245,6 @@ export const AddColumnDialog: React.FC<AddColumnDialogProps> = ({
           </button>
         </div>
       </form>
-    </div>
+    </ModalDialog>
   );
 };

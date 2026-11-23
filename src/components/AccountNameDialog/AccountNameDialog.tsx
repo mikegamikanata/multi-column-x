@@ -1,7 +1,6 @@
 import React, { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import styles from "./AccountNameDialog.module.scss";
 
 interface AccountNameDialogProps {
@@ -18,8 +17,6 @@ export const AccountNameDialog: React.FC<AccountNameDialogProps> = ({
   onCancel,
 }) => {
   const { t } = useTranslation();
-  useEscapeKey(onCancel);
-  useRestoreFocus();
   const titleId = useId();
   const inputId = useId();
 
@@ -33,14 +30,12 @@ export const AccountNameDialog: React.FC<AccountNameDialogProps> = ({
   };
 
   return (
-    <div className={styles.overlay}>
-      <form
-        className={styles.dialog}
-        onSubmit={handleSubmit}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      onEscape={onCancel}
+    >
+      <form className={styles.dialog} onSubmit={handleSubmit}>
         <h2 id={titleId} className={styles.title}>
           {title}
         </h2>
@@ -52,6 +47,7 @@ export const AccountNameDialog: React.FC<AccountNameDialogProps> = ({
           <input
             id={inputId}
             className={styles.input}
+            data-autofocus=""
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -70,6 +66,6 @@ export const AccountNameDialog: React.FC<AccountNameDialogProps> = ({
           </button>
         </div>
       </form>
-    </div>
+    </ModalDialog>
   );
 };

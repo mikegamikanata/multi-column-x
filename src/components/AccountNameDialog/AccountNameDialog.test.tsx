@@ -60,8 +60,40 @@ describe("AccountNameDialog", () => {
         onCancel={onCancel}
       />,
     );
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onCancel).toHaveBeenCalled();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもキャンセルされ、ダイアログは自動で閉じられない", () => {
+    const onCancel = vi.fn();
+    render(
+      <AccountNameDialog
+        defaultValue="アカウント 1"
+        title="アカウント名を入力"
+        onSubmit={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    const notPrevented = fireEvent(
+      dialog,
+      new Event("cancel", { cancelable: true }),
+    );
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(notPrevented).toBe(false);
+    expect(dialog).toHaveAttribute("open");
+  });
+
+  it("ダイアログを開くと名前の入力欄にフォーカスが当たる", () => {
+    render(
+      <AccountNameDialog
+        defaultValue="アカウント 1"
+        title="アカウント名を入力"
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("アカウント名")).toHaveFocus();
   });
 
   it("キャンセルボタンでonCancelが呼ばれる", () => {

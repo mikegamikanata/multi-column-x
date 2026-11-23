@@ -394,7 +394,9 @@ export const AndroidStickyHeaderSpansPanelWidth: Story = {
 export const KeyboardFocusShowsRing: Story = {
   name: "キーボードでフォーカスしたボタンにはフォーカスリングが出る",
   play: async ({ canvasElement }) => {
+    // 開いた直後は閉じるボタンに初期フォーカスがある。キーボード操作で外して戻す
     await userEvent.tab();
+    await userEvent.tab({ shift: true });
     const focused = document.activeElement as HTMLElement;
     await expect(focused).toBe(
       within(canvasElement).getByRole("button", { name: "閉じる" }),

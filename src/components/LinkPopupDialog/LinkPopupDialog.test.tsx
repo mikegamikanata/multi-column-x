@@ -127,7 +127,7 @@ describe("LinkPopupDialog", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("マウント時にinputがフォーカスされる", () => {
+  it("ダイアログを開くとURLの入力欄にフォーカスが当たる", () => {
     render(
       <LinkPopupDialog
         accounts={mockAccounts}
@@ -264,8 +264,21 @@ describe("LinkPopupDialog のダイアログのアクセシビリティ", () => 
   it("URL入力欄が無い固定URLのときもEscapeで閉じる", () => {
     const onClose = vi.fn();
     renderDialog({ onClose, fixedUrl: "https://x.com/settings" });
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもonCloseが呼ばれ、ダイアログは自動で閉じられない", () => {
+    const onClose = vi.fn();
+    renderDialog({ onClose });
+    const dialog = screen.getByRole("dialog");
+    const notPrevented = fireEvent(
+      dialog,
+      new Event("cancel", { cancelable: true }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(notPrevented).toBe(false);
+    expect(dialog).toHaveAttribute("open");
   });
 
   it("閉じたあと開く前にフォーカスしていた要素へフォーカスが戻る", () => {
