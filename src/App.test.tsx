@@ -233,6 +233,15 @@ describe("App (desktop)", () => {
       expectColumnKept("col-1");
     });
 
+    it("カラム削除の確認ダイアログでは削除ボタンが危険操作の見た目になる", async () => {
+      render(<App />);
+      fireEvent.click(screen.getByTitle("カラムを閉じる"));
+      const dialog = await findRemoveColumnDialog();
+      const button = within(dialog).getByRole("button", { name: "削除する" });
+      expect(button.className).toContain("dangerBtn");
+      expect(button.className).not.toContain("confirmBtn");
+    });
+
     it("確認ダイアログで削除を押すとカラムが削除されダイアログが閉じる", async () => {
       render(<App />);
       fireEvent.click(screen.getByTitle("カラムを閉じる"));
@@ -638,6 +647,28 @@ describe("App (desktop)", () => {
     });
   });
 
+  it("アカウント削除の確認ダイアログでは削除ボタンが危険操作の見た目になる", () => {
+    render(<App />);
+    fireEvent.click(screen.getByTitle("アカウント管理 (Ctrl+Shift+A)"));
+    fireEvent.click(screen.getByLabelText(`${account.label} を削除`));
+
+    const dialog = screen.getByRole("dialog", { name: "アカウントの削除" });
+    const button = within(dialog).getByRole("button", { name: "削除する" });
+    expect(button.className).toContain("dangerBtn");
+    expect(button.className).not.toContain("confirmBtn");
+  });
+
+  it("設定読み込み失敗などのお知らせダイアログでは OK ボタンが主ボタンの見た目のままになる", () => {
+    useAppStore.setState({
+      settingsLoadNotice: "設定ファイルを読み込めませんでした",
+    });
+    render(<App />);
+
+    const button = screen.getByRole("button", { name: "OK" });
+    expect(button.className).toContain("confirmBtn");
+    expect(button.className).not.toContain("dangerBtn");
+  });
+
   it("設定読み込み失敗の通知があるとダイアログが表示され、OKを押すと消える", () => {
     useAppStore.setState({
       settingsLoadNotice:
@@ -803,6 +834,13 @@ describe("App (mobile)", () => {
 
       expect(dialog).toHaveTextContent("「ホーム」を削除しますか？");
       expectColumnKept("col-1");
+    });
+
+    it("カラム削除の確認ダイアログでは削除ボタンが危険操作の見た目になる", async () => {
+      const dialog = await openRemoveConfirmFromTabAction("ホーム");
+      const button = within(dialog).getByRole("button", { name: "削除する" });
+      expect(button.className).toContain("dangerBtn");
+      expect(button.className).not.toContain("confirmBtn");
     });
 
     it("確認ダイアログで削除を押すとカラムが削除されダイアログが閉じる", async () => {

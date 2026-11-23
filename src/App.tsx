@@ -629,6 +629,7 @@ const App: React.FC = () => {
 
       {pendingRemoval && (
         <ConfirmDialog
+          variant="danger"
           title={t("messages:app.removeAccount.title")}
           message={t("messages:app.removeAccount.message", {
             label: pendingRemoval.label,
@@ -641,6 +642,7 @@ const App: React.FC = () => {
 
       {pendingColumnRemoval && (
         <ConfirmDialog
+          variant="danger"
           title={t("messages:app.removeColumn.title")}
           message={
             isExternalColumn(pendingColumnRemoval)

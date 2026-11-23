@@ -180,6 +180,40 @@ export const DarkTheme: Story = {
   ],
 };
 
+export const DangerLightTheme: Story = {
+  name: "危険操作・ライトテーマ",
+  args: { variant: "danger" },
+  decorators: [
+    (Story) => (
+      <ThemeRoot theme="light">
+        <Story />
+      </ThemeRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole("button", { name: "削除する" });
+    await expect(button.className).toContain("dangerBtn");
+  },
+};
+
+export const DangerDarkTheme: Story = {
+  name: "危険操作・ダークテーマ",
+  args: { variant: "danger" },
+  decorators: [
+    (Story) => (
+      <ThemeRoot theme="dark">
+        <Story />
+      </ThemeRoot>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole("button", { name: "削除する" });
+    await expect(button.className).toContain("dangerBtn");
+  },
+};
+
 export const AndroidCenteredWithinViewport: Story = {
   name: "Android・小さなダイアログは中央表示のままで幅が画面内に収まる",
   args: { message: "短いメッセージ" },
@@ -236,6 +270,20 @@ export const AndroidScrollableWhenTall: Story = {
 
 export const AndroidTapTargets: Story = {
   name: "Android・すべての操作要素が44px以上で隣り合うボタンに間隔がある",
+  play: async ({ canvasElement }) => {
+    const restorePlatform = setPlatform("android");
+    try {
+      await expectTapTargets(canvasElement, 44);
+      await expectAdjacentGap(canvasElement, 8);
+    } finally {
+      restorePlatform();
+    }
+  },
+};
+
+export const AndroidDangerTapTargets: Story = {
+  name: "Android・危険操作の確認でもすべての操作要素が44px以上で隣り合うボタンに間隔がある",
+  args: { variant: "danger" },
   play: async ({ canvasElement }) => {
     const restorePlatform = setPlatform("android");
     try {
