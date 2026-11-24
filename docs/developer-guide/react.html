@@ -596,8 +596,9 @@
               <code>settingsCategories.ts</code>
               に集約。アクティブなカテゴリだけを描画する。入力中は下書き（<code>settingsDraft.ts</code>）を持ち、「適用」で
               <code>handleApplyGlobalSettings</code> が保存と反映を行う。Android
-              の戻る操作は <code>useAndroidBackHandler</code>
-              で登録し、詳細→一覧に戻す。
+              の戻る操作は、詳細→一覧のときだけ
+              <code>useAndroidBackHandler</code> で追加登録する（一覧では
+              <code>ModalDialog</code> の共通ハンドラが閉じる）。
             </li>
             <li>
               適用処理は <code>useSettingsApplyHandlers</code> に集約（フローは
