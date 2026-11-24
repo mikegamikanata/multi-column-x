@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { HelpPopover } from "@/components/HelpPopover/HelpPopover";
 import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import { expectAccessibleControls } from "@/test-utils/a11y";
 
 describe("HelpPopover", () => {
@@ -148,5 +149,62 @@ describe("HelpPopover", () => {
     fireEvent.keyDown(trigger, { key: "Escape" });
 
     expect(onEscape).toHaveBeenCalledOnce();
+  });
+
+  describe("Androidの戻る操作", () => {
+    it("開いている間の戻る操作でポップオーバーが閉じ、フォーカスがトリガーへ戻る", () => {
+      render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
+      const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
+      fireEvent.click(trigger);
+
+      let handled = false;
+      act(() => {
+        handled = handleAndroidBack();
+      });
+
+      expect(handled).toBe(true);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it("閉じているときの戻る操作は処理されない", () => {
+      render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
+
+      expect(handleAndroidBack()).toBe(false);
+    });
+
+    it("閉じた後の戻る操作は処理されない", () => {
+      render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
+      const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
+      fireEvent.click(trigger);
+      fireEvent.click(trigger);
+
+      expect(handleAndroidBack()).toBe(false);
+    });
+
+    it("ダイアログの中でポップオーバーを開いて戻る操作をするとポップオーバーだけが閉じ、もう一度でダイアログが閉じる", () => {
+      const onEscape = vi.fn();
+      render(
+        <ModalDialog aria-label="外側のダイアログ" onEscape={onEscape}>
+          <HelpPopover label="正規表現の書き方">説明文</HelpPopover>
+        </ModalDialog>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "正規表現の書き方" }));
+
+      act(() => {
+        handleAndroidBack();
+      });
+
+      expect(
+        screen.queryByRole("dialog", { name: "正規表現の書き方" }),
+      ).not.toBeInTheDocument();
+      expect(onEscape).not.toHaveBeenCalled();
+
+      act(() => {
+        handleAndroidBack();
+      });
+
+      expect(onEscape).toHaveBeenCalledOnce();
+    });
   });
 });

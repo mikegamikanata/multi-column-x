@@ -1,4 +1,5 @@
 import React, { useCallback, useId, useRef, useState } from "react";
+import { useAndroidBackHandler } from "@/hooks/useAndroidBackHandler";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import styles from "./HelpPopover.module.scss";
 
@@ -27,6 +28,11 @@ export const HelpPopover: React.FC<HelpPopoverProps> = ({
   }, [isOpen]);
 
   useOutsideClick(containerRef, close, isOpen);
+  // Android の戻る操作でも Esc と同様に閉じる（開いている間だけ登録するので、外側のダイアログより優先される）
+  useAndroidBackHandler(isOpen, () => {
+    closeByEscape();
+    return true;
+  });
 
   return (
     // Esc は document ではなくここで受ける。ModalDialog 内では Esc が document まで伝わらないうえ、

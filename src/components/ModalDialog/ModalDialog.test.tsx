@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { StrictMode, createRef, type ReactNode } from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import { ModalDialog } from "./ModalDialog";
 
 describe("ModalDialog", () => {
@@ -471,6 +472,75 @@ describe("ModalDialog", () => {
       expect(fireEvent.keyDown(button, { key })).toBe(true);
     }
     expect(onEscape).not.toHaveBeenCalled();
+  });
+
+  describe("Androidの戻る操作", () => {
+    it("戻る操作でonEscapeが呼ばれ処理済み(true)になる", () => {
+      const onEscape = vi.fn();
+      render(<ModalDialog aria-label="x" onEscape={onEscape} />);
+
+      let handled = false;
+      act(() => {
+        handled = handleAndroidBack();
+      });
+
+      expect(handled).toBe(true);
+      expect(onEscape).toHaveBeenCalledTimes(1);
+    });
+
+    it("onEscapeが無いダイアログでは戻る操作は処理されない(false)", () => {
+      render(<ModalDialog aria-label="x" />);
+
+      expect(handleAndroidBack()).toBe(false);
+    });
+
+    it("アンマウント後の戻る操作は処理されない(false)", () => {
+      const onEscape = vi.fn();
+      const { unmount } = render(
+        <ModalDialog aria-label="x" onEscape={onEscape} />,
+      );
+      unmount();
+
+      expect(handleAndroidBack()).toBe(false);
+      expect(onEscape).not.toHaveBeenCalled();
+    });
+
+    it("再レンダーでonEscapeが差し替わっても最新のものが呼ばれる", () => {
+      const first = vi.fn();
+      const second = vi.fn();
+      const { rerender } = render(
+        <ModalDialog aria-label="x" onEscape={first} />,
+      );
+      rerender(<ModalDialog aria-label="x" onEscape={second} />);
+
+      act(() => {
+        handleAndroidBack();
+      });
+
+      expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it("ダイアログが重なっているときは後から開いた最前面だけが閉じる", () => {
+      const onBackEscape = vi.fn();
+      const onFrontEscape = vi.fn();
+      const { rerender } = render(
+        <ModalDialog aria-label="背面" onEscape={onBackEscape} />,
+      );
+      rerender(
+        <>
+          <ModalDialog aria-label="背面" onEscape={onBackEscape} />
+          <ModalDialog aria-label="前面" onEscape={onFrontEscape} />
+        </>,
+      );
+
+      act(() => {
+        handleAndroidBack();
+      });
+
+      expect(onFrontEscape).toHaveBeenCalledTimes(1);
+      expect(onBackEscape).not.toHaveBeenCalled();
+    });
   });
 
   it("開いたままのダイアログにcloseイベントが届いてもshowModalを呼び直さない", () => {

@@ -1,6 +1,7 @@
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import i18n from "@/i18n";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import { expectAccessibleControls } from "@/test-utils/a11y";
 import { expectNoJapanese } from "@/test-utils/japanese";
 import { ShortcutHelpDialog } from "./ShortcutHelpDialog";
@@ -30,6 +31,17 @@ describe("ShortcutHelpDialog", () => {
     const onClose = vi.fn();
     render(<ShortcutHelpDialog onClose={onClose} />);
     fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("Androidの戻る操作でonCloseが呼ばれる", () => {
+    const onClose = vi.fn();
+    render(<ShortcutHelpDialog onClose={onClose} />);
+    let handled = false;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+    expect(handled).toBe(true);
     expect(onClose).toHaveBeenCalledOnce();
   });
 
