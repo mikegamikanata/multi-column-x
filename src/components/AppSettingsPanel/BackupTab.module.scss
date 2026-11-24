@@ -86,8 +86,10 @@
   @include m.transition-base(background-color);
   @include m.android-tap-target;
 
-  &:hover:not(:disabled) {
-    background: var(--mcx-accent-hover);
+  @include m.hover-capable {
+    &:hover:not(:disabled) {
+      background: var(--mcx-accent-hover);
+    }
   }
 
   &:active:not(:disabled) {
@@ -116,9 +118,11 @@
   @include m.transition-base(background-color, border-color, color);
   @include m.android-tap-target;
 
-  &:hover:not(:disabled) {
-    background: var(--mcx-surface-hover);
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover:not(:disabled) {
+      background: var(--mcx-surface-hover);
+      color: var(--mcx-text);
+    }
   }
 
   &:active:not(:disabled) {
@@ -149,8 +153,10 @@
   @include m.transition-base(background-color, border-color);
   @include m.android-tap-target;
 
-  &:hover:not(:disabled) {
-    background: var(--mcx-danger-bg);
+  @include m.hover-capable {
+    &:hover:not(:disabled) {
+      background: var(--mcx-danger-bg);
+    }
   }
 
   &:active:not(:disabled) {
@@ -221,8 +227,10 @@
   @include m.transition-base(border-color);
   @include m.android-tap-target;
 
-  &:hover:not(:disabled) {
-    border-color: var(--mcx-text-muted);
+  @include m.hover-capable {
+    &:hover:not(:disabled) {
+      border-color: var(--mcx-text-muted);
+    }
   }
 
   &:focus-visible {
