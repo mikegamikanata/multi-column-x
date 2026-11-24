@@ -1,11 +1,10 @@
 import React, { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import CloseIcon from "../../assets/icons/close.svg?react";
 import StarOutlineIcon from "../../assets/icons/star-outline.svg?react";
 import StarIcon from "../../assets/icons/star.svg?react";
 import { ACCOUNT_COLORS } from "../../constants/accountColors";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
 import type { Account } from "../../types";
 import styles from "./AccountManager.module.scss";
 
@@ -34,8 +33,6 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
   onReauthAccount,
 }) => {
   const { t } = useTranslation();
-  useEscapeKey(onClose);
-  useRestoreFocus();
   const titleId = useId();
   const editInputId = useId();
 
@@ -62,13 +59,12 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
   };
 
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.panel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      onEscape={onClose}
+    >
+      <div className={styles.panel}>
         <div className={styles.header}>
           <h2 id={titleId} className={styles.title}>
             {t("accounts:manager.title")}
@@ -76,6 +72,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
           <button
             type="button"
             className={styles.closeBtn}
+            data-autofocus=""
             onClick={onClose}
             aria-label={t("accounts:manager.close")}
           >
@@ -224,6 +221,6 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
           {t("accounts:manager.add")}
         </button>
       </div>
-    </div>
+    </ModalDialog>
   );
 };

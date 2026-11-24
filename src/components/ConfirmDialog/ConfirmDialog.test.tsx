@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import i18n from "@/i18n";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import { expectAccessibleControls } from "@/test-utils/a11y";
 import { expectNoJapanese } from "@/test-utils/japanese";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -54,8 +55,60 @@ describe("ConfirmDialog", () => {
         onCancel={onCancel}
       />,
     );
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onCancel).toHaveBeenCalled();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("Androidの戻る操作でキャンセルされる", () => {
+    const onCancel = vi.fn();
+    render(
+      <ConfirmDialog
+        message="このアカウントを削除しますか？"
+        onConfirm={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    let handled = false;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+    expect(handled).toBe(true);
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもキャンセルされ、ダイアログは自動で閉じられない", () => {
+    const onCancel = vi.fn();
+    render(
+      <ConfirmDialog
+        message="このアカウントを削除しますか？"
+        onConfirm={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    const notPrevented = fireEvent(
+      dialog,
+      new Event("cancel", { cancelable: true }),
+    );
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(notPrevented).toBe(false);
+    expect(dialog).toHaveAttribute("open");
+  });
+
+  it("確認ダイアログは背景をクリックしても閉じない", () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    render(
+      <ConfirmDialog
+        message="このアカウントを削除しますか？"
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+      />,
+    );
+    fireEvent.click(screen.getByRole("dialog"));
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toHaveAttribute("open");
   });
 
   it("titleとボタンラベルを任意指定できる", () => {
@@ -144,18 +197,33 @@ describe("ConfirmDialog", () => {
       expect(button.className).not.toContain("dangerBtn");
     });
 
-    it("危険操作の確認ダイアログを開いてもどのボタンにもフォーカスが当たらない", () => {
+    it("確認ダイアログ(取り消せない操作)を開くとキャンセルボタンにフォーカスが当たる", () => {
       render(
         <ConfirmDialog
           variant="danger"
           message="このアカウントを削除しますか？"
+          confirmLabel="削除する"
           onConfirm={vi.fn()}
           onCancel={vi.fn()}
         />,
       );
-      for (const button of screen.getAllByRole("button")) {
-        expect(button).not.toHaveFocus();
-      }
+      expect(screen.getByRole("button", { name: "キャンセル" })).toHaveFocus();
+      expect(
+        screen.getByRole("button", { name: "削除する" }),
+      ).not.toHaveFocus();
+    });
+
+    it("ボタンが1つだけの危険操作の確認ダイアログでは確定ボタンにフォーカスが当たる", () => {
+      render(
+        <ConfirmDialog
+          variant="danger"
+          singleButton
+          message="削除しました"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("button", { name: "OK" })).toHaveFocus();
     });
 
     it("危険操作の確認ダイアログでもEscキーでキャンセルになる", () => {
@@ -169,8 +237,8 @@ describe("ConfirmDialog", () => {
           onCancel={onCancel}
         />,
       );
-      fireEvent.keyDown(document, { key: "Escape" });
-      expect(onCancel).toHaveBeenCalled();
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+      expect(onCancel).toHaveBeenCalledOnce();
       expect(onConfirm).not.toHaveBeenCalled();
     });
 
@@ -187,6 +255,32 @@ describe("ConfirmDialog", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: "削除する" }));
       expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("初期フォーカス", () => {
+    it("確認ダイアログ(通常)を開くと確定ボタンにフォーカスが当たる", () => {
+      render(
+        <ConfirmDialog
+          message="続行しますか？"
+          confirmLabel="続行する"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("button", { name: "続行する" })).toHaveFocus();
+    });
+
+    it("確認ダイアログ(ボタンが1つだけ)を開くとOKボタンにフォーカスが当たる", () => {
+      render(
+        <ConfirmDialog
+          singleButton
+          message="再認証に失敗しました"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("button", { name: "OK" })).toHaveFocus();
     });
   });
 
@@ -244,7 +338,7 @@ describe("ConfirmDialog", () => {
           onCancel={vi.fn()}
         />,
       );
-      screen.getByRole("button", { name: "OK" }).focus();
+      expect(screen.getByRole("button", { name: "OK" })).toHaveFocus();
       unmount();
 
       expect(opener).toHaveFocus();

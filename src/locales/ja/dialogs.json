@@ -69,7 +69,9 @@
   },
   "whatsNew": {
     "title": "アプリが更新されました",
-    "version": "バージョン {{version}} の更新内容",
+    "versionHeading": "バージョン {{version}}",
+    "moreNote": "これより前のバージョンの変更内容は、リリースページで確認できます。",
+    "releasesLink": "リリースページで過去の変更内容を確認する",
     "close": "閉じる"
   }
 }

@@ -11,6 +11,7 @@ multi-column-x/
 │   ├── index.css                     # 配色トークン（--mcx-*）・テーマ別 CSS 変数
 │   ├── styles/
 │   │   ├── _dialog-fullscreen.scss   # パネル型ダイアログを Android で全画面化するミキシン（詳細: ui-scale-notes.md）
+│   │   ├── _dialog-modal.scss        # ネイティブ <dialog> を .overlay として使うためのミキシン modal-overlay（UA 既定の打ち消し。詳細: ui-design-principles-notes.md §7）
 │   │   ├── _tokens.scss              # UI 共通デザイントークン（SCSS 変数: space / radius / font-size / duration / tap-target。詳細: ui-design-principles-notes.md）
 │   │   └── _mixins.scss              # focus-ring / transition-base / android-tap-target / android-button-gap
 │   ├── i18n/                         # 多言語対応の初期化（index.ts=i18next 初期化, resources.ts=辞書の集約, types.ts=AppTFunction 型。詳細: i18n-notes.md）
@@ -46,7 +47,7 @@ multi-column-x/
 │   │   ├── reauthIdentity.ts         # 既存アカウント再認証時の同一アカウント判定
 │   │   ├── apiRateLimit.ts           # API レート制限バケットの severity 判定
 │   │   ├── rafThrottle.ts            # requestAnimationFrame 単位のスロットル
-│   │   ├── githubRelease.ts          # GitHub Releases API 応答の解析（APK 自己更新のハッシュ取得等）
+│   │   ├── githubRelease.ts          # GitHub Releases API 応答の解析（APK 自己更新のハッシュ取得、更新後ダイアログのリリースノート選別等）
 │   │   ├── updatePrompt.ts / version.ts  # 更新案内の要否・バージョン比較
 │   │   ├── autoReloadTarget.ts       # 自動更新対象カラムの判定
 │   │   ├── columnOrder.ts            # TopBar のカラム並び順計算
@@ -58,6 +59,7 @@ multi-column-x/
 │   │   ├── externalColumn.ts         # 外部 URL カラムのデータディレクトリ操作
 │   │   ├── backup.ts                 # バックアップの書き出し・読み込み・復元の IPC 呼び出し
 │   │   ├── extensions.ts             # ブラウザ拡張機能（Windows のみ）の管理コマンドの IPC 呼び出し
+│   │   ├── releasePage.ts            # リリース一覧ページを既定ブラウザで開く（固定 URL。opener プラグイン）
 │   │   └── updater.ts                # 自動アップデート（デスクトップ/Android）の IPC 呼び出し
 │   ├── hooks/
 │   │   ├── useColumns.ts             # カラム操作の公開 API（mobile/desktop 実装へ委譲）
@@ -78,12 +80,12 @@ multi-column-x/
 │   │   ├── useAccounts.ts            # アカウント追加・削除
 │   │   ├── useAutoReload.ts          # 自動更新カウントダウン
 │   │   ├── useAppUpdater.ts          # 自動アップデートの確認・進捗表示
-│   │   ├── useWhatsNew.ts            # 更新後の What's New 表示
+│   │   ├── useWhatsNew.ts            # 更新後に前回から今回までのリリースノート（最大3件）を表示
 │   │   ├── useTheme.ts               # テーマ（ダーク/ライト/システム）切替
 │   │   ├── useUiScale.ts             # アプリUI倍率を <html> の font-size へ反映（端末倍率の測定含む）
 │   │   ├── useDialogState.ts         # ダイアログ開閉状態管理
-│   │   ├── useEscapeKey.ts           # Esc キーでのダイアログ/ポップアップ閉じる処理
-│   │   ├── useRestoreFocus.ts        # ダイアログを閉じたときに開く前の要素へフォーカスを戻す
+│   │   ├── useEscapeKey.ts           # document の Esc keydown を購読する（ダイアログ外の非モーダル部品用。モーダルダイアログの Esc は ModalDialog が処理する）
+│   │   ├── useRestoreFocus.ts        # ダイアログを閉じたときに開く前の要素へフォーカスを戻す（ModalDialog が呼ぶ）
 │   │   ├── useOutsideClick.ts        # 要素外クリック検出
 │   │   └── useKeyboardShortcuts.ts   # キーボードショートカット処理
 │   └── components/
@@ -112,11 +114,12 @@ multi-column-x/
 │       ├── MobileTabBar/             # モバイルタブバー（Android）
 │       ├── TabActionDialog/          # モバイルタブ長押しアクションダイアログ
 │       ├── LinkPopupDialog/          # リンクポップアップ URL 入力ダイアログ
+│       ├── ModalDialog/              # モーダルダイアログ共通部品（ネイティブ <dialog> + showModal()。Tab の折り返し・Esc・初期フォーカス data-autofocus・フォーカス復帰。モーダルは必ずこれで作る）
 │       ├── ConfirmDialog/            # 汎用確認ダイアログ
 │       ├── HelpPopover/              # ヘルプ用ポップオーバー
 │       ├── ShortcutHelpDialog/       # キーボードショートカット一覧ダイアログ
 │       ├── UpdateDialog/             # アプリ更新確認・進捗ダイアログ
-│       └── WhatsNewDialog/           # 更新後の What's New ダイアログ
+│       └── WhatsNewDialog/           # 更新後の What's New ダイアログ（複数バージョン・リリースページへのリンク）
 └── src-tauri/                        # Rust バックエンド
     ├── tauri.conf.json
     ├── Cargo.toml

@@ -69,7 +69,17 @@ describe("H264SetupDialog", () => {
 
     it("案内でEscapeを押すと拒否を保存せずにonCloseが呼ばれる", () => {
       const h = renderDialog("idle");
-      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+      expect(h.onClose).toHaveBeenCalledTimes(1);
+      expect(h.onDismiss).not.toHaveBeenCalled();
+    });
+
+    it("案内でネイティブの閉じる要求(cancel)が来ても拒否を保存せずにonCloseが呼ばれる", () => {
+      const h = renderDialog("idle");
+      fireEvent(
+        screen.getByRole("dialog"),
+        new Event("cancel", { cancelable: true }),
+      );
       expect(h.onClose).toHaveBeenCalledTimes(1);
       expect(h.onDismiss).not.toHaveBeenCalled();
     });
@@ -94,9 +104,10 @@ describe("H264SetupDialog", () => {
 
     it("ダウンロード中はEscapeを押しても閉じない", () => {
       const h = renderDialog("downloading");
-      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
       expect(h.onClose).not.toHaveBeenCalled();
       expect(h.onDismiss).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog")).toHaveAttribute("open");
     });
   });
 
@@ -111,6 +122,13 @@ describe("H264SetupDialog", () => {
       expect(
         screen.getByRole("button", { name: "今すぐ再起動" }),
       ).toBeEnabled();
+    });
+
+    it("成功の表示に切り替わると今すぐ再起動ボタンにフォーカスが当たる", () => {
+      renderDialog("success");
+      expect(
+        screen.getByRole("button", { name: "今すぐ再起動" }),
+      ).toHaveFocus();
     });
 
     it("成功を表示しただけではアプリは自動で再起動されない", () => {
@@ -179,9 +197,14 @@ describe("H264SetupDialog", () => {
       expect(h.onDismiss).not.toHaveBeenCalled();
     });
 
+    it("失敗の表示になると再試行ボタンにフォーカスが当たる", () => {
+      renderDialog("error", { downloadError: "失敗" });
+      expect(screen.getByRole("button", { name: "再試行" })).toHaveFocus();
+    });
+
     it("失敗後にEscapeで閉じても拒否扱いにならない", () => {
       const h = renderDialog("error", { downloadError: "失敗" });
-      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
       expect(h.onClose).toHaveBeenCalledTimes(1);
       expect(h.onDismiss).not.toHaveBeenCalled();
     });

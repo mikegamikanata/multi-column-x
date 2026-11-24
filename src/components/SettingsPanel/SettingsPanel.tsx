@@ -1,10 +1,9 @@
 import React, { useCallback, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import { useTabListKeyboard } from "@/hooks/useTabListKeyboard";
 import { isAutoReloadSupported } from "@/lib/autoReloadTarget";
 import { nextColumnSettingsOnSmallImageChange } from "@/lib/scrollRestoreSetting";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
 import { useUnsavedChangesGuard } from "../../hooks/useUnsavedChangesGuard";
 import {
   COLUMN_LABEL_MAX_LENGTH,
@@ -63,7 +62,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isMobile,
 }) => {
   const { t } = useTranslation();
-  useRestoreFocus();
   const titleId = useId();
 
   const tabs = columnSettingsTabs(column);
@@ -116,7 +114,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   );
   // 確認メッセージ自身が Esc を処理するため、表示中はパネル側の Esc を無効にする
   const noop = useCallback(() => {}, []);
-  useEscapeKey(guard.confirmOpen ? noop : guard.requestClose);
   const [lineListErrors, setLineListErrors] = useState<LineListErrors>({
     ngWords: null,
     repostHiddenUserIds: null,
@@ -264,13 +261,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.panel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      onEscape={guard.confirmOpen ? noop : guard.requestClose}
+    >
+      <div className={styles.panel}>
         <div className={styles.header}>
           <h2 id={titleId} className={styles.title}>
             {t("columnSettings:title")}
@@ -302,6 +298,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   aria-selected={selected}
                   aria-controls={selected ? panelId : undefined}
                   tabIndex={selected ? 0 : -1}
+                  data-autofocus={selected ? "" : undefined}
                   className={`${styles.tab} ${selected ? styles.tabActive : ""}`}
                   onClick={() => setActiveTab(id)}
                   onKeyDown={onTabKeyDown}
@@ -372,6 +369,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           onBack={guard.cancelConfirm}
         />
       )}
-    </div>
+    </ModalDialog>
   );
 };

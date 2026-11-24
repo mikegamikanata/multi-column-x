@@ -59,6 +59,8 @@ export function buildGithubRelease({ version, notes, origin, apk, badDigest }) {
   return {
     tag_name: `v${version}`,
     body: notes,
+    draft: false,
+    prerelease: false,
     assets: apk
       ? [
           {
@@ -174,8 +176,8 @@ export function routeRequest({ method, pathname, host, release, badDigest }) {
   if (pathname === `${REPO_PATH}/latest`) {
     return { kind: "json", status: 200, body: githubRelease() };
   }
-  if (pathname === `${REPO_PATH}/tags/v${release.version}`) {
-    return { kind: "json", status: 200, body: githubRelease() };
+  if (pathname === REPO_PATH) {
+    return { kind: "json", status: 200, body: [githubRelease()] };
   }
 
   if (pathname.startsWith(DOWNLOAD_PREFIX)) {

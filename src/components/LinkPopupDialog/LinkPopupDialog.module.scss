@@ -1,7 +1,10 @@
+@use "../../styles/dialog-modal" as dm;
 @use "../../styles/tokens" as t;
 @use "../../styles/mixins" as m;
 
 .overlay {
+  @include dm.modal-overlay;
+
   position: fixed;
   top: 0;
   left: 0;
@@ -51,9 +54,11 @@
   @include m.android-tap-target;
 }
 
-.input:hover,
-.select:hover {
-  border-color: var(--mcx-text-muted);
+@include m.hover-capable {
+  .input:hover,
+  .select:hover {
+    border-color: var(--mcx-text-muted);
+  }
 }
 
 .input:focus-visible,
@@ -99,9 +104,11 @@
   border: 1px solid var(--mcx-border-strong);
   color: var(--mcx-text-tertiary);
 
-  &:hover {
-    background: var(--mcx-surface-hover);
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-surface-hover);
+      color: var(--mcx-text);
+    }
   }
 
   &:active {
@@ -120,8 +127,10 @@
   color: var(--mcx-text-on-accent);
   font-weight: bold;
 
-  &:hover {
-    background: var(--mcx-accent-hover);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-accent-hover);
+    }
   }
 
   &:active {

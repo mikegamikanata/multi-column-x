@@ -75,13 +75,14 @@ Object.assign(window.MCX_DATA.details, {
     layer: "react",
     summary:
       "Tauri invoke を包む薄いラッパー層。コマンド名は constants/ipc.ts の IPC_COMMANDS を使う。",
-    body: "<p><code>columnWebview.ts</code>（作成・リサイズ・削除・eval）、<code>externalColumn.ts</code>、<code>columnReload.ts</code>、<code>backup.ts</code>、<code>updater.ts</code>、<code>extensions.ts</code>。UI から Rust を呼ぶ入口を一箇所に集め、呼び出し前後の共通処理（保存待ち、構築署名の記録など）をここに置く。</p>",
+    body: "<p><code>columnWebview.ts</code>（作成・リサイズ・削除・eval）、<code>externalColumn.ts</code>、<code>columnReload.ts</code>、<code>backup.ts</code>、<code>updater.ts</code>、<code>releasePage.ts</code>、<code>extensions.ts</code>。UI から Rust を呼ぶ入口を一箇所に集め、呼び出し前後の共通処理（保存待ち、構築署名の記録など）をここに置く。</p>",
     files: [
       "src/services/columnWebview.ts",
       "src/services/externalColumn.ts",
       "src/services/columnReload.ts",
       "src/services/backup.ts",
       "src/services/updater.ts",
+      "src/services/releasePage.ts",
       "src/services/extensions.ts",
     ],
     docs: ["../development/tauri-commands.md"],
@@ -135,13 +136,15 @@ Object.assign(window.MCX_DATA.details, {
       "<p><code>index.css</code> に配色トークン（<code>--mcx-*</code>）とグローバル既定（<code>:focus-visible</code>・<code>:disabled</code>・<code>prefers-reduced-motion</code>）。寸法は <code>rem</code> で書く。</p>" +
       "<ul><li><b>_tokens.scss</b>: 余白・角丸・文字サイズ・動きの時間・タップ領域の SCSS 変数。Storybook は <code>index.css</code> を読まないため CSS 変数ではなく SCSS 変数。</li>" +
       "<li><b>_mixins.scss</b>: <code>focus-ring</code> / <code>transition-base</code> / <code>android-tap-target</code> / <code>android-button-gap</code>。</li>" +
-      "<li><b>_dialog-fullscreen.scss</b>: パネル型ダイアログの Android 全画面化。</li></ul>" +
+      "<li><b>_dialog-fullscreen.scss</b>: パネル型ダイアログの Android 全画面化。</li>" +
+      "<li><b>_dialog-modal.scss</b>: ネイティブ <code>&lt;dialog&gt;</code> を <code>.overlay</code> として使うミキシン <code>modal-overlay</code>（UA 既定の打ち消し）。</li></ul>" +
       "<p>各 <code>*.module.scss</code> は契約テスト <code>uiDesign.contract.test.ts</code> が検査する（余白は 0.25rem の倍数・最小文字 0.75rem・状態の定義・Android の 44px など。除外リストは無い）。</p>",
     files: [
       "src/index.css",
       "src/styles/_tokens.scss",
       "src/styles/_mixins.scss",
       "src/styles/_dialog-fullscreen.scss",
+      "src/styles/_dialog-modal.scss",
       "src/lib/uiDesign.contract.test.ts",
     ],
     docs: [
@@ -622,6 +625,20 @@ Object.assign(window.MCX_DATA.catalogs, {
         docs: ["../development/api-rate-limit-operations-notes.md"],
       },
       {
+        name: "ModalDialog",
+        summary:
+          "モーダルダイアログの共通部品（ネイティブ <dialog> + showModal）。",
+        kind: "ダイアログ",
+        detail:
+          "<p>全モーダルダイアログがこれで作られる。<code>&lt;dialog&gt;</code> 自身が <code>.overlay</code>（SCSS 先頭で <code>modal-overlay</code> ミキシンを <code>@include</code>）。props: <code>onEscape</code> ほか <code>&lt;dialog&gt;</code> の属性。背後の無効化・重なり順は標準動作。Windows WebView2 では標準だけだと最後の要素からの Tab がページ外へ出たため、<code>wrapTab</code> で Tab の端を折り返す（WebKitGTK・Android WebView・OS の実キー入力は未検証）。Esc は <code>onKeyDown</code>（<code>preventDefault</code> 済みなら閉じない = <code>HelpPopover</code> が先に閉じる）とネイティブ <code>cancel</code> の二経路。初期フォーカスは <code>data-autofocus</code> 属性（<code>autoFocus</code> は閉じた dialog で効かない）。<code>useRestoreFocus</code> もここで呼ぶ。jsdom は <code>showModal</code> を持たず最小 polyfill のため、Tab 巡回・inert は <code>ModalDialog.stories.tsx</code> の play function で検証する。</p>",
+        files: [
+          "src/components/ModalDialog/ModalDialog.tsx",
+          "src/styles/_dialog-modal.scss",
+          "src/components/ModalDialog/ModalDialog.stories.tsx",
+        ],
+        docs: ["../development/ui-design-principles-notes.md"],
+      },
+      {
         name: "AddColumnDialog",
         summary:
           "カラム追加ダイアログ（アカウント・ページ種別・URL 等を選ぶ）。",
@@ -730,11 +747,12 @@ Object.assign(window.MCX_DATA.catalogs, {
         summary: "更新後初回起動時のリリースノート表示。",
         kind: "ダイアログ",
         detail:
-          "<p>props: <code>version / notes / onClose</code>。<code>useWhatsNew</code> が表示要否を判定。</p>",
+          "<p>props: <code>entries / hasMore / onOpenReleasePage / onClose</code>。前回起動版より新しく今回版以下のリリースノートを新しい順に最大 3 件、版ごとに <code>&lt;section&gt;</code>＋<code>h3</code>（本文内見出しは <code>h4</code>）で表示し、<code>hasMore</code> のときは件数なしの注記を出す。リリースページへのリンク（<code>&lt;a href&gt;</code>＋<code>preventDefault</code>）は常に表示し、<code>onOpenReleasePage</code> で既定ブラウザを開く。<code>useWhatsNew</code> が表示要否と選別結果を判定。</p>",
         files: [
           "src/components/WhatsNewDialog/WhatsNewDialog.tsx",
           "src/hooks/useWhatsNew.ts",
         ],
+        docs: ["../development/release-theme-reauth-notes.md"],
       },
       {
         name: "H264SetupDialog",
@@ -827,7 +845,7 @@ Object.assign(window.MCX_DATA.catalogs, {
           "Android の端末の戻る操作のハンドラを enabled の間だけ登録する。",
         area: "UI",
         detail:
-          "<p><code>lib/androidBackHandler.ts</code> の登録簿に登録（後から登録したものが優先）。ネイティブ（MainActivity）が <code>window.__mcxHandleBack()</code> で問い合わせ、true を返したものが処理した扱い。<code>App.tsx</code> がモバイル起動時に入口を公開する。</p>",
+          "<p><code>lib/androidBackHandler.ts</code> の登録簿に登録（後から登録したものが優先）。ネイティブ（MainActivity）が <code>window.__mcxHandleBack()</code> で問い合わせ、true を返したものが処理した扱い。<code>ModalDialog</code> はマウント中は常に登録して <code>onEscape</code> を呼ぶ（Esc と同じ動作）。<code>HelpPopover</code> / <code>ApiRateLimitIndicator</code> は開いている間だけ登録して閉じる。アプリ設定は詳細→一覧のときだけ追加で登録する。<code>App.tsx</code> がモバイル起動時に入口を公開する。</p>",
         files: [
           "src/hooks/useAndroidBackHandler.ts",
           "src/lib/androidBackHandler.ts",
@@ -953,9 +971,13 @@ Object.assign(window.MCX_DATA.catalogs, {
       },
       {
         name: "useWhatsNew",
-        summary: "更新後初回起動の What's New 表示判定。",
+        summary:
+          "更新後初回起動の What's New 表示判定。前回から今回までのリリースノート（最大 3 件）を選別して返す。",
         area: "更新",
+        detail:
+          "<p><code>{ selection, dismiss }</code> を返す。<code>selection</code> は <code>entries</code>（新しい順）と <code>hasMore</code>。取得は <code>fetchWhatsNewSelection</code>（GitHub Releases 一覧 API を 1 回呼ぶ）。</p>",
         files: ["src/hooks/useWhatsNew.ts"],
+        docs: ["../development/release-theme-reauth-notes.md"],
       },
       {
         name: "useH264Setup",
@@ -973,14 +995,15 @@ Object.assign(window.MCX_DATA.catalogs, {
       },
       {
         name: "useEscapeKey / useOutsideClick",
-        summary: "Esc キーで閉じる・外側クリックで閉じる共通フック。",
+        summary:
+          "document の Esc で閉じる・外側クリックで閉じる共通フック（ダイアログの外の非モーダル部品用。モーダルダイアログの Esc は ModalDialog が処理する）。",
         area: "UI",
         files: ["src/hooks/useEscapeKey.ts", "src/hooks/useOutsideClick.ts"],
       },
       {
         name: "useRestoreFocus",
         summary:
-          "ダイアログを閉じたとき、開く前にフォーカスしていた要素へ戻す。",
+          "ダイアログを閉じたとき、開く前にフォーカスしていた要素へ戻す（ModalDialog が呼ぶ）。",
         area: "UI",
         files: ["src/hooks/useRestoreFocus.ts"],
         docs: ["../development/ui-design-principles-notes.md"],
@@ -1035,6 +1058,16 @@ Object.assign(window.MCX_DATA.catalogs, {
           "自動更新の抽象。desktop はプラグイン、mobile は APK 自己更新。",
         cmds: "install_apk_update（mobile）／ tauri-plugin-updater（desktop）",
         files: ["src/services/updater.ts", "src/lib/githubRelease.ts"],
+      },
+      {
+        name: "releasePage.ts",
+        summary:
+          "リリース一覧ページを既定ブラウザで開く（更新後ダイアログのリンク）。",
+        cmds: "（plugin-opener の openUrl。アプリ独自コマンドなし）",
+        detail:
+          "<p>URL は固定（<code>RELEASES_PAGE_URL</code>）で引数を取らない。<code>default.json</code> の <code>opener:allow-open-url</code> は追加の許可にすぎず、開く先を限定する担保はこの固定 URL。</p>",
+        files: ["src/services/releasePage.ts", "src/lib/githubRelease.ts"],
+        docs: ["../development/release-theme-reauth-notes.md"],
       },
       {
         name: "extensions.ts",
@@ -1139,7 +1172,7 @@ Object.assign(window.MCX_DATA.catalogs, {
       {
         name: "githubRelease.ts / updatePrompt.ts / version.ts",
         summary:
-          "リリース情報の解析（APK ハッシュ）、更新ダイアログ表示判定、バージョン比較。",
+          "リリース情報の解析（APK ハッシュ、更新後ダイアログのリリースノート選別）、更新ダイアログ表示判定、バージョン比較。",
         files: [
           "src/lib/githubRelease.ts",
           "src/lib/updatePrompt.ts",

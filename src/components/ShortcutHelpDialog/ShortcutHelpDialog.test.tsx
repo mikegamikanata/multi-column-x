@@ -1,6 +1,7 @@
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import i18n from "@/i18n";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import { expectAccessibleControls } from "@/test-utils/a11y";
 import { expectNoJapanese } from "@/test-utils/japanese";
 import { ShortcutHelpDialog } from "./ShortcutHelpDialog";
@@ -21,10 +22,36 @@ describe("ShortcutHelpDialog", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("ショートカット一覧を開くと閉じるボタンにフォーカスが当たる", () => {
+    render(<ShortcutHelpDialog onClose={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
+  });
+
   it("EscapeでonCloseが呼ばれる", () => {
     const onClose = vi.fn();
     render(<ShortcutHelpDialog onClose={onClose} />);
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("Androidの戻る操作でonCloseが呼ばれる", () => {
+    const onClose = vi.fn();
+    render(<ShortcutHelpDialog onClose={onClose} />);
+    let handled = false;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+    expect(handled).toBe(true);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもonCloseが呼ばれる", () => {
+    const onClose = vi.fn();
+    render(<ShortcutHelpDialog onClose={onClose} />);
+    fireEvent(
+      screen.getByRole("dialog"),
+      new Event("cancel", { cancelable: true }),
+    );
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -47,7 +74,7 @@ describe("ShortcutHelpDialog", () => {
       opener.focus();
 
       const { unmount } = render(<ShortcutHelpDialog onClose={vi.fn()} />);
-      screen.getByRole("button", { name: "閉じる" }).focus();
+      expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
       unmount();
 
       expect(opener).toHaveFocus();

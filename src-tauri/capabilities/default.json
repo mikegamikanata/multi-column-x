@@ -42,6 +42,12 @@
     "allow-add-chrome-extension",
     "allow-set-extension-enabled",
     "allow-remove-extension",
-    "allow-open-extension-page"
+    "allow-open-extension-page",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://github.com/natsuyasai/multi-column-x/releases" }
+      ]
+    }
   ]
 }

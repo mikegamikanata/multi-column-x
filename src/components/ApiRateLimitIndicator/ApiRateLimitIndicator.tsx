@@ -7,6 +7,7 @@ import {
   getColumnRelatedBucketKeys,
   isColumnRelatedApiBucket,
 } from "@/constants/apiRateLimitLabels";
+import { useAndroidBackHandler } from "@/hooks/useAndroidBackHandler";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import type { AppTFunction } from "@/i18n/types";
@@ -87,6 +88,11 @@ export const ApiRateLimitIndicator: React.FC<ApiRateLimitIndicatorProps> = ({
   };
 
   useEscapeKey(closeByEscape);
+  // Android の戻る操作でも Esc と同様に閉じる
+  useAndroidBackHandler(isOpen, () => {
+    closeByEscape();
+    return true;
+  });
   useOutsideClick(containerRef, close, isOpen);
 
   const overallSeverity = useMemo<Severity>(() => {

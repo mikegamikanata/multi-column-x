@@ -1,7 +1,10 @@
+@use "../../styles/dialog-modal" as dm;
 @use "../../styles/tokens" as t;
 @use "../../styles/mixins" as m;
 
 .overlay {
+  @include dm.modal-overlay;
+
   position: fixed;
   top: 0;
   left: 0;
@@ -63,9 +66,11 @@
   @include m.transition-base(background-color, border-color, color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-surface-hover);
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-surface-hover);
+      color: var(--mcx-text);
+    }
   }
 
   &:active {
@@ -90,8 +95,10 @@
   @include m.transition-base(background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-accent-hover);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-accent-hover);
+    }
   }
 
   &:active {
@@ -117,8 +124,10 @@
   @include m.android-tap-target;
 
   // hover / active は danger 色の内側リングで枠を太くする（新しい色トークンを足さないため）
-  &:hover {
-    box-shadow: inset 0 0 0 1px var(--mcx-danger);
+  @include m.hover-capable {
+    &:hover {
+      box-shadow: inset 0 0 0 1px var(--mcx-danger);
+    }
   }
 
   &:active {

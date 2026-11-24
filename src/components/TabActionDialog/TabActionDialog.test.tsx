@@ -56,32 +56,44 @@ describe("TabActionDialog", () => {
     ).toBeInTheDocument();
   });
 
-  it("シートに role=dialog が設定されている", () => {
+  it("ダイアログとして開かれ role=dialog が一つだけ存在する", () => {
     render(<TabActionDialog {...defaultProps} />);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("タブ操作ダイアログを開くと先頭の操作ボタンにフォーカスが当たる", () => {
+    render(<TabActionDialog {...defaultProps} />);
+    expect(screen.getByRole("button", { name: /再読み込み/ })).toHaveFocus();
   });
 
   it("Escape キーで onClose が呼ばれる", () => {
     const onClose = vi.fn();
     render(<TabActionDialog {...defaultProps} onClose={onClose} />);
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(onClose).toHaveBeenCalled();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("背景クリックで onClose が呼ばれる", () => {
+  it("ネイティブの閉じる要求(cancel)でも onClose が呼ばれる", () => {
     const onClose = vi.fn();
-    const { container } = render(
-      <TabActionDialog {...defaultProps} onClose={onClose} />,
+    render(<TabActionDialog {...defaultProps} onClose={onClose} />);
+    fireEvent(
+      screen.getByRole("dialog"),
+      new Event("cancel", { cancelable: true }),
     );
-    const overlay = container.firstElementChild as HTMLElement;
-    fireEvent.click(overlay);
-    expect(onClose).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("タブ操作ダイアログは背景をクリックすると閉じる", () => {
+    const onClose = vi.fn();
+    render(<TabActionDialog {...defaultProps} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("dialog"));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("シートクリックでは onClose が呼ばれない", () => {
     const onClose = vi.fn();
     render(<TabActionDialog {...defaultProps} onClose={onClose} />);
-    fireEvent.click(screen.getByRole("dialog"));
+    fireEvent.click(screen.getByText("テストカラム"));
     expect(onClose).not.toHaveBeenCalled();
   });
 });
@@ -105,7 +117,7 @@ describe("TabActionDialog のダイアログのアクセシビリティ", () => 
     opener.focus();
 
     const { unmount } = render(<TabActionDialog {...defaultProps} />);
-    screen.getByRole("button", { name: /再読み込み/ }).focus();
+    expect(screen.getByRole("button", { name: /再読み込み/ })).toHaveFocus();
     unmount();
 
     expect(opener).toHaveFocus();

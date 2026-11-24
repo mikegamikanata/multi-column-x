@@ -1,7 +1,6 @@
 import React, { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import styles from "./ShortcutHelpDialog.module.scss";
 
 interface ShortcutHelpDialogProps {
@@ -40,18 +39,15 @@ export const ShortcutHelpDialog: React.FC<ShortcutHelpDialogProps> = ({
   onClose,
 }) => {
   const { t } = useTranslation();
-  useEscapeKey(onClose);
-  useRestoreFocus();
   const titleId = useId();
 
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      onEscape={onClose}
+    >
+      <div className={styles.dialog}>
         <h2 id={titleId} className={styles.title}>
           {t("dialogs:shortcutHelp.title")}
         </h2>
@@ -68,11 +64,16 @@ export const ShortcutHelpDialog: React.FC<ShortcutHelpDialogProps> = ({
         </ul>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.closeBtn} onClick={onClose}>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            data-autofocus
+            onClick={onClose}
+          >
             {t("dialogs:shortcutHelp.close")}
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 };

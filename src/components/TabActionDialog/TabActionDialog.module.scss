@@ -1,7 +1,10 @@
+@use "../../styles/dialog-modal" as dm;
 @use "../../styles/tokens" as t;
 @use "../../styles/mixins" as m;
 
 .overlay {
+  @include dm.modal-overlay;
+
   position: fixed;
   inset: 0;
   background: var(--mcx-overlay);
@@ -55,8 +58,10 @@
   @include m.transition-base(background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-surface-hover);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {
@@ -88,8 +93,10 @@
   @include m.transition-base(background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-surface-hover);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {

@@ -69,7 +69,9 @@
   },
   "whatsNew": {
     "title": "The app has been updated",
-    "version": "What's new in version {{version}}",
+    "versionHeading": "Version {{version}}",
+    "moreNote": "Changes in earlier versions are available on the release page.",
+    "releasesLink": "View past changes on the release page",
     "close": "Close"
   }
 }

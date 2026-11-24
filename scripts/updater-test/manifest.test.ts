@@ -88,6 +88,8 @@ describe("配信サーバーはAPKのハッシュ付きでリリース情報を�
       body: {
         tag_name: "v0.9.0",
         body: "試験用リリースノート",
+        draft: false,
+        prerelease: false,
         assets: [
           {
             name: APK_NAME,
@@ -157,30 +159,51 @@ describe("配信サーバーはAPKのハッシュ付きでリリース情報を�
   });
 });
 
-describe("配信サーバーは指定タグのリリースノートを返す", () => {
-  it("そのバージョンのタグで要求するとリリースノートが返る", () => {
-    const result = routeRequest({
+describe("配信サーバーはリリース一覧を返す", () => {
+  const listRequest = () =>
+    routeRequest({
       method: "GET",
-      pathname: "/repos/natsuyasai/multi-column-x/releases/tags/v0.9.0",
+      pathname: "/repos/natsuyasai/multi-column-x/releases",
       host: "localhost:8787",
       release,
     });
+
+  it("リリース一覧を要求すると1件の配列が返りタグ名とリリースノートが含まれる", () => {
+    const result = listRequest();
 
     expect(result.kind).toBe("json");
     if (result.kind !== "json") return;
-    expect((result.body as { body: string }).body).toBe("試験用リリースノート");
+    expect(result.status).toBe(200);
+    const body = result.body as { tag_name: string; body: string }[];
+    expect(body).toHaveLength(1);
+    expect(body[0].tag_name).toBe("v0.9.0");
+    expect(body[0].body).toBe("試験用リリースノート");
   });
 
-  it("別バージョンのタグで要求すると見つからない応答になる", () => {
-    const result = routeRequest({
-      method: "GET",
-      pathname: "/repos/natsuyasai/multi-column-x/releases/tags/v0.1.0",
-      host: "localhost:8787",
-      release,
-    });
+  it("一覧の各要素は下書きでもプレリリースでもない", () => {
+    const result = listRequest();
 
-    expect(result).toEqual({ kind: "notFound" });
+    if (result.kind !== "json") throw new Error("json を期待");
+    const body = result.body as { draft: boolean; prerelease: boolean }[];
+    expect(body[0].draft).toBe(false);
+    expect(body[0].prerelease).toBe(false);
   });
+});
+
+describe("配信サーバーは指定タグ単位のリリース取得を提供しない", () => {
+  it.each(["v0.9.0", "v0.1.0"])(
+    "タグ %s で要求すると見つからない応答になる",
+    (tag) => {
+      const result = routeRequest({
+        method: "GET",
+        pathname: `/repos/natsuyasai/multi-column-x/releases/tags/${tag}`,
+        host: "localhost:8787",
+        release,
+      });
+
+      expect(result).toEqual({ kind: "notFound" });
+    },
+  );
 });
 
 describe("配信サーバーは配信対象外のパスを要求されたとき拒否する", () => {

@@ -185,8 +185,46 @@ describe("AccountManager", () => {
         onReauthAccount={vi.fn()}
       />,
     );
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onClose).toHaveBeenCalled();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもoncloseが呼ばれ、ダイアログは自動で閉じられない", () => {
+    const onClose = vi.fn();
+    render(
+      <AccountManager
+        accounts={mockAccounts}
+        onAddAccount={vi.fn()}
+        onRemoveAccount={vi.fn()}
+        onSetDefault={vi.fn()}
+        onUpdateAccount={vi.fn()}
+        onClose={onClose}
+        onReauthAccount={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    const notPrevented = fireEvent(
+      dialog,
+      new Event("cancel", { cancelable: true }),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(notPrevented).toBe(false);
+    expect(dialog).toHaveAttribute("open");
+  });
+
+  it("ダイアログを開くと閉じるボタンにフォーカスが当たる", () => {
+    render(
+      <AccountManager
+        accounts={mockAccounts}
+        onAddAccount={vi.fn()}
+        onRemoveAccount={vi.fn()}
+        onSetDefault={vi.fn()}
+        onUpdateAccount={vi.fn()}
+        onClose={vi.fn()}
+        onReauthAccount={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
   });
 
   it("パネル閉じるボタンに close SVG が表示される", () => {
@@ -282,7 +320,7 @@ describe("AccountManager", () => {
       opener.focus();
 
       const { unmount } = renderManager();
-      screen.getByRole("button", { name: "閉じる" }).focus();
+      expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
       unmount();
 
       expect(opener).toHaveFocus();
@@ -305,6 +343,41 @@ describe("AccountManager", () => {
       confirm.unmount();
 
       expect(removeButton).toHaveFocus();
+    });
+
+    it("重なった確認ダイアログでEscを押すと確認だけが閉じ、アカウント管理は開いたままになる", () => {
+      const onClose = vi.fn();
+      const onCancel = vi.fn();
+      render(
+        <>
+          <AccountManager
+            accounts={[mockAccounts[0], secondAccount]}
+            defaultAccountId="acc-1"
+            onAddAccount={vi.fn()}
+            onRemoveAccount={vi.fn()}
+            onSetDefault={vi.fn()}
+            onUpdateAccount={vi.fn()}
+            onClose={onClose}
+            onReauthAccount={vi.fn()}
+          />
+          <ConfirmDialog
+            variant="danger"
+            message="削除しますか？"
+            onConfirm={vi.fn()}
+            onCancel={onCancel}
+          />
+        </>,
+      );
+      // 最前面は後から開いた確認ダイアログ（取り消せない操作なのでキャンセル側にフォーカス）
+      expect(screen.getByRole("button", { name: "キャンセル" })).toHaveFocus();
+
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+
+      expect(onCancel).toHaveBeenCalledOnce();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("dialog", { name: "アカウント管理" }),
+      ).toHaveAttribute("open");
     });
   });
 

@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { HelpPopover } from "@/components/HelpPopover/HelpPopover";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import { expectAccessibleControls } from "@/test-utils/a11y";
 
 describe("HelpPopover", () => {
@@ -34,10 +36,12 @@ describe("HelpPopover", () => {
   it("表示中にEscapeキーを押すと閉じる", () => {
     render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
 
-    fireEvent.click(screen.getByRole("button", { name: "正規表現の書き方" }));
+    const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
+    trigger.focus();
+    fireEvent.click(trigger);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(trigger, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -84,33 +88,123 @@ describe("HelpPopover", () => {
 
   it("Escapeで閉じるとフォーカスが開いたトリガーへ戻る", () => {
     render(
-      <div>
-        <button type="button">別のボタン</button>
-        <HelpPopover label="正規表現の書き方">説明文</HelpPopover>
-      </div>,
+      <HelpPopover label="正規表現の書き方">
+        <button type="button">説明内のボタン</button>
+      </HelpPopover>,
     );
     const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
     fireEvent.click(trigger);
-    screen.getByRole("button", { name: "別のボタン" }).focus();
+    const inner = screen.getByRole("button", { name: "説明内のボタン" });
+    inner.focus();
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(inner, { key: "Escape" });
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
   });
 
-  it("閉じているときのEscapeではフォーカスを動かさない", () => {
+  it("閉じているときのEscapeではフォーカスを動かさず、イベントも処理済みにしない", () => {
+    render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
+    const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
+    trigger.focus();
+
+    const notPrevented = fireEvent.keyDown(trigger, { key: "Escape" });
+
+    expect(trigger).toHaveFocus();
+    expect(notPrevented).toBe(true);
+  });
+
+  it("開いているときのEscapeは処理済みとして扱われる（外側のダイアログに閉じさせないため）", () => {
+    render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
+    const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
+    fireEvent.click(trigger);
+
+    const notPrevented = fireEvent.keyDown(trigger, { key: "Escape" });
+
+    expect(notPrevented).toBe(false);
+  });
+
+  it("ダイアログの中でポップオーバーを開いてEscapeを押すとポップオーバーだけが閉じ、もう一度押すとダイアログが閉じる", () => {
+    const onEscape = vi.fn();
     render(
-      <div>
-        <button type="button">別のボタン</button>
+      <ModalDialog aria-label="外側のダイアログ" onEscape={onEscape}>
         <HelpPopover label="正規表現の書き方">説明文</HelpPopover>
-      </div>,
+      </ModalDialog>,
     );
-    const other = screen.getByRole("button", { name: "別のボタン" });
-    other.focus();
+    const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
+    trigger.focus();
+    fireEvent.click(trigger);
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(trigger, { key: "Escape" });
 
-    expect(other).toHaveFocus();
+    expect(
+      screen.queryByRole("dialog", { name: "正規表現の書き方" }),
+    ).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(onEscape).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "外側のダイアログ" }),
+    ).toHaveAttribute("open");
+
+    fireEvent.keyDown(trigger, { key: "Escape" });
+
+    expect(onEscape).toHaveBeenCalledOnce();
+  });
+
+  describe("Androidの戻る操作", () => {
+    it("開いている間の戻る操作でポップオーバーが閉じ、フォーカスがトリガーへ戻る", () => {
+      render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
+      const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
+      fireEvent.click(trigger);
+
+      let handled = false;
+      act(() => {
+        handled = handleAndroidBack();
+      });
+
+      expect(handled).toBe(true);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it("閉じているときの戻る操作は処理されない", () => {
+      render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
+
+      expect(handleAndroidBack()).toBe(false);
+    });
+
+    it("閉じた後の戻る操作は処理されない", () => {
+      render(<HelpPopover label="正規表現の書き方">説明文</HelpPopover>);
+      const trigger = screen.getByRole("button", { name: "正規表現の書き方" });
+      fireEvent.click(trigger);
+      fireEvent.click(trigger);
+
+      expect(handleAndroidBack()).toBe(false);
+    });
+
+    it("ダイアログの中でポップオーバーを開いて戻る操作をするとポップオーバーだけが閉じ、もう一度でダイアログが閉じる", () => {
+      const onEscape = vi.fn();
+      render(
+        <ModalDialog aria-label="外側のダイアログ" onEscape={onEscape}>
+          <HelpPopover label="正規表現の書き方">説明文</HelpPopover>
+        </ModalDialog>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "正規表現の書き方" }));
+
+      act(() => {
+        handleAndroidBack();
+      });
+
+      expect(
+        screen.queryByRole("dialog", { name: "正規表現の書き方" }),
+      ).not.toBeInTheDocument();
+      expect(onEscape).not.toHaveBeenCalled();
+
+      act(() => {
+        handleAndroidBack();
+      });
+
+      expect(onEscape).toHaveBeenCalledOnce();
+    });
   });
 });

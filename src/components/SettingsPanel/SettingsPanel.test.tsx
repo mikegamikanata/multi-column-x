@@ -63,8 +63,30 @@ describe("SettingsPanel", () => {
   it("EscキーでonCloseが呼ばれる", () => {
     const onClose = vi.fn();
     render(<SettingsPanel {...defaultProps} onClose={onClose} />);
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onClose).toHaveBeenCalled();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもonCloseが呼ばれ、ダイアログは自動で閉じられない", () => {
+    const onClose = vi.fn();
+    render(<SettingsPanel {...defaultProps} onClose={onClose} />);
+    const dialog = screen.getByRole("dialog", { name: "カラム設定" });
+
+    const notPrevented = fireEvent(
+      dialog,
+      new Event("cancel", { cancelable: true }),
+    );
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(notPrevented).toBe(false);
+    expect(dialog).toHaveAttribute("open");
+  });
+
+  it("開くと選択中のタブにフォーカスが当たる", () => {
+    render(<SettingsPanel {...defaultProps} />);
+    const selected = screen.getByRole("tab", { selected: true });
+    expect(selected).toHaveFocus();
+    expect(selected).toHaveAttribute("tabindex", "0");
   });
 
   it("再読み込みボタンが表示される", () => {
@@ -159,6 +181,28 @@ describe("SettingsPanel NGワード", () => {
     expect(
       screen.getByRole("button", { name: "NGワードの書き方" }),
     ).toBeInTheDocument();
+  });
+
+  it("ヘルプのポップオーバーを開いているときにEscを押すとポップオーバーだけが閉じ、カラム設定は開いたままになる", () => {
+    const onClose = vi.fn();
+    renderFilter(<SettingsPanel {...defaultProps} onClose={onClose} />);
+    const trigger = screen.getByRole("button", { name: "NGワードの書き方" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(
+      screen.getByRole("dialog", { name: "NGワードの書き方" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("dialog", { name: "NGワードの書き方" }),
+    ).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "カラム設定" })).toHaveAttribute(
+      "open",
+    );
   });
 
   it("不正な正規表現を入力して適用すると、エラーメッセージが表示されonApplyが呼ばれない", async () => {
@@ -1517,7 +1561,10 @@ describe("SettingsPanel 未適用の変更があるときの確認メッセー�
         fireEvent.change(screen.getByRole("textbox", { name: "表示名" }), {
           target: { value: "仕事用" },
         }),
-      () => fireEvent.keyDown(document, { key: "Escape" }),
+      () =>
+        fireEvent.keyDown(document.activeElement as Element, {
+          key: "Escape",
+        }),
     ],
     [
       "「フィルタ」タブでNGワードを入力した状態でヘッダーの ✕",
@@ -1606,11 +1653,32 @@ describe("SettingsPanel 未適用の変更があるときの確認メッセー�
     fireEvent.click(ヘッダーの閉じる());
     expect(確認メッセージ()).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
 
     expect(確認メッセージ()).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("確認メッセージの表示中は、カラム設定本体が受けたEscキーでは何も起きない", () => {
+    const onClose = vi.fn();
+    render(
+      <SettingsPanel
+        {...defaultProps}
+        column={autoReloadColumn}
+        onClose={onClose}
+      />,
+    );
+    自動更新間隔を変更する("120");
+    fireEvent.click(ヘッダーの閉じる());
+    expect(確認メッセージ()).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "カラム設定" }), {
+      key: "Escape",
+    });
+
+    expect(確認メッセージ()).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("カラム設定で未適用の変更がないときは確認なしで閉じる", () => {

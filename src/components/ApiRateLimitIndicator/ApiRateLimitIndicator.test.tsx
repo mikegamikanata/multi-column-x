@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as apiRateLimitLabels from "@/constants/apiRateLimitLabels";
 import i18n from "@/i18n";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import { expectAccessibleControls } from "@/test-utils/a11y";
 import { expectNoJapanese } from "@/test-utils/japanese";
 import type { Account, ApiRateLimitBucket } from "@/types";
@@ -122,6 +123,38 @@ describe("ApiRateLimitIndicator", () => {
     fireEvent.keyDown(document, { key: "Escape" });
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("開いている間にAndroidの戻る操作をすると閉じてフォーカスがトリガーへ戻る", () => {
+    render(
+      <ApiRateLimitIndicator
+        accounts={accounts}
+        apiRateLimits={normalRateLimits}
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: "APIレート制限" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    let handled = false;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+
+    expect(handled).toBe(true);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("閉じているときのAndroidの戻る操作は処理されない", () => {
+    render(
+      <ApiRateLimitIndicator
+        accounts={accounts}
+        apiRateLimits={normalRateLimits}
+      />,
+    );
+
+    expect(handleAndroidBack()).toBe(false);
   });
 
   it("ポップオーバー外をクリックすると閉じる", () => {

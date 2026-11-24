@@ -1,8 +1,11 @@
 @use "../../styles/dialog-fullscreen" as fs;
+@use "../../styles/dialog-modal" as dm;
 @use "../../styles/tokens" as t;
 @use "../../styles/mixins" as m;
 
 .overlay {
+  @include dm.modal-overlay;
+
   position: fixed;
   top: 0;
   left: 0;
@@ -60,9 +63,11 @@
   @include m.transition-base(color, background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    color: var(--mcx-text-tertiary);
-    background: var(--mcx-surface-hover);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text-tertiary);
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {
@@ -101,9 +106,11 @@
   @include m.transition-base(color, background-color, border-color);
   @include m.android-tap-target;
 
-  &:hover {
-    color: var(--mcx-text-tertiary);
-    background: var(--mcx-surface-hover);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text-tertiary);
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {
@@ -199,8 +206,10 @@
     outline: none;
   }
 
-  &:hover {
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text);
+    }
   }
 
   &:active {
@@ -245,8 +254,10 @@
     margin-left: t.$space-1;
   }
 
-  &:hover {
-    border-color: var(--mcx-text-muted);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-text-muted);
+    }
   }
 
   &:focus-visible {
@@ -266,8 +277,10 @@
   @include m.transition-base(border-color);
   @include m.android-tap-target;
 
-  &:hover {
-    border-color: var(--mcx-text-muted);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-text-muted);
+    }
   }
 
   &:focus-visible {
@@ -289,8 +302,10 @@
   @include m.transition-base(border-color);
   @include m.android-tap-target;
 
-  &:hover {
-    border-color: var(--mcx-text-muted);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-text-muted);
+    }
   }
 
   &:focus-visible {
@@ -317,8 +332,10 @@
   @include m.transition-base(border-color);
   @include m.android-tap-target;
 
-  &:hover {
-    border-color: var(--mcx-text-muted);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-text-muted);
+    }
   }
 
   &:focus-visible {
@@ -359,9 +376,11 @@
   @include m.transition-base(background-color, border-color, color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-surface-hover);
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-surface-hover);
+      color: var(--mcx-text);
+    }
   }
 
   &:active {
@@ -385,9 +404,11 @@
   @include m.transition-base(background-color, border-color, color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-surface-hover);
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-surface-hover);
+      color: var(--mcx-text);
+    }
   }
 
   &:active {
@@ -412,8 +433,10 @@
   @include m.transition-base(background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-accent-hover);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-accent-hover);
+    }
   }
 
   &:active {

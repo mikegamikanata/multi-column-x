@@ -178,3 +178,17 @@ export function listModuleScssFiles(): string[] {
 export function readScss(path: string): string {
   return readFileSync(path, "utf-8");
 }
+
+/** src 配下の *.scss / *.css（モジュール・パーシャル・素の CSS）を相対パス（"src/…"）で昇順に列挙する */
+export function listStyleFiles(): string[] {
+  const found: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else if (/\.(scss|css)$/.test(entry.name)) found.push(path);
+    }
+  };
+  walk("src");
+  return found.sort();
+}
