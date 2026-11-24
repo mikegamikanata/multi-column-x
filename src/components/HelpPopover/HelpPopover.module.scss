@@ -24,9 +24,11 @@
   @include m.transition-base(color, background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    color: var(--mcx-text-tertiary);
-    background: var(--mcx-surface-hover);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text-tertiary);
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {

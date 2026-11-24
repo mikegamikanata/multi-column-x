@@ -54,9 +54,11 @@
   line-height: 1;
   @include m.transition-base(color, background-color);
 
-  &:hover {
-    color: var(--mcx-text-tertiary);
-    background: var(--mcx-surface-hover);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text-tertiary);
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {
@@ -80,8 +82,10 @@
   flex-shrink: 0;
   @include m.transition-base(background-color);
 
-  &:hover {
-    background: var(--mcx-accent-hover);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-accent-hover);
+    }
   }
 
   &:active {

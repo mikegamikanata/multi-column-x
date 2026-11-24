@@ -90,9 +90,11 @@ $topbar-row-height: 2rem;
   padding: 0;
   @include m.transition-base(color, background-color);
 
-  &:hover {
-    color: var(--mcx-text-tertiary);
-    background: var(--mcx-surface-hover);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text-tertiary);
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {
@@ -134,7 +136,13 @@ $topbar-row-height: 2rem;
   background: var(--mcx-accent-fill);
   color: var(--mcx-text-on-accent);
 
-  &:hover,
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-accent-hover);
+      color: var(--mcx-text-on-accent);
+    }
+  }
+
   &:active {
     background: var(--mcx-accent-hover);
     color: var(--mcx-text-on-accent);
@@ -151,9 +159,11 @@ $topbar-row-height: 2rem;
   color: var(--mcx-text-muted);
   font-size: t.$font-size-xs;
 
-  &:hover {
-    color: var(--mcx-text-secondary);
-    background: var(--mcx-surface-hover);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text-secondary);
+      background: var(--mcx-surface-hover);
+    }
   }
 
   &:active {
