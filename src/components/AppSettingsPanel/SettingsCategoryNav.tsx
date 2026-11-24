@@ -90,6 +90,7 @@ export const SettingsCategoryNav: React.FC<SettingsCategoryNavProps> = ({
                     className={`${styles.navItem} ${selected ? styles.navItemActive : ""}`}
                     aria-current={selected ? "page" : undefined}
                     tabIndex={selected ? 0 : -1}
+                    data-autofocus={selected ? "" : undefined}
                     onClick={() => onSelect(c.id)}
                     onKeyDown={onKeyDown}
                   >

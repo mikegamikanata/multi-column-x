@@ -136,13 +136,15 @@ Object.assign(window.MCX_DATA.details, {
       "<p><code>index.css</code> に配色トークン（<code>--mcx-*</code>）とグローバル既定（<code>:focus-visible</code>・<code>:disabled</code>・<code>prefers-reduced-motion</code>）。寸法は <code>rem</code> で書く。</p>" +
       "<ul><li><b>_tokens.scss</b>: 余白・角丸・文字サイズ・動きの時間・タップ領域の SCSS 変数。Storybook は <code>index.css</code> を読まないため CSS 変数ではなく SCSS 変数。</li>" +
       "<li><b>_mixins.scss</b>: <code>focus-ring</code> / <code>transition-base</code> / <code>android-tap-target</code> / <code>android-button-gap</code>。</li>" +
-      "<li><b>_dialog-fullscreen.scss</b>: パネル型ダイアログの Android 全画面化。</li></ul>" +
+      "<li><b>_dialog-fullscreen.scss</b>: パネル型ダイアログの Android 全画面化。</li>" +
+      "<li><b>_dialog-modal.scss</b>: ネイティブ <code>&lt;dialog&gt;</code> を <code>.overlay</code> として使うミキシン <code>modal-overlay</code>（UA 既定の打ち消し）。</li></ul>" +
       "<p>各 <code>*.module.scss</code> は契約テスト <code>uiDesign.contract.test.ts</code> が検査する（余白は 0.25rem の倍数・最小文字 0.75rem・状態の定義・Android の 44px など。除外リストは無い）。</p>",
     files: [
       "src/index.css",
       "src/styles/_tokens.scss",
       "src/styles/_mixins.scss",
       "src/styles/_dialog-fullscreen.scss",
+      "src/styles/_dialog-modal.scss",
       "src/lib/uiDesign.contract.test.ts",
     ],
     docs: [
@@ -623,6 +625,20 @@ Object.assign(window.MCX_DATA.catalogs, {
         docs: ["../development/api-rate-limit-operations-notes.md"],
       },
       {
+        name: "ModalDialog",
+        summary:
+          "モーダルダイアログの共通部品（ネイティブ <dialog> + showModal）。",
+        kind: "ダイアログ",
+        detail:
+          "<p>全モーダルダイアログがこれで作られる。<code>&lt;dialog&gt;</code> 自身が <code>.overlay</code>（SCSS 先頭で <code>modal-overlay</code> ミキシンを <code>@include</code>）。props: <code>onEscape</code> ほか <code>&lt;dialog&gt;</code> の属性。背後の無効化・重なり順は標準動作。Windows WebView2 では標準だけだと最後の要素からの Tab がページ外へ出たため、<code>wrapTab</code> で Tab の端を折り返す（WebKitGTK・Android WebView・OS の実キー入力は未検証）。Esc は <code>onKeyDown</code>（<code>preventDefault</code> 済みなら閉じない = <code>HelpPopover</code> が先に閉じる）とネイティブ <code>cancel</code> の二経路。初期フォーカスは <code>data-autofocus</code> 属性（<code>autoFocus</code> は閉じた dialog で効かない）。<code>useRestoreFocus</code> もここで呼ぶ。jsdom は <code>showModal</code> を持たず最小 polyfill のため、Tab 巡回・inert は <code>ModalDialog.stories.tsx</code> の play function で検証する。</p>",
+        files: [
+          "src/components/ModalDialog/ModalDialog.tsx",
+          "src/styles/_dialog-modal.scss",
+          "src/components/ModalDialog/ModalDialog.stories.tsx",
+        ],
+        docs: ["../development/ui-design-principles-notes.md"],
+      },
+      {
         name: "AddColumnDialog",
         summary:
           "カラム追加ダイアログ（アカウント・ページ種別・URL 等を選ぶ）。",
@@ -979,14 +995,15 @@ Object.assign(window.MCX_DATA.catalogs, {
       },
       {
         name: "useEscapeKey / useOutsideClick",
-        summary: "Esc キーで閉じる・外側クリックで閉じる共通フック。",
+        summary:
+          "document の Esc で閉じる・外側クリックで閉じる共通フック（ダイアログの外の非モーダル部品用。モーダルダイアログの Esc は ModalDialog が処理する）。",
         area: "UI",
         files: ["src/hooks/useEscapeKey.ts", "src/hooks/useOutsideClick.ts"],
       },
       {
         name: "useRestoreFocus",
         summary:
-          "ダイアログを閉じたとき、開く前にフォーカスしていた要素へ戻す。",
+          "ダイアログを閉じたとき、開く前にフォーカスしていた要素へ戻す（ModalDialog が呼ぶ）。",
         area: "UI",
         files: ["src/hooks/useRestoreFocus.ts"],
         docs: ["../development/ui-design-principles-notes.md"],

@@ -80,7 +80,7 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 - [ ] フォーカスリングは `&:focus-visible { @include m.focus-ring; }`。`outline: none` を単独で書かない
 - [ ] ナビ / タブは現在地を `aria-selected` / `aria-current` と見た目の両方で示す（`role="tablist"` / `"tab"`）
 - [ ] アイコン・記号のみのボタンに `aria-label`（i18n 経由）。入力欄は `<label htmlFor>` / ラベル包含 / `aria-label`
-- [ ] ダイアログは `role="dialog"` `aria-modal="true"` `aria-labelledby`（見出しに `useId()` の id）、Esc で閉じる（`useEscapeKey`）、閉じたらフォーカス復帰（`useRestoreFocus`）
+- [ ] モーダルダイアログは素の `div` ではなく `ModalDialog`（ネイティブ `<dialog>`）で作る。`aria-labelledby`（見出しに `useId()` の id）、Esc で閉じる（`onEscape`）、初期フォーカスは `data-autofocus`、閉じたらフォーカス復帰（`ModalDialog` が `useRestoreFocus` を呼ぶ）。`.overlay` の SCSS 先頭で `@include dm.modal-overlay;`（詳細は `ui-design-principles-notes.md` §7）
 
 ### 美的ユーザビリティ
 
@@ -116,7 +116,7 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 6. 枠線: フォーム部品・アウトラインボタンは `var(--mcx-border-strong)`。カード / 区切り線は `--mcx-border` のまま可（装飾）
 7. 押下要素へ `@include m.android-tap-target;`、ボタン群コンテナへ `@include m.android-button-gap;`。チェックボックス / ラジオ / トグルは**ラベル全体**に適用し、`input` 自体を拡大しない
 8. 主 CTA の強調は 1 つだけ（`--mcx-accent-fill`）。複数ある場合は副次を `--mcx-surface-muted` + `border-strong` に落とす（見た目が変わる場合のみ。挙動不変）
-9. TSX: ダイアログに `role="dialog"` `aria-modal="true"` `aria-labelledby="<id>"`（見出しに `id`。同一画面で重複しないよう `useId()`）、`useRestoreFocus()`、`useEscapeKey`（未使用なら追加）。アイコンのみ / 記号のみのボタンに `aria-label`（i18n 経由）。入力欄は `<label htmlFor>` またはラベルの包含、または `aria-label`。タブは `role="tablist"` / `"tab"` + `aria-selected`、ナビの現在地は `aria-current`。状態表示は色のみにせずアイコン・接頭ラベル・太さのいずれかを併用
+9. TSX: モーダルダイアログは `ModalDialog` に `className={styles.overlay}` `aria-labelledby="<id>"`（見出しに `id`。同一画面で重複しないよう `useId()`）`onEscape` を渡し、初期フォーカスにしたい要素へ `data-autofocus`（`autoFocus` は閉じた `<dialog>` では効かないので使わない）。パネルの `div` に `role="dialog"` は付けない。`useRestoreFocus` / `useEscapeKey` はダイアログから直接呼ばない（`useEscapeKey` はダイアログの外の非モーダル部品用）。アイコンのみ / 記号のみのボタンに `aria-label`（i18n 経由）。入力欄は `<label htmlFor>` またはラベルの包含、または `aria-label`。タブは `role="tablist"` / `"tab"` + `aria-selected`、ナビの現在地は `aria-current`。状態表示は色のみにせずアイコン・接頭ラベル・太さのいずれかを併用
 10. `npx vitest run --project unit src/lib/uiDesign.contract.test.ts` で契約テストが緑になることを確認（全 `*.module.scss` が自動で対象。除外リストは無い）
 11. Storybook の Story に Android の当たり判定（`expectTapTargets` / `expectAdjacentGap`）とアクセシブルネーム（`expectAccessibleControls`）の検査を足す。ヘルパの使い方は下の「共通ヘルパ」参照
 
@@ -135,13 +135,14 @@ React / SCSS で UI を新規作成・変更するときは、このスキルの
 
 ## 共通ヘルパ
 
-| ヘルパ                         | 使い方                                                                                                                                                                                                                                         |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/hooks/useRestoreFocus.ts` | ダイアログのコンポーネントの先頭で `useRestoreFocus()`。マウント時（初回レンダー中）の `document.activeElement` を覚え、アンマウント時にフォーカスが空（`body`）なら戻す。StrictMode の擬似アンマウントで `autoFocus` を打ち消さないための条件 |
-| `src/components/StatusMark/`   | `<StatusMark kind="success\|warning\|selected" />`。成功・警告・選択中を色だけで伝えないための記号（`aria-hidden`）。隣の本文に意味を持たせる                                                                                                  |
-| `src/test-utils/a11y.ts`       | `expectAccessibleControls(container)`: 操作要素が空でないアクセシブルネームを持つこと                                                                                                                                                          |
-| `src/test-utils/tapTargets.ts` | Story の play で `const restore = setPlatform("android"); try { await expectTapTargets(canvasElement, 44); await expectAdjacentGap(canvasElement, 8); } finally { restore(); }`                                                                |
-| `src/test-utils/storyTheme.ts` | Story で `installThemeTokens()`（`--mcx-*` を有効化）。固定高さのバーなどの高さを実測する play では `const restore = installAppReset();`（border-box リセット）を `try / finally` で使う                                                       |
+| ヘルパ                                       | 使い方                                                                                                                                                                                                                                        |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/hooks/useRestoreFocus.ts`               | `ModalDialog` が呼ぶ（ダイアログから直接は呼ばない）。マウント時（初回レンダー中）の `document.activeElement` を覚え、アンマウント時にフォーカスが空（`body`）なら戻す。StrictMode の擬似アンマウントで初期フォーカスを打ち消さないための条件 |
+| `src/components/ModalDialog/ModalDialog.tsx` | モーダルダイアログの共通部品（ネイティブ `<dialog>` + `showModal()`）。Tab の折り返し・Esc 二経路・`data-autofocus` による初期フォーカス・フォーカス復帰を持つ。SCSS は `src/styles/_dialog-modal.scss` の `modal-overlay` ミキシン           |
+| `src/components/StatusMark/`                 | `<StatusMark kind="success\|warning\|selected" />`。成功・警告・選択中を色だけで伝えないための記号（`aria-hidden`）。隣の本文に意味を持たせる                                                                                                 |
+| `src/test-utils/a11y.ts`                     | `expectAccessibleControls(container)`: 操作要素が空でないアクセシブルネームを持つこと                                                                                                                                                         |
+| `src/test-utils/tapTargets.ts`               | Story の play で `const restore = setPlatform("android"); try { await expectTapTargets(canvasElement, 44); await expectAdjacentGap(canvasElement, 8); } finally { restore(); }`                                                               |
+| `src/test-utils/storyTheme.ts`               | Story で `installThemeTokens()`（`--mcx-*` を有効化）。固定高さのバーなどの高さを実測する play では `const restore = installAppReset();`（border-box リセット）を `try / finally` で使う                                                      |
 
 Storybook の落とし穴（`index.css` を読まない、`:focus-visible` の Story 検査の限界、マウスクリックでリングが出ないことの検証には `vitest/browser` の実クリックが必要、など）は `docs/development/ui-design-principles-notes.md` の「Storybook の落とし穴」を参照。
 
@@ -175,3 +176,4 @@ Storybook の落とし穴（`index.css` を読まない、`:focus-visible` の S
 - `docs/development/ui-scale-notes.md`（UI 表示サイズ・rem・Android 全画面ダイアログ）
 - `.claude/skills/component-create` / `.claude/skills/storybook-dev`（コンポーネント・Story 作成）
 - `src/styles/_dialog-fullscreen.scss`（パネル型ダイアログの Android 全画面化）
+- `src/styles/_dialog-modal.scss`（`<dialog>` を `.overlay` として使うための UA 既定の打ち消し）

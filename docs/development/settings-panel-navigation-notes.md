@@ -65,7 +65,7 @@ Android では「プリセット」、デスクトップでは「Android専用�
 - アプリ設定・カラム設定とも、未適用の変更があるときに **ヘッダーの ✕ / Esc キー / フッターの「閉じる」（アプリ設定の非 draft カテゴリ）** で閉じようとすると確認（「破棄して閉じる」/「戻る」、`variant="danger"`）を出す。共通フック `useUnsavedChangesGuard`（`src/hooks/`）と確認ダイアログ部品 `UnsavedChangesDialog` を使う。
 - 未適用の判定は、アプリ設定は `dirtyCategories`（ナビの印と同じ）、カラム設定は `columnSettingsChanges.ts` の `hasColumnSettingsChanges`（開いたときの設定・幅・表示名・行リスト入力と比較）。値を元に戻せば確認は出ない。
 - 「キャンセル」は破棄の意思が明確なので確認しない。パネル内の操作による自動クローズ（全WebView再生成・プリセット読込・バックアップ復元・カラム配置の適用・カラム設定の再読み込み）も確認しない。
-- `useEscapeKey` は document の keydown を各コンポーネントが個別に購読するため、ConfirmDialog の Esc と二重に発火する。**確認表示中はパネル側の Esc ハンドラを無効にする**こと（Esc で確認だけ閉じる）。
+- 両パネルと確認ダイアログは `ModalDialog`（ネイティブ `<dialog>`）で、Esc は `ModalDialog` の `onKeyDown` が受けて `stopPropagation()` する。確認（`UnsavedChangesDialog` → `ConfirmDialog`）はパネルの `.overlay` の DOM の内側に描画されるが、内側の Esc は外側へ伝わらないので、Esc で確認だけが閉じ、パネルは閉じない（旧実装の `useEscapeKey` は document の keydown を購読して二重に発火していた）。パネル側の `onEscape={guard.confirmOpen ? noop : guard.requestClose}` は、この前提が崩れたときの二重の安全策として残している（確認表示中はパネル側の Esc ハンドラを無効にする）。詳細は `ui-design-principles-notes.md` §7。
 
 ## Android の戻る操作
 

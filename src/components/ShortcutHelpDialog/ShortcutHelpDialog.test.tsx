@@ -21,10 +21,25 @@ describe("ShortcutHelpDialog", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("ショートカット一覧を開くと閉じるボタンにフォーカスが当たる", () => {
+    render(<ShortcutHelpDialog onClose={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
+  });
+
   it("EscapeでonCloseが呼ばれる", () => {
     const onClose = vi.fn();
     render(<ShortcutHelpDialog onClose={onClose} />);
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもonCloseが呼ばれる", () => {
+    const onClose = vi.fn();
+    render(<ShortcutHelpDialog onClose={onClose} />);
+    fireEvent(
+      screen.getByRole("dialog"),
+      new Event("cancel", { cancelable: true }),
+    );
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -47,7 +62,7 @@ describe("ShortcutHelpDialog", () => {
       opener.focus();
 
       const { unmount } = render(<ShortcutHelpDialog onClose={vi.fn()} />);
-      screen.getByRole("button", { name: "閉じる" }).focus();
+      expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
       unmount();
 
       expect(opener).toHaveFocus();

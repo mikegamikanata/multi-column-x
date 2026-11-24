@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import type {
   H264DownloadError,
   H264DownloadState,
   H264RelaunchError,
 } from "@/hooks/useH264Setup";
-import { useRestoreFocus } from "@/hooks/useRestoreFocus";
 import { describeAppError } from "@/lib/appError";
 import styles from "./H264SetupDialog.module.scss";
 
@@ -33,7 +32,6 @@ export const H264SetupDialog: React.FC<Props> = ({
   onRelaunch,
 }) => {
   const { t } = useTranslation();
-  useRestoreFocus();
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
@@ -44,7 +42,6 @@ export const H264SetupDialog: React.FC<Props> = ({
   const handleEscape = useCallback(() => {
     if (!downloading) onClose();
   }, [downloading, onClose]);
-  useEscapeKey(handleEscape);
 
   // 状態が変わるたびに主操作ボタンへ（無ければダイアログ自身へ）フォーカスを移す
   useEffect(() => {
@@ -52,16 +49,13 @@ export const H264SetupDialog: React.FC<Props> = ({
   }, [downloadState]);
 
   return (
-    <div className={styles.overlay}>
-      <div
-        ref={dialogRef}
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-busy={downloading}
-        tabIndex={-1}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      aria-busy={downloading}
+      onEscape={handleEscape}
+    >
+      <div ref={dialogRef} className={styles.dialog} tabIndex={-1}>
         <h2 id={titleId} className={styles.title}>
           {t("dialogs:h264.title")}
         </h2>
@@ -169,6 +163,6 @@ export const H264SetupDialog: React.FC<Props> = ({
           </>
         )}
       </div>
-    </div>
+    </ModalDialog>
   );
 };

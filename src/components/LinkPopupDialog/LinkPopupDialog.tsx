@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect, useId } from "react";
+import React, { useState, useId } from "react";
 import { useTranslation } from "react-i18next";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { useRestoreFocus } from "../../hooks/useRestoreFocus";
+import { ModalDialog } from "@/components/ModalDialog/ModalDialog";
 import type { Account } from "../../types";
 import styles from "./LinkPopupDialog.module.scss";
 
@@ -27,13 +26,7 @@ export const LinkPopupDialog: React.FC<LinkPopupDialogProps> = ({
   const { t } = useTranslation();
   const [url, setUrl] = useState(fixedUrl ?? "");
   const [accountId, setAccountId] = useState(defaultAccountId);
-  const inputRef = useRef<HTMLInputElement>(null);
   const titleId = useId();
-  useRestoreFocus();
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   const handleSubmit = () => {
     onSubmit(fixedUrl ?? url, accountId);
@@ -45,20 +38,17 @@ export const LinkPopupDialog: React.FC<LinkPopupDialogProps> = ({
     onClose();
   };
 
-  useEscapeKey(handleCancel);
-
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.panel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
+    <ModalDialog
+      className={styles.overlay}
+      aria-labelledby={titleId}
+      onEscape={handleCancel}
+    >
+      <div className={styles.panel}>
         <h3 id={titleId}>{title ?? t("dialogs:linkPopup.defaultTitle")}</h3>
         {!fixedUrl && (
           <input
-            ref={inputRef}
+            data-autofocus=""
             className={styles.input}
             type="text"
             aria-label={t("dialogs:linkPopup.urlLabel")}
@@ -97,6 +87,6 @@ export const LinkPopupDialog: React.FC<LinkPopupDialogProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 };

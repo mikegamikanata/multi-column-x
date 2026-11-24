@@ -11,6 +11,7 @@ multi-column-x/
 │   ├── index.css                     # 配色トークン（--mcx-*）・テーマ別 CSS 変数
 │   ├── styles/
 │   │   ├── _dialog-fullscreen.scss   # パネル型ダイアログを Android で全画面化するミキシン（詳細: ui-scale-notes.md）
+│   │   ├── _dialog-modal.scss        # ネイティブ <dialog> を .overlay として使うためのミキシン modal-overlay（UA 既定の打ち消し。詳細: ui-design-principles-notes.md §7）
 │   │   ├── _tokens.scss              # UI 共通デザイントークン（SCSS 変数: space / radius / font-size / duration / tap-target。詳細: ui-design-principles-notes.md）
 │   │   └── _mixins.scss              # focus-ring / transition-base / android-tap-target / android-button-gap
 │   ├── i18n/                         # 多言語対応の初期化（index.ts=i18next 初期化, resources.ts=辞書の集約, types.ts=AppTFunction 型。詳細: i18n-notes.md）
@@ -83,8 +84,8 @@ multi-column-x/
 │   │   ├── useTheme.ts               # テーマ（ダーク/ライト/システム）切替
 │   │   ├── useUiScale.ts             # アプリUI倍率を <html> の font-size へ反映（端末倍率の測定含む）
 │   │   ├── useDialogState.ts         # ダイアログ開閉状態管理
-│   │   ├── useEscapeKey.ts           # Esc キーでのダイアログ/ポップアップ閉じる処理
-│   │   ├── useRestoreFocus.ts        # ダイアログを閉じたときに開く前の要素へフォーカスを戻す
+│   │   ├── useEscapeKey.ts           # document の Esc keydown を購読する（ダイアログ外の非モーダル部品用。モーダルダイアログの Esc は ModalDialog が処理する）
+│   │   ├── useRestoreFocus.ts        # ダイアログを閉じたときに開く前の要素へフォーカスを戻す（ModalDialog が呼ぶ）
 │   │   ├── useOutsideClick.ts        # 要素外クリック検出
 │   │   └── useKeyboardShortcuts.ts   # キーボードショートカット処理
 │   └── components/
@@ -113,6 +114,7 @@ multi-column-x/
 │       ├── MobileTabBar/             # モバイルタブバー（Android）
 │       ├── TabActionDialog/          # モバイルタブ長押しアクションダイアログ
 │       ├── LinkPopupDialog/          # リンクポップアップ URL 入力ダイアログ
+│       ├── ModalDialog/              # モーダルダイアログ共通部品（ネイティブ <dialog> + showModal()。Tab の折り返し・Esc・初期フォーカス data-autofocus・フォーカス復帰。モーダルは必ずこれで作る）
 │       ├── ConfirmDialog/            # 汎用確認ダイアログ
 │       ├── HelpPopover/              # ヘルプ用ポップオーバー
 │       ├── ShortcutHelpDialog/       # キーボードショートカット一覧ダイアログ

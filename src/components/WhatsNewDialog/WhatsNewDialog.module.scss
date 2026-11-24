@@ -1,8 +1,11 @@
 @use "../../styles/dialog-fullscreen" as fs;
+@use "../../styles/dialog-modal" as dm;
 @use "../../styles/tokens" as t;
 @use "../../styles/mixins" as m;
 
 .overlay {
+  @include dm.modal-overlay;
+
   position: fixed;
   inset: 0;
   background: var(--mcx-overlay);

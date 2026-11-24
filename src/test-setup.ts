@@ -24,3 +24,20 @@ Object.defineProperty(window, "__TAURI__", {
   },
   writable: true,
 });
+
+// jsdom は HTMLDialogElement.showModal / close を実装していないため、open 属性の付け外しだけを再現する。
+// Tab の巡回・inert・top layer は jsdom では検証できない（Storybook の play function で検証する）。
+if (typeof HTMLDialogElement !== "undefined") {
+  HTMLDialogElement.prototype.showModal ??= function showModal(
+    this: HTMLDialogElement,
+  ) {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close ??= function close(
+    this: HTMLDialogElement,
+  ) {
+    if (!this.hasAttribute("open")) return;
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  };
+}

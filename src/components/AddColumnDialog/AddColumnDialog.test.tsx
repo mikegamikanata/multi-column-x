@@ -100,8 +100,42 @@ describe("AddColumnDialog", () => {
         onCancel={onCancel}
       />,
     );
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onCancel).toHaveBeenCalled();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("ネイティブの閉じる要求(cancel)でもonCancelが呼ばれ、ダイアログは自動で閉じられない", () => {
+    const onCancel = vi.fn();
+    render(
+      <AddColumnDialog
+        accounts={mockAccounts}
+        globalSettings={mockGlobalSettings}
+        existingColumns={[]}
+        onAdd={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    const notPrevented = fireEvent(
+      dialog,
+      new Event("cancel", { cancelable: true }),
+    );
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(notPrevented).toBe(false);
+    expect(dialog).toHaveAttribute("open");
+  });
+
+  it("ダイアログを開くと先頭の選択欄(アカウント)にフォーカスが当たる", () => {
+    render(
+      <AddColumnDialog
+        accounts={mockAccounts}
+        globalSettings={mockGlobalSettings}
+        existingColumns={[]}
+        onAdd={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("アカウント")).toHaveFocus();
   });
 
   it("投稿を選んで追加するとpageTypeがcomposeのカラムが作られる", async () => {

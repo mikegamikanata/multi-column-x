@@ -518,7 +518,8 @@ export const AndroidTapTargets: Story = {
 export const KeyboardFocusShowsRing: Story = {
   name: "キーボードでフォーカスしたボタンにはフォーカスリングが出る",
   play: async ({ canvasElement }) => {
-    await userEvent.tab();
+    // 開いた直後は選択中のタブに初期フォーカスがある。キーボード操作（Shift+Tab）で閉じるボタンへ移す
+    await userEvent.tab({ shift: true });
     const focused = document.activeElement as HTMLElement;
     await expect(focused).toBe(
       within(canvasElement).getByRole("button", { name: "閉じる" }),

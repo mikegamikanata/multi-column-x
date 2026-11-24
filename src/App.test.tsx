@@ -278,7 +278,7 @@ describe("App (desktop)", () => {
       await findRemoveColumnDialog();
       mockInvoke.mockClear();
 
-      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
 
       await waitFor(() => {
         expect(

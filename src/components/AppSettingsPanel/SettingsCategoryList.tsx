@@ -26,17 +26,20 @@ export const SettingsCategoryList: React.FC<SettingsCategoryListProps> = ({
   const { t } = useTranslation();
   return (
     <div className={styles.categoryList}>
-      {groupCategories(categories).map((g) => (
+      {groupCategories(categories).map((g, groupIndex) => (
         <section key={g.group} className={styles.categoryGroup}>
           <h3 className={styles.navGroupTitle}>
             {t(`settings:panel.nav.groups.${g.group}`)}
           </h3>
           <ul className={styles.navList}>
-            {g.categories.map((c) => (
+            {g.categories.map((c, index) => (
               <li key={c.id}>
                 <button
                   type="button"
                   className={styles.categoryRow}
+                  data-autofocus={
+                    groupIndex === 0 && index === 0 ? "" : undefined
+                  }
                   onClick={() => onOpen(c.id)}
                 >
                   <span className={styles.categoryRowText}>
