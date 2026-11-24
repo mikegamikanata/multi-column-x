@@ -35,8 +35,10 @@
     margin-left: t.$space-1;
   }
 
-  &:hover {
-    border-color: var(--mcx-text-muted);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-text-muted);
+    }
   }
 
   &:focus-visible {
@@ -107,9 +109,11 @@
   @include m.transition-base(border-color, background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    border-color: var(--mcx-text-muted);
-    color: var(--mcx-text-tertiary);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-text-muted);
+      color: var(--mcx-text-tertiary);
+    }
   }
 
   &:active {
@@ -128,9 +132,11 @@
   align-items: flex-start;
   justify-content: flex-start;
 
-  &:hover {
-    border-color: var(--mcx-accent);
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-accent);
+      color: var(--mcx-text);
+    }
   }
 
   // 選択中は色だけでなく ✓ の記号（StatusMark）と aria-pressed でも示す
@@ -148,9 +154,11 @@
   color: var(--mcx-accent);
   font-size: t.$font-size-xs;
 
-  &:hover {
-    border-color: var(--mcx-accent);
-    color: var(--mcx-accent);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-accent);
+      color: var(--mcx-accent);
+    }
   }
 }
 
@@ -184,9 +192,11 @@
   @include m.transition-base(color, background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    color: var(--mcx-danger);
-    background: var(--mcx-danger-bg);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-danger);
+      background: var(--mcx-danger-bg);
+    }
   }
 
   &:active {
@@ -212,9 +222,11 @@
   @include m.transition-base(border-color, color);
   @include m.android-tap-target;
 
-  &:hover {
-    border-color: var(--mcx-accent);
-    color: var(--mcx-accent);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-accent);
+      color: var(--mcx-accent);
+    }
   }
 
   &:active {
@@ -267,9 +279,11 @@
     @include m.android-tap-target;
   }
 
-  &.unassignedItemActive:hover {
-    background: var(--mcx-accent-bg-strong);
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &.unassignedItemActive:hover {
+      background: var(--mcx-accent-bg-strong);
+      color: var(--mcx-text);
+    }
   }
 
   &.unassignedItemActive:active {
@@ -348,8 +362,10 @@
     outline: none;
   }
 
-  &:hover {
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text);
+    }
   }
 
   &:active {
@@ -384,8 +400,10 @@
   @include m.transition-base(border-color);
   @include m.android-tap-target;
 
-  &:hover {
-    border-color: var(--mcx-text-muted);
+  @include m.hover-capable {
+    &:hover {
+      border-color: var(--mcx-text-muted);
+    }
   }
 
   &:focus-visible {
@@ -469,10 +487,12 @@
   @include m.transition-base(color, border-color, background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    color: var(--mcx-text-tertiary);
-    border-color: var(--mcx-border-strong);
-    background: var(--mcx-surface-muted);
+  @include m.hover-capable {
+    &:hover {
+      color: var(--mcx-text-tertiary);
+      border-color: var(--mcx-border-strong);
+      background: var(--mcx-surface-muted);
+    }
   }
 
   &:active {
@@ -532,10 +552,12 @@
   @include m.transition-base(color, border-color, background-color);
   @include m.android-tap-target;
 
-  &:hover:not(:disabled) {
-    color: var(--mcx-text-tertiary);
-    border-color: var(--mcx-text-muted);
-    background: var(--mcx-surface-muted);
+  @include m.hover-capable {
+    &:hover:not(:disabled) {
+      color: var(--mcx-text-tertiary);
+      border-color: var(--mcx-text-muted);
+      background: var(--mcx-surface-muted);
+    }
   }
 
   &:active:not(:disabled) {
@@ -582,9 +604,11 @@
   @include m.transition-base(background-color, border-color, color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-surface-hover);
-    color: var(--mcx-text);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-surface-hover);
+      color: var(--mcx-text);
+    }
   }
 
   &:active {
@@ -609,8 +633,10 @@
   @include m.transition-base(background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-accent-hover);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-accent-hover);
+    }
   }
 
   &:active {

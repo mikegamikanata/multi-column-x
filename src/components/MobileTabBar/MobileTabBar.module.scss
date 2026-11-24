@@ -212,9 +212,11 @@
   @include m.transition-base(color, background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-surface-hover);
-    color: var(--mcx-text);
+  @media (hover: hover) {
+    &:hover {
+      background: var(--mcx-surface-hover);
+      color: var(--mcx-text);
+    }
   }
 
   &:active {
@@ -280,8 +282,10 @@
   @include m.transition-base(color, background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-surface);
+  @media (hover: hover) {
+    &:hover {
+      background: var(--mcx-surface);
+    }
   }
 
   &:active {

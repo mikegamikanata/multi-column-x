@@ -117,8 +117,10 @@
   @include m.transition-base(background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-accent-bg);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-accent-bg);
+    }
   }
 
   &:active {
@@ -148,8 +150,10 @@
   @include m.transition-base(background-color);
   @include m.android-tap-target;
 
-  &:hover {
-    background: var(--mcx-accent-hover);
+  @include m.hover-capable {
+    &:hover {
+      background: var(--mcx-accent-hover);
+    }
   }
 
   &:active {
