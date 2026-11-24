@@ -845,7 +845,7 @@ Object.assign(window.MCX_DATA.catalogs, {
           "Android の端末の戻る操作のハンドラを enabled の間だけ登録する。",
         area: "UI",
         detail:
-          "<p><code>lib/androidBackHandler.ts</code> の登録簿に登録（後から登録したものが優先）。ネイティブ（MainActivity）が <code>window.__mcxHandleBack()</code> で問い合わせ、true を返したものが処理した扱い。<code>App.tsx</code> がモバイル起動時に入口を公開する。</p>",
+          "<p><code>lib/androidBackHandler.ts</code> の登録簿に登録（後から登録したものが優先）。ネイティブ（MainActivity）が <code>window.__mcxHandleBack()</code> で問い合わせ、true を返したものが処理した扱い。<code>ModalDialog</code> はマウント中は常に登録して <code>onEscape</code> を呼ぶ（Esc と同じ動作）。<code>HelpPopover</code> / <code>ApiRateLimitIndicator</code> は開いている間だけ登録して閉じる。アプリ設定は詳細→一覧のときだけ追加で登録する。<code>App.tsx</code> がモバイル起動時に入口を公開する。</p>",
         files: [
           "src/hooks/useAndroidBackHandler.ts",
           "src/lib/androidBackHandler.ts",

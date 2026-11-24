@@ -33,7 +33,7 @@ gitignore 対象の Android 生成ファイル（`src-tauri/gen/android/tauri.se
 
 ## 端末の戻る操作（メイン画面への問い合わせ）
 
-`MainActivity.handleOnBackPressed` の処理順は、①ポップアップが開いていれば最前面を閉じる → ②メイン WebView に `window.__mcxHandleBack()` を `evaluateJavascript` で問い合わせ、画面側（アプリ設定の詳細画面など）が処理したら終了 → ③アクティブカラムの履歴を戻る → ④バックグラウンドへ（`moveTaskToBack`）。
+`MainActivity.handleOnBackPressed` の処理順は、①ポップアップが開いていれば最前面を閉じる → ②メイン WebView に `window.__mcxHandleBack()` を `evaluateJavascript` で問い合わせ、画面側（開いているダイアログ・ポップオーバー・アプリ設定の詳細画面など。`ModalDialog` がマウント中は共通で登録する）が処理したら終了 → ③アクティブカラムの履歴を戻る → ④バックグラウンドへ（`moveTaskToBack`）。
 
 - メイン WebView の参照は、自動生成ファイル `WryActivity.kt`（編集不可）を触らず、`MainActivity` の `onWebViewCreate` オーバーライドで受け取っている。ProGuard の keep ルールの変更は不要（Rust から文字列指定で呼ぶメソッドではないため）。
 - 判定ロジックは `MainPageBack.kt`（純粋関数）に切り出して JVM 単体テストしている。画面側の登録方法（`useAndroidBackHandler`）を含む詳細は `settings-panel-navigation-notes.md` を参照。

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import i18n from "@/i18n";
+import { handleAndroidBack } from "@/lib/androidBackHandler";
 import { expectAccessibleControls } from "@/test-utils/a11y";
 import { expectNoJapanese } from "@/test-utils/japanese";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -55,6 +56,23 @@ describe("ConfirmDialog", () => {
       />,
     );
     fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("Androidの戻る操作でキャンセルされる", () => {
+    const onCancel = vi.fn();
+    render(
+      <ConfirmDialog
+        message="このアカウントを削除しますか？"
+        onConfirm={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    let handled = false;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+    expect(handled).toBe(true);
     expect(onCancel).toHaveBeenCalledOnce();
   });
 

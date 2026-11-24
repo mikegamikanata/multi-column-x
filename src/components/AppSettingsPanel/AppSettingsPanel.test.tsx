@@ -2442,33 +2442,56 @@ describe("AppSettingsPanel Androidの戻る操作", () => {
     expect(categoryItem("表示")).toHaveAccessibleName(/未適用の変更あり/);
   });
 
-  it("モバイルでカテゴリ一覧を表示中の戻る操作は画面側では処理されない", () => {
-    render(<AppSettingsPanel {...defaultProps} />);
+  it("モバイルでカテゴリ一覧を表示中に端末の戻る操作をするとアプリ設定が閉じる", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
 
-    let handled = true;
+    let handled = false;
     act(() => {
       handled = handleAndroidBack();
     });
 
-    expect(handled).toBe(false);
-    expect(
-      screen.getByRole("heading", { level: 2, name: "アプリ設定" }),
-    ).toBeInTheDocument();
+    expect(handled).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("詳細画面から一覧に戻った後の戻る操作は画面側では処理されない", () => {
-    render(<AppSettingsPanel {...defaultProps} />);
+  it("詳細画面から一覧に戻った後にもう一度戻る操作をするとアプリ設定が閉じる", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
     openCategory("メディア");
     act(() => {
       handleAndroidBack();
     });
+    expect(onClose).not.toHaveBeenCalled();
 
-    let handled = true;
+    let handled = false;
     act(() => {
       handled = handleAndroidBack();
     });
 
-    expect(handled).toBe(false);
+    expect(handled).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("モバイルで未適用の変更があるときの一覧での戻る操作は確認メッセージを表示して閉じない", () => {
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
+    openCategory("表示");
+    テーマをライトに変更する();
+    act(() => {
+      handleAndroidBack(); // 詳細 → 一覧
+    });
+
+    let handled = false;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+
+    expect(handled).toBe(true);
+    expect(
+      screen.getByRole("dialog", { name: "未適用の変更があります" }),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("アプリ設定を閉じた後の戻る操作は画面側では処理されない", () => {
@@ -2479,11 +2502,18 @@ describe("AppSettingsPanel Androidの戻る操作", () => {
     expect(handleAndroidBack()).toBe(false);
   });
 
-  it("デスクトップでは戻る操作は画面側では処理されない", () => {
+  it("デスクトップでも戻る操作ではEscと同じくアプリ設定が閉じる（戻る操作の入口はAndroidのみなので害はない）", () => {
     mockStoreState.isMobile = false;
-    render(<AppSettingsPanel {...defaultProps} />);
+    const onClose = vi.fn();
+    render(<AppSettingsPanel {...defaultProps} onClose={onClose} />);
 
-    expect(handleAndroidBack()).toBe(false);
+    let handled = false;
+    act(() => {
+      handled = handleAndroidBack();
+    });
+
+    expect(handled).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

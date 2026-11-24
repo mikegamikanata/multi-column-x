@@ -289,7 +289,10 @@
               <code>window.__mcxHandleBack()</code>
               を <code>evaluateJavascript</code> で問い合わせ、結果が
               <code>"true"</code>
-              なら画面側（アプリ設定の詳細画面など）が処理したので終了。
+              なら画面側（開いているダイアログ・ポップオーバー・アプリ設定の詳細画面など）が処理したので終了。<code
+                >ModalDialog</code
+              >
+              がマウント中は共通で登録するため、ダイアログごとの対応は不要です。
             </li>
             <li>
               処理されなければ、アクティブカラムの履歴を戻る →

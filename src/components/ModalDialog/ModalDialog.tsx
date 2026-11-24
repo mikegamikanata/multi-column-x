@@ -1,4 +1,5 @@
 import React, { useImperativeHandle, useLayoutEffect, useRef } from "react";
+import { useAndroidBackHandler } from "@/hooks/useAndroidBackHandler";
 import { useRestoreFocus } from "@/hooks/useRestoreFocus";
 
 const TABBABLE_SELECTOR =
@@ -87,7 +88,7 @@ interface ModalDialogProps extends Omit<
   React.DialogHTMLAttributes<HTMLDialogElement>,
   "open" | "onCancel" | "onClose"
 > {
-  /** Esc で呼ばれる。 */
+  /** Esc・Android の戻る操作で呼ばれる。 */
   onEscape?: () => void;
   ref?: React.Ref<HTMLDialogElement>;
 }
@@ -102,6 +103,13 @@ export const ModalDialog: React.FC<ModalDialogProps> = ({
   const innerRef = useRef<HTMLDialogElement>(null);
   useImperativeHandle(ref, () => innerRef.current as HTMLDialogElement);
   useRestoreFocus(); // 初回レンダー中に元の要素を覚える（子の focus より前）
+
+  // Android の戻る操作は Esc と同じ扱い。マウント中は常に登録し、後から開いた最前面のダイアログが先に処理する
+  useAndroidBackHandler(true, () => {
+    if (!onEscape) return false;
+    onEscape();
+    return true;
+  });
 
   useLayoutEffect(() => {
     const el = innerRef.current;
