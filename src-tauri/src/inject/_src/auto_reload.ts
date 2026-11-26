@@ -101,6 +101,12 @@ export function collectMaxNotificationTimeMs(section: Element): number | null {
   // 実測: 同一タスク内・rAF での即戻しは取得されないため setTimeout で待つ。
   const SCROLL_ROUNDTRIP_WAIT_MS = 60;
 
+  // 通知ページではスクロール往復が画面に見えてしまうため、対応ブラウザに限り
+  // View Transitions の旧画面スナップショットで往復中の表示を固定する。
+  // X がこの方式でも新着を取得するかは実機での確認が必要。
+  const NOTIFICATION_FREEZE_STYLE_ID = "mcx-notification-refresh-freeze-style";
+  const NOTIFICATION_FREEZE_CLASS = "mcx-notification-refresh-freeze";
+
   // 先頭へ戻した後に scrollTop = 0 を再主張する時間（ms）。
   const SCROLL_TOP_PIN_MS = 1500;
   // 先頭固定を即座に解除するユーザー操作。
@@ -452,10 +458,16 @@ export function collectMaxNotificationTimeMs(section: Element): number | null {
    * 検索・通知ページの更新。選択中のタブへの再クリックや新着ボタンは効かないため、
    * 下へスクロールしてから先頭へ戻すことで X にタイムラインを取得し直させる。
    */
-  function triggerScrollRoundtrip(): void {
-    if (scrollRoundtripRunning) return;
+  function triggerScrollRoundtrip(onComplete?: () => void): void {
+    if (scrollRoundtripRunning) {
+      onComplete?.();
+      return;
+    }
     const scrollingElement = document.scrollingElement;
-    if (!scrollingElement) return;
+    if (!scrollingElement) {
+      onComplete?.();
+      return;
+    }
 
     scrollRoundtripRunning = true;
     // 往復で取得された結果が基準に混ざらないよう、先に基準を確定する。
@@ -467,16 +479,66 @@ export function collectMaxNotificationTimeMs(section: Element): number | null {
       getScrollRoundtripDistance(),
     );
     setTimeout(function () {
-      // 先頭へ戻す直前に解除する（往復完了後は次の更新を実行できる）。
-      scrollRoundtripRunning = false;
-      if (!isScrollRoundtripPage()) return;
-      scrollToTopByScript(scrollingElement);
-      // 戻した直後の新規項目挿入によるずれを補正する。waitForNewTweet() の observer より
-      // 先に登録し、isScrolling() による打ち切りが誤作動しないようにする。
-      pinScrollTop(scrollingElement);
-      // 先頭へ戻した後に監視を始める（往復中は isScrolling() で打ち切られてしまうため）。
-      waitForNewTweet();
+      try {
+        // 先頭へ戻す直前に解除する（往復完了後は次の更新を実行できる）。
+        scrollRoundtripRunning = false;
+        if (!isScrollRoundtripPage()) return;
+        scrollToTopByScript(scrollingElement);
+        // 戻した直後の新規項目挿入によるずれを補正する。waitForNewTweet() の observer より
+        // 先に登録し、isScrolling() による打ち切りが誤作動しないようにする。
+        pinScrollTop(scrollingElement);
+        // 先頭へ戻した後に監視を始める（往復中は isScrolling() で打ち切られてしまうため）。
+        waitForNewTweet();
+      } finally {
+        // View Transition の旧画面を保持するのは往復終了までに限定する。
+        onComplete?.();
+      }
     }, SCROLL_ROUNDTRIP_WAIT_MS);
+  }
+
+  /** 通知ページのスクロール往復を、可能なら視覚的に隠して実行する。 */
+  function triggerNotificationsRefresh(): void {
+    if (scrollRoundtripRunning) return;
+    // 万一 X の通知取得が不安定になった場合、該当カラムのカスタム CSS に
+    // :root { --mcx-notification-refresh-freeze: off; } を指定すれば元の方式に戻せる。
+    const freezeDisabled =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--mcx-notification-refresh-freeze")
+        .trim() === "off";
+    if (
+      freezeDisabled ||
+      typeof document.startViewTransition !== "function" ||
+      document.visibilityState !== "visible"
+    ) {
+      triggerScrollRoundtrip();
+      return;
+    }
+
+    if (!document.getElementById(NOTIFICATION_FREEZE_STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = NOTIFICATION_FREEZE_STYLE_ID;
+      style.textContent = `
+:root.${NOTIFICATION_FREEZE_CLASS}::view-transition-old(root),
+:root.${NOTIFICATION_FREEZE_CLASS}::view-transition-new(root) {
+  animation: none !important;
+}
+`;
+      document.documentElement.appendChild(style);
+    }
+
+    const root = document.documentElement;
+    root.classList.add(NOTIFICATION_FREEZE_CLASS);
+    try {
+      const transition = document.startViewTransition(
+        () => new Promise<void>((resolve) => triggerScrollRoundtrip(resolve)),
+      );
+      void transition.finished
+        .catch(() => {})
+        .finally(() => root.classList.remove(NOTIFICATION_FREEZE_CLASS));
+    } catch {
+      root.classList.remove(NOTIFICATION_FREEZE_CLASS);
+      triggerScrollRoundtrip();
+    }
   }
 
   // --- 手動更新のローディングバー ---
@@ -633,7 +695,8 @@ export function collectMaxNotificationTimeMs(section: Element): number | null {
 
     if (isScrollRoundtripPage()) {
       // 監視の開始は先頭へ戻した後（triggerScrollRoundtrip 内）。
-      triggerScrollRoundtrip();
+      if (isNotificationsPage()) triggerNotificationsRefresh();
+      else triggerScrollRoundtrip();
       return;
     }
 

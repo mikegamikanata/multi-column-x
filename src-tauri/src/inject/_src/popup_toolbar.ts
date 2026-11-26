@@ -160,6 +160,36 @@ export function isXHostname(hostname: string): boolean {
   );
 }
 
+/** X の投稿 API。閲覧・リポスト・いいね等による通信では閉じない。 */
+export function isCreateTweetRequestUrl(url: string): boolean {
+  try {
+    const path = new URL(url, "https://x.com").pathname;
+    return /\/(?:CreateTweet|CreateNoteTweet)$/.test(path);
+  } catch {
+    return false;
+  }
+}
+
+/** HTTP 200 だけでは X が投稿エラーを返すことがあるので、作成された投稿 ID まで検証する。 */
+export function isSuccessfulTweetCreation(
+  status: number,
+  payload: unknown,
+): boolean {
+  if (status < 200 || status >= 300 || !isPopupRecord(payload)) return false;
+  if (Array.isArray(payload.errors) && payload.errors.length > 0) return false;
+  const data = payload.data;
+  if (!isPopupRecord(data)) return false;
+  const created = data.create_tweet ?? data.createTweet;
+  if (!isPopupRecord(created) || !isPopupRecord(created.tweet_results))
+    return false;
+  const result = created.tweet_results.result;
+  return (
+    isPopupRecord(result) &&
+    ((typeof result.rest_id === "string" && result.rest_id.length > 0) ||
+      (typeof result.id === "string" && result.id.length > 0))
+  );
+}
+
 /**
  * 初期化スクリプトが埋め込んだアカウント一覧を取り出し、window から削除する。
  * ホストによる絞り込みは行わない（ツールバー自体を表示するかどうかの判定は
@@ -263,6 +293,118 @@ function extractVideoIdFromPlayer(startEl?: Element | null): string | null {
     message: Record<string, unknown>,
   ): void {
     bridge?.postMessage(JSON.stringify(message));
+  }
+
+  // 投稿ウィンドウは常駐するため、成功時も close() で破棄せず
+  // close_popup_window を使って非表示にする。送信ボタンを押しただけでは閉じない。
+  const composeLabel =
+    window.__TAURI_INTERNALS__?.metadata?.currentWebview?.label ??
+    window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ??
+    "";
+  if (composeLabel.startsWith("compose-") && isXHostname(location.hostname)) {
+    let lastAutoCloseAt = 0;
+
+    function closeAfterSuccessfulPost(): void {
+      // 同じ投稿を fetch/XHR の両方で検知しても一度しか閉じない。
+      if (Date.now() - lastAutoCloseAt < 2000) return;
+      lastAutoCloseAt = Date.now();
+
+      // X が投稿完了後に /home 等へ遷移するのを少し待つ。
+      // 遷移がなくても成功応答を確認済みなので最長 1.2 秒で閉じる。
+      let attempts = 0;
+      function finish(): void {
+        if (location.pathname !== "/compose/post" || attempts++ >= 12) {
+          tauriInvoke(CLOSE_POPUP_WINDOW, { label: composeLabel });
+        } else {
+          setTimeout(finish, 100);
+        }
+      }
+      setTimeout(finish, 100);
+    }
+
+    const nativeFetch = window.fetch;
+    if (typeof nativeFetch === "function") {
+      window.fetch = function (...args: Parameters<typeof fetch>) {
+        const input = args[0];
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        const method = (
+          args[1]?.method ??
+          (typeof Request !== "undefined" && input instanceof Request
+            ? input.method
+            : "GET")
+        ).toUpperCase();
+        const shouldWatch =
+          method === "POST" &&
+          location.pathname === "/compose/post" &&
+          isCreateTweetRequestUrl(url);
+        const pending = Reflect.apply(nativeFetch, window, args) as Promise<Response>;
+        if (shouldWatch) {
+          void pending.then((response) => {
+            if (!response.ok) return;
+            void response
+              .clone()
+              .json()
+              .then((payload: unknown) => {
+                if (isSuccessfulTweetCreation(response.status, payload))
+                  closeAfterSuccessfulPost();
+              })
+              .catch(() => {});
+          }).catch(() => {});
+        }
+        return pending;
+      };
+    }
+
+    const nativeOpen = XMLHttpRequest.prototype.open;
+    const nativeSend = XMLHttpRequest.prototype.send;
+    const creationRequests = new WeakSet<XMLHttpRequest>();
+
+    XMLHttpRequest.prototype.open = function (
+      this: XMLHttpRequest,
+      method: string,
+      url: string | URL,
+      ...rest: unknown[]
+    ) {
+      if (
+        method.toUpperCase() === "POST" &&
+        location.pathname === "/compose/post" &&
+        isCreateTweetRequestUrl(String(url))
+      ) {
+        creationRequests.add(this);
+      }
+      return Reflect.apply(nativeOpen, this, [method, url, ...rest]);
+    } as typeof XMLHttpRequest.prototype.open;
+
+    XMLHttpRequest.prototype.send = function (
+      this: XMLHttpRequest,
+      ...args: unknown[]
+    ) {
+      if (creationRequests.has(this)) {
+        creationRequests.delete(this);
+        this.addEventListener(
+          "load",
+          () => {
+            try {
+              const payload =
+                this.responseType === "json"
+                  ? this.response
+                  : JSON.parse(this.responseText);
+              if (isSuccessfulTweetCreation(this.status, payload))
+                closeAfterSuccessfulPost();
+            } catch {
+              // JSON 以外の応答・エラー時はウィンドウを開いたままにする。
+            }
+          },
+          { once: true },
+        );
+      }
+      return Reflect.apply(nativeSend, this, args);
+    } as typeof XMLHttpRequest.prototype.send;
   }
 
   const TOOLBAR_HEIGHT = 40;
